@@ -1,0 +1,2 @@
+export const STANDARD_SCREEN_HEIGHT = 764;
+export const STANDARD_SCREEN_WIDTH = 390;
