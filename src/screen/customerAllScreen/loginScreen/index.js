@@ -9,8 +9,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import {fontFamily, fontSize, hp, wp} from '../../../utils/helpers';
-import {colors} from '../../../utils/colors';
 import {icons, images} from '../../../assets';
 import {style} from './style';
 
@@ -75,7 +73,7 @@ const LoginScreen = ({navigation}) => {
         <View style={style.buttonPosition}>
           <View style={style.buttonBody}>
             <TouchableOpacity
-              onPress={() => navigation.navigate('Demo')}
+              onPress={() => navigation.navigate('OtpVerificationScreen')}
               activeOpacity={0.6}
               style={style.buttonBodyStyle}>
               <Text style={style.buttonTextStyle}>Continue</Text>

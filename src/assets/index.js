@@ -4,4 +4,6 @@ export const images = {
 
 export const icons = {
   bottom_Arrow_Icon: require('./icons/bottom_Arrow_Icon.png'),
+  back_Arrow_Icon: require('./icons/back_arrow_icon.png'),
+  camera_Icon: require('./icons/camera_icon.png'),
 };
