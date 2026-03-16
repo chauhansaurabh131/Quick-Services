@@ -145,7 +145,12 @@ const BasicInfoScreen = ({navigation}) => {
 
       {!keyboardVisible && (
         <View style={style.buttonContainer}>
-          <TouchableOpacity activeOpacity={0.8} style={style.buttonStyle}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={style.buttonStyle}
+            onPress={() => {
+              navigation.replace('MainApp');
+            }}>
             <Text style={style.buttonText}>Get Started</Text>
           </TouchableOpacity>
         </View>

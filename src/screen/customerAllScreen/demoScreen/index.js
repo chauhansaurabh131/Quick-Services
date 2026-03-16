@@ -1,34 +1,25 @@
 import React, {useState} from 'react';
-import {SafeAreaView, View, TextInput, StyleSheet, Text} from 'react-native';
+import {SafeAreaView, View, TextInput, StyleSheet, Image} from 'react-native';
 import {fontFamily, fontSize, hp, wp} from '../../../utils/helpers';
+import {icons} from '../../../assets';
 
 const DemoScreen = () => {
-  const [mobile, setMobile] = useState('');
-
-  const handleMobileChange = text => {
-    const formatted = text
-      .replace(/\D/g, '') // only numbers
-      .slice(0, 10) // max 10 digits
-      .replace(/(\d{5})(\d{0,5})/, '$1 $2')
-      .trim();
-
-    setMobile(formatted);
-  };
+  const [search, setSearch] = useState('');
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.label}>Enter Mobile Number</Text>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.countryCode}>+91</Text>
+      <View style={styles.searchContainer}>
+        <Image
+          source={icons.search_Icon} // add search icon in assets
+          style={styles.searchIcon}
+        />
 
         <TextInput
-          value={mobile}
-          onChangeText={handleMobileChange}
-          placeholder="00000 00000"
-          placeholderTextColor="#BDBDBD"
-          keyboardType="number-pad"
-          style={styles.input}
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Search for Services (Cleaning)"
+          placeholderTextColor="#9E9E9E"
+          style={styles.searchInput}
         />
       </View>
     </SafeAreaView>
@@ -42,38 +33,33 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: wp(20),
     justifyContent: 'center',
+    backgroundColor: 'white',
   },
 
-  label: {
-    color: 'black',
-    fontSize: fontSize(16),
-    marginBottom: hp(10),
-  },
-
-  inputContainer: {
+  searchContainer: {
     flexDirection: 'row',
-    alignItems: 'center', // ⭐ important
+    alignItems: 'center',
+    height: hp(46),
+    borderRadius: 30,
     borderWidth: 1,
-    borderColor: '#D9D9D9',
-    borderRadius: 8,
-    height: hp(44),
-    paddingHorizontal: wp(12),
+    borderColor: '#E1E1E1',
+    paddingHorizontal: wp(14),
+    backgroundColor: '#F9FAFB',
   },
 
-  countryCode: {
-    fontSize: fontSize(16),
-    color: 'black',
-    fontFamily: fontFamily.poppins400,
-    marginRight: wp(6),
-    includeFontPadding: false, // ⭐ Android fix
+  searchIcon: {
+    width: hp(13),
+    height: hp(13),
+    tintColor: '#9E9E9E',
+    marginRight: wp(8),
+    resizeMode: 'contain',
   },
 
-  input: {
+  searchInput: {
     flex: 1,
-    fontSize: fontSize(16),
-    color: 'black',
+    fontSize: fontSize(14),
     fontFamily: fontFamily.poppins400,
-    paddingVertical: 0, // ⭐ important
-    includeFontPadding: false, // ⭐ Android fix
+    color: '#000',
+    paddingVertical: 0,
   },
 });

@@ -1,9 +1,33 @@
 export const images = {
   login_screen_img: require('./images/login_Screen_image.png'),
+  deep_Cleaning_Img: require('./images/deep_Cleaning_Img.png'),
+  shop_demo_Img: require('./images/shop_Demo_Img.png'),
 };
 
 export const icons = {
   bottom_Arrow_Icon: require('./icons/bottom_Arrow_Icon.png'),
   back_Arrow_Icon: require('./icons/back_arrow_icon.png'),
   camera_Icon: require('./icons/camera_icon.png'),
+  doormigo_Icon: require('./icons/doormigo_Icon.png'),
+  notification_Bell_Icon: require('./icons/notification_bel_icon.png'),
+  location_Icon: require('./icons/location_Icon.png'),
+  home_Icon: require('./icons/home_Icon.png'),
+  bookings_Icon: require('./icons/booking_Icon.png'),
+  chat_Icon: require('./icons/chat_Icon.png'),
+  profile_Icon: require('./icons/profile_Icon.png'),
+  search_Icon: require('./icons/search_Icon.png'),
+  plumbling_Icon: require('./icons/plumbling_Icon.png'),
+  cleaning_Icon: require('./icons/cleaning_Icon.png'),
+  salon_Icon: require('./icons/salon_Icon.png'),
+  electrical_Icon: require('./icons/electrical_Icon.png'),
+  painting_Icon: require('./icons/painting_Icon.png'),
+  quick_Book_Icon: require('./icons/quick_Book_Icon.png'),
+  pest_Control_Icon: require('./icons/pest_Control_Icon.png'),
+  moving_Icon: require('./icons/moveing_Icon.png'),
+  filter_Icon: require('./icons/filter_Icon.png'),
+  star_Icon: require('./icons/star_Icon.png'),
+  verified_Icon: require('./icons/verified_Icon.png'),
+  timer_Icon: require('./icons/timer_Icon.png'),
+  motor_Cycle_Icon: require('./icons/motor_Cycle_Icon.png'),
+  calendar_Icon: require('./icons/calendar_Icon.png'),
 };
