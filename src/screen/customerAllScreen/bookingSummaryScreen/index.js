@@ -6,16 +6,42 @@ import {
   View,
   TouchableOpacity,
   ScrollView,
+  Modal,
+  Pressable,
 } from 'react-native';
 import {colors} from '../../../utils/colors';
 import {icons} from '../../../assets';
 import {hp, fontSize, fontFamily, wp} from '../../../utils/helpers';
 import {useNavigation} from '@react-navigation/native';
 import SwitchButton from '../../../components/switchButton';
+import {Calendar} from 'react-native-calendars';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 const BookingSummaryScreen = () => {
   const [isEnabled, setIsEnabled] = useState(false);
   const navigation = useNavigation();
+
+  const [dateModalVisible, setDateModalVisible] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedTime, setSelectedTime] = useState('');
+
+  const today = new Date().toISOString().split('T')[0];
+
+  // FORMAT DATE → DD-MM-YYYY
+  const formatDate = dateString => {
+    const [year, month, day] = dateString.split('-');
+    return `${day}-${month}-${year}`;
+  };
+
+  // FORMAT TIME → AM/PM
+  const formatTime = date => {
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: colors.white}}>
@@ -341,6 +367,7 @@ const BookingSummaryScreen = () => {
               <View>
                 <TouchableOpacity
                   activeOpacity={0.6}
+                  onPress={() => setDateModalVisible(true)}
                   style={{
                     width: '100%',
                     height: hp(87),
@@ -378,7 +405,9 @@ const BookingSummaryScreen = () => {
                           fontSize: fontSize(16),
                           fontFamily: fontFamily.poppins600,
                         }}>
-                        Select Date & Time
+                        {selectedDate
+                          ? formatDate(selectedDate)
+                          : 'Select Date'}
                       </Text>
                     </View>
 
@@ -398,6 +427,13 @@ const BookingSummaryScreen = () => {
 
                 <TouchableOpacity
                   activeOpacity={0.6}
+                  onPress={() => {
+                    if (!selectedDate) {
+                      alert('Please select date first');
+                      return;
+                    }
+                    setShowTimePicker(true); // ✅ open native picker
+                  }}
                   style={{
                     width: '100%',
                     height: hp(87),
@@ -436,15 +472,7 @@ const BookingSummaryScreen = () => {
                           fontSize: fontSize(16),
                           fontFamily: fontFamily.poppins600,
                         }}>
-                        Tomorrow, Oct. 26
-                      </Text>
-                      <Text
-                        style={{
-                          color: '#B4B4B4',
-                          fontSize: fontSize(12),
-                          fontFamily: fontFamily.poppins500,
-                        }}>
-                        10:00 AM - 12:30 PM
+                        {selectedTime ? selectedTime : 'Select Time'}
                       </Text>
                     </View>
 
@@ -592,6 +620,9 @@ const BookingSummaryScreen = () => {
           </View>
 
           <TouchableOpacity
+            onPress={() => {
+              navigation.navigate('Demo');
+            }}
             activeOpacity={0.6}
             style={{
               width: '100%',
@@ -647,6 +678,64 @@ const BookingSummaryScreen = () => {
 
         <View style={{height: hp(30)}} />
       </ScrollView>
+
+      {/* DATE MODAL */}
+      <Modal visible={dateModalVisible} transparent animationType="none">
+        <Pressable
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.4)',
+            justifyContent: 'flex-end',
+          }}
+          onPress={() => setDateModalVisible(false)}>
+          <Pressable
+            style={{
+              backgroundColor: 'white',
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              padding: 20,
+            }}
+            onPress={e => e.stopPropagation()}>
+            <Calendar
+              minDate={today}
+              onDayPress={day => {
+                setSelectedDate(day.dateString);
+                setDateModalVisible(false);
+              }}
+              markedDates={{
+                ...(selectedDate && {
+                  [selectedDate]: {
+                    selected: true,
+                    selectedColor: '#6C2BD9',
+                    selectedTextColor: '#fff',
+                  },
+                }),
+              }}
+              theme={{
+                selectedDayBackgroundColor: '#6C2BD9',
+                todayTextColor: '#6C2BD9',
+                arrowColor: '#6C2BD9',
+              }}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* TIME PICKER (NATIVE) */}
+      {showTimePicker && (
+        <DateTimePicker
+          value={new Date()}
+          mode="time"
+          display="clock"
+          onChange={(event, date) => {
+            setShowTimePicker(false);
+
+            if (event.type === 'set' && date) {
+              setSelectedTime(formatTime(date));
+            }
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 };

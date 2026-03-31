@@ -12,6 +12,7 @@ import {
 import {icons} from '../../../assets';
 import {launchImageLibrary} from 'react-native-image-picker';
 import {style} from './style';
+import BorderShowLabelTextInputComponent from '../../../components/borderShowLabelTextInputComponent';
 
 const BasicInfoScreen = ({navigation}) => {
   const [profileImage, setProfileImage] = useState(null);
@@ -102,44 +103,31 @@ const BasicInfoScreen = ({navigation}) => {
         </TouchableOpacity>
 
         <View style={style.bodyDataContainer}>
-          <Text style={style.tittleStyle}>Full Name</Text>
-
-          <TextInput
+          <BorderShowLabelTextInputComponent
+            label={'Full Name'}
             value={fullName}
             onChangeText={setFullName}
-            placeholder="Full Name"
-            placeholderTextColor="#BDBDBD"
-            style={style.nameTextInputStyle}
+            multiline={false}
           />
 
-          <View style={style.numberTextInputContainer}>
-            <Text style={style.tittleStyle}>Mobile Number</Text>
+          <BorderShowLabelTextInputComponent
+            label={'Mobile Number'}
+            value={mobile}
+            onChangeText={setMobile}
+            keyboardType="number-pad"
+            maxLength={10}
+            multiline={false}
+          />
 
-            <View style={style.numberTextInput}>
-              <Text style={style.numberTextInputCode}>+91</Text>
-
-              <TextInput
-                value={mobile}
-                onChangeText={handleMobileChange}
-                placeholder="00000 00000"
-                placeholderTextColor="#BDBDBD"
-                keyboardType="number-pad"
-                style={style.numberTextInputStyle}
-              />
-            </View>
-          </View>
-
-          <View style={style.emailTextInputStyle}>
-            <Text style={style.tittleStyle}>Email (Optional)</Text>
-
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              placeholder="Enter Email"
-              placeholderTextColor="#BDBDBD"
-              style={style.nameTextInputStyle}
-            />
-          </View>
+          <BorderShowLabelTextInputComponent
+            label={'Email'}
+            value={mobile}
+            onChangeText={setMobile}
+            keyboardType="number-pad"
+            maxLength={10}
+            optional
+            multiline={false}
+          />
         </View>
       </ScrollView>
 

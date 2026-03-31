@@ -12,18 +12,20 @@ import {colors} from '../../utils/colors';
 import {fontFamily, fontSize, hp, wp} from '../../utils/helpers';
 import {icons} from '../../assets';
 import {useNavigation} from '@react-navigation/native';
+import {useTranslation} from 'react-i18next';
 
 const services = [
-  {id: '1', name: 'Plumbing', icon: icons.plumbling_Icon},
-  {id: '2', name: 'Cleaning', icon: icons.cleaning_Icon},
-  {id: '3', name: 'Salon', icon: icons.salon_Icon},
-  {id: '4', name: 'Electrical', icon: icons.electrical_Icon},
-  {id: '5', name: 'Painting', icon: icons.painting_Icon},
-  {id: '6', name: 'Moving', icon: icons.moving_Icon},
+  {id: '1', key: 'plumbing', icon: icons.plumbling_Icon},
+  {id: '2', key: 'cleaning', icon: icons.cleaning_Icon},
+  {id: '3', key: 'salon', icon: icons.salon_Icon},
+  {id: '4', key: 'electrical', icon: icons.electrical_Icon},
+  {id: '5', key: 'painting', icon: icons.painting_Icon},
+  {id: '6', key: 'moving', icon: icons.moving_Icon},
 ];
 
 const HomeScreenOurServicesComponent = () => {
   const navigation = useNavigation();
+  const {t} = useTranslation();
 
   const renderItem = ({item}) => {
     return (
@@ -34,7 +36,8 @@ const HomeScreenOurServicesComponent = () => {
           navigation.navigate('BookingServiceScreen');
         }}>
         <Image source={item.icon} style={styles.icon} />
-        <Text style={styles.serviceText}>{item.name}</Text>
+        {/*<Text style={styles.serviceText}>{item.name}</Text>*/}
+        <Text style={styles.serviceText}>{t(item.key)}</Text>
       </TouchableOpacity>
     );
   };

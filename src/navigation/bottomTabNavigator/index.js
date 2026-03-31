@@ -9,6 +9,7 @@ import ProfileScreen from '../../screen/customerAllScreen/profileScreen';
 import {icons} from '../../assets';
 import {fontFamily, hp} from '../../utils/helpers';
 import BookingServiceScreen from '../../screen/customerAllScreen/bookingServiceScreen';
+import SettingScreen from '../../screen/customerAllScreen/settingScreen';
 
 const Tab = createBottomTabNavigator();
 

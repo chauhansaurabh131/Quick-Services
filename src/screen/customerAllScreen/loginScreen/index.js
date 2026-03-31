@@ -11,9 +11,11 @@ import {
 } from 'react-native';
 import {icons, images} from '../../../assets';
 import {style} from './style';
+import {useTranslation} from 'react-i18next';
 
 const LoginScreen = ({navigation}) => {
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const {t} = useTranslation();
 
   useEffect(() => {
     const showListener = Keyboard.addListener('keyboardDidShow', () => {
@@ -42,10 +44,10 @@ const LoginScreen = ({navigation}) => {
 
       <View style={style.bodyContainer}>
         <View style={style.bodySecondContainer}>
-          <Text style={style.bodyTittle}>Welcome to{'\n'}BookMyService</Text>
-
-          <Text style={style.bodySubTittle}>
-            Enter your mobile number to get started
+          <Text style={style.bodyTittle}>
+            {t('welcome')}
+            {'\n'}
+            {t('bookMyService')}
           </Text>
 
           <View style={style.textInputBody}>

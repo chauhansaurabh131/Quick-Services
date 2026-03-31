@@ -3,6 +3,7 @@ import {SafeAreaView} from 'react-native';
 import {Provider} from 'react-redux';
 import {store} from './src/redux/store';
 import Navigation from './src/navigation';
+import './src/localization/i18n';
 
 const App = () => {
   return (

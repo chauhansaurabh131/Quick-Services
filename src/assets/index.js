@@ -2,6 +2,7 @@ export const images = {
   login_screen_img: require('./images/login_Screen_image.png'),
   deep_Cleaning_Img: require('./images/deep_Cleaning_Img.png'),
   shop_demo_Img: require('./images/shop_Demo_Img.png'),
+  demo_User_Img: require('./images/demo_User_Img.png'),
 };
 
 export const icons = {
@@ -30,4 +31,18 @@ export const icons = {
   timer_Icon: require('./icons/timer_Icon.png'),
   motor_Cycle_Icon: require('./icons/motor_Cycle_Icon.png'),
   calendar_Icon: require('./icons/calendar_Icon.png'),
+  list_Icon: require('./icons/list_Icon.png'),
+  logout_Icon: require('./icons/logout_Icon.png'),
+  call_Icon: require('./icons/call_Icon.png'),
+  message_Icon: require('./icons/message_Icon.png'),
+  black_Home_Icon: require('./icons/black_Home_Icon.png'),
+  purple_Home_Icon: require('./icons/purple_Home_Icon.png'),
+  other_Icon: require('./icons/other_Icon.png'),
+  work_Icon: require('./icons/work_Icon.png'),
+  hotel_Icon: require('./icons/hotel_Icon.png'),
+  three_Dot_Icon: require('./icons/three_Dot_Icon.png'),
+  edit_Icon: require('./icons/edit_Icon.png'),
+  delete_Icon: require('./icons/delete_Icon.png'),
+  rating_Star_Icon: require('./icons/rating_Star_Icon.png'),
+  color_Rating_Star: require('./icons/color_Rating_Star_Icon.png'),
 };

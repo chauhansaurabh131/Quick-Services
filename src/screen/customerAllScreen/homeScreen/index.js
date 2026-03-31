@@ -23,6 +23,7 @@ import {fontFamily, fontSize, hp, wp} from '../../../utils/helpers';
 import {setLocation} from '../../../redux/locationSlice';
 import HomeScreenOurServicesComponent from '../../../components/homeScreenOurServicesComponent';
 import HomeScreenQuickBookComponent from '../../../components/homeScreenQuickBookComponent';
+import {useTranslation} from 'react-i18next';
 
 const HomeScreen = () => {
   const dispatch = useDispatch();
@@ -34,6 +35,7 @@ const HomeScreen = () => {
   } = useSelector(state => state.location);
 
   const [search, setSearch] = useState('');
+  const {t} = useTranslation();
 
   useEffect(() => {
     getCurrentLocation();
@@ -247,7 +249,8 @@ const HomeScreen = () => {
                 <TextInput
                   value={search}
                   onChangeText={setSearch}
-                  placeholder="Search for Services (Cleaning)"
+                  // placeholder="Search for Services (Cleaning)"
+                  placeholder={t('searchServices')}
                   placeholderTextColor="#9E9E9E"
                   style={{
                     flex: 1,
