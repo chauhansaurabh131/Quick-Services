@@ -121,10 +121,10 @@ const BasicInfoScreen = ({navigation}) => {
 
           <BorderShowLabelTextInputComponent
             label={'Email'}
-            value={mobile}
-            onChangeText={setMobile}
-            keyboardType="number-pad"
-            maxLength={10}
+            value={email}
+            onChangeText={setEmail}
+            // keyboardType="number-pad"
+            // maxLength={10}
             optional
             multiline={false}
           />

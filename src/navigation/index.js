@@ -18,6 +18,14 @@ import ManageAddressesScreen from '../screen/customerAllScreen/manageAddressesSc
 import ServiceCompletedScreen from '../screen/customerAllScreen/myBookings/serviceCompletedScreen';
 import LiveTrackingScreen from '../screen/customerAllScreen/myBookings/liveTrackingScreen';
 import ServiceCancelledScreen from '../screen/customerAllScreen/myBookings/serviceCancelledScreen';
+import AccountTypeScreen from '../screen/accountTypeScreen';
+import VendorBasicInfoScreen from '../screen/vendorAllScreen/vendorBasicInfoScreen';
+import VendorBusinessAddressScreen from '../screen/vendorAllScreen/vendorBusinessAddressScreen';
+import KycDetailsScreen from '../screen/vendorAllScreen/kycDetailsScreen';
+
+import FaceCaptureScreen from '../screen/customerAllScreen/demoScreen/FaceCaptureScreen';
+import VendorServiceAndPricingScreen from '../screen/vendorAllScreen/vendorServiceAndPricingScreen';
+import VendorBankDetailsPayoutsScreen from '../screen/vendorAllScreen/vendorBankDetailsPayoutsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -25,6 +33,8 @@ const Navigation = () => {
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{headerShown: false}}>
+        <Stack.Screen name="AccountTypeScreen" component={AccountTypeScreen} />
+
         <Stack.Screen name="Login" component={LoginScreen} />
 
         <Stack.Screen
@@ -32,6 +42,28 @@ const Navigation = () => {
           component={OtpVerificationScreen}
         />
         <Stack.Screen name="BasicInfoScreen" component={BasicInfoScreen} />
+
+        <Stack.Screen
+          name="VendorBasicInfoScreen"
+          component={VendorBasicInfoScreen}
+        />
+        <Stack.Screen
+          name="VendorBusinessAddressScreen"
+          component={VendorBusinessAddressScreen}
+        />
+
+        <Stack.Screen name="KycDetailsScreen" component={KycDetailsScreen} />
+        <Stack.Screen name="FaceCaptureScreen" component={FaceCaptureScreen} />
+
+        <Stack.Screen
+          name="VendorServiceAndPricingScreen"
+          component={VendorServiceAndPricingScreen}
+        />
+
+        <Stack.Screen
+          name="VendorBankDetailsPayoutsScreen"
+          component={VendorBankDetailsPayoutsScreen}
+        />
 
         {/* Bottom Tabs */}
         <Stack.Screen name="MainApp" component={BottomTabNavigator} />

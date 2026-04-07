@@ -45,4 +45,8 @@ export const icons = {
   delete_Icon: require('./icons/delete_Icon.png'),
   rating_Star_Icon: require('./icons/rating_Star_Icon.png'),
   color_Rating_Star: require('./icons/color_Rating_Star_Icon.png'),
+  face_video_Icon: require('./icons/face_Video_Icon.png'),
+  green_Check_Icon: require('./icons/green_Check_Icon.png'),
+  video_Icon: require('./icons/video_Icon.png'),
+  secure_Payout_Icon: require('./icons/secure_Payout_Icon.png'),
 };

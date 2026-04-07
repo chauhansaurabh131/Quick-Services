@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import {icons} from '../../../assets';
 import {style} from './style';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const OtpVerificationScreen = ({navigation}) => {
   const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -31,6 +32,20 @@ const OtpVerificationScreen = ({navigation}) => {
       hideListener.remove();
     };
   }, []);
+
+  const handleVerify = async () => {
+    try {
+      const type = await AsyncStorage.getItem('accountType');
+      if (type === 'vendor') {
+        navigation.navigate('VendorBasicInfoScreen');
+      } else {
+        navigation.navigate('BasicInfoScreen');
+      }
+    } catch (e) {
+      console.log('Error getting account type:', e);
+      navigation.navigate('BasicInfoScreen');
+    }
+  };
 
   const handleChange = (text, index) => {
     const newOtp = [...otp];
@@ -105,9 +120,7 @@ const OtpVerificationScreen = ({navigation}) => {
         <View style={style.buttonContainer}>
           <TouchableOpacity
             activeOpacity={0.6}
-            onPress={() => {
-              navigation.navigate('BasicInfoScreen');
-            }}
+            onPress={handleVerify}
             style={style.buttonStyle}>
             <Text style={style.buttonText}>Verify & Proceed</Text>
           </TouchableOpacity>
