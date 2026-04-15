@@ -216,9 +216,7 @@ const VendorBankDetailsPayoutsScreen = () => {
               justifyContent: 'center',
               top: hp(10),
             }}
-            onPress={() => {
-              // navigation.navigate('VendorBusinessAddressScreen');
-            }}>
+            onPress={() => navigation.replace('VendorApp')}>
             <Text
               style={{
                 color: colors.white,

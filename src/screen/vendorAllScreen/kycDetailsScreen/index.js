@@ -36,7 +36,7 @@ const KycDetailsScreen = ({route}) => {
     });
   };
 
-  const isButtonEnabled = image && isCaptureDone;
+  // const isButtonEnabled = image && isCaptureDone;
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: colors.white}}>
@@ -361,18 +361,18 @@ const KycDetailsScreen = ({route}) => {
 
         <TouchableOpacity
           onPress={() => {
-            if (isButtonEnabled) {
-              navigation.navigate('VendorServiceAndPricingScreen');
-            }
+            // if (isButtonEnabled) {
+            navigation.navigate('VendorServiceAndPricingScreen');
+            // }
           }}
-          activeOpacity={isButtonEnabled ? 0.6 : 1}
-          disabled={!isButtonEnabled}
+          // activeOpacity={isButtonEnabled ? 0.6 : 1}
+          // disabled={!isButtonEnabled}
           style={{
             width: '100%',
             height: hp(50),
             borderRadius: hp(50),
             backgroundColor: colors.primaryColor,
-            opacity: isButtonEnabled ? 1 : 0.5,
+            // opacity: isButtonEnabled ? 1 : 0.5,
             justifyContent: 'center',
             alignItems: 'center',
             marginBottom: hp(18),

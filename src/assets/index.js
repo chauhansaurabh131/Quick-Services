@@ -3,6 +3,7 @@ export const images = {
   deep_Cleaning_Img: require('./images/deep_Cleaning_Img.png'),
   shop_demo_Img: require('./images/shop_Demo_Img.png'),
   demo_User_Img: require('./images/demo_User_Img.png'),
+  map_Img: require('./images/map_Image.png'),
 };
 
 export const icons = {
@@ -49,4 +50,6 @@ export const icons = {
   green_Check_Icon: require('./icons/green_Check_Icon.png'),
   video_Icon: require('./icons/video_Icon.png'),
   secure_Payout_Icon: require('./icons/secure_Payout_Icon.png'),
+  wallet_Icon: require('./icons/volet_Icon.png'),
+  reply_Icon: require('./icons/reply_icon.png'),
 };

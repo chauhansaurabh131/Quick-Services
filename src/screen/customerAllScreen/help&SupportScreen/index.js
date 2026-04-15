@@ -22,9 +22,9 @@ const HelpSupportScreen = () => {
 
   const DATA = [
     {id: 1, key: 'bookingIssues', screen: 'BookingIssueScreen'},
-    {id: 2, key: 'paymentRefunds'},
-    {id: 3, key: 'providerFeedback'},
-    {id: 4, key: 'accountAccess'},
+    {id: 2, key: 'paymentRefunds', screen: 'BookingIssueScreen'},
+    {id: 3, key: 'providerFeedback', screen: 'BookingIssueScreen'},
+    {id: 4, key: 'accountAccess', screen: 'BookingIssueScreen'},
   ];
 
   const FAQ_DATA = [

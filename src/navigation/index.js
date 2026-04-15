@@ -26,6 +26,10 @@ import KycDetailsScreen from '../screen/vendorAllScreen/kycDetailsScreen';
 import FaceCaptureScreen from '../screen/customerAllScreen/demoScreen/FaceCaptureScreen';
 import VendorServiceAndPricingScreen from '../screen/vendorAllScreen/vendorServiceAndPricingScreen';
 import VendorBankDetailsPayoutsScreen from '../screen/vendorAllScreen/vendorBankDetailsPayoutsScreen';
+import BottomTabNavigatorVendor from './BottomTabNavigatorVendor';
+import VendorWorkingScreen from '../screen/vendorAllScreen/vendorWorkingScreen';
+import VendorReviewsFeedbackScreen from '../screen/vendorAllScreen/VendorReviewsFeedbackScreen';
+import VendorSecuritySettingsScreen from '../screen/vendorAllScreen/vendorSecuritySettingsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -68,6 +72,8 @@ const Navigation = () => {
         {/* Bottom Tabs */}
         <Stack.Screen name="MainApp" component={BottomTabNavigator} />
 
+        <Stack.Screen name="VendorApp" component={BottomTabNavigatorVendor} />
+
         <Stack.Screen
           name="BookingSummaryScreen"
           component={BookingSummaryScreen}
@@ -105,6 +111,21 @@ const Navigation = () => {
         <Stack.Screen
           name="ServiceCancelledScreen"
           component={ServiceCancelledScreen}
+        />
+
+        <Stack.Screen
+          name="VendorWorkingScreen"
+          component={VendorWorkingScreen}
+        />
+
+        <Stack.Screen
+          name="VendorReviewsFeedbackScreen"
+          component={VendorReviewsFeedbackScreen}
+        />
+
+        <Stack.Screen
+          name="VendorSecuritySettingsScreen"
+          component={VendorSecuritySettingsScreen}
         />
 
         <Stack.Screen name="Demo" component={DemoScreen} />
