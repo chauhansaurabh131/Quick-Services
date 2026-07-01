@@ -20,7 +20,7 @@ import {useDispatch, useSelector} from 'react-redux';
 import {colors} from '../../../utils/colors';
 import {icons} from '../../../assets';
 import {fontFamily, fontSize, hp, wp} from '../../../utils/helpers';
-import {setLocation} from '../../../redux/locationSlice';
+import {setLocation} from '../../../actions/locationActions';
 import HomeScreenOurServicesComponent from '../../../components/homeScreenOurServicesComponent';
 import HomeScreenQuickBookComponent from '../../../components/homeScreenQuickBookComponent';
 import {useTranslation} from 'react-i18next';

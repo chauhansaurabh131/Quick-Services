@@ -1,13 +1,12 @@
 import React from 'react';
 import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
+import {useSelector} from 'react-redux';
 import LoginScreen from '../screen/customerAllScreen/loginScreen';
 import DemoScreen from '../screen/customerAllScreen/demoScreen';
 import OtpVerificationScreen from '../screen/customerAllScreen/otpVerificationScreen';
 import BasicInfoScreen from '../screen/customerAllScreen/basicInfoScreen';
-import HomeScreen from '../screen/customerAllScreen/homeScreen';
 import BottomTabNavigator from './bottomTabNavigator';
-import BookingServiceScreen from '../screen/customerAllScreen/bookingServiceScreen';
 import BookingSummaryScreen from '../screen/customerAllScreen/bookingSummaryScreen';
 import SettingScreen from '../screen/customerAllScreen/settingScreen';
 import MyBookingScreen from '../screen/customerAllScreen/myBookings/myBookingScreen ';
@@ -34,9 +33,38 @@ import VendorSecuritySettingsScreen from '../screen/vendorAllScreen/vendorSecuri
 const Stack = createNativeStackNavigator();
 
 const Navigation = () => {
+  const {isLoggedIn, user} = useSelector(state => state.auth || {});
+
+  const isVendor =
+    user?.role === 'vendor' ||
+    user?.user?.role === 'vendor' ||
+    user?.data?.role === 'vendor' ||
+    user?.data?.user?.role === 'vendor';
+
+  const initialRoute = isLoggedIn
+    ? isVendor
+      ? 'VendorApp'
+      : 'MainApp'
+    : 'AccountTypeScreen';
+
+  React.useEffect(() => {
+    if (isLoggedIn) {
+      console.log('========================================================');
+      console.log(
+        'ACTIVE USER DATA (REDUX STATE):',
+        JSON.stringify(user, null, 2),
+      );
+      console.log('========================================================');
+    }
+  }, [isLoggedIn, user]);
+
+  console.log('====___isLoggedIn===>', user);
+
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{headerShown: false}}>
+      <Stack.Navigator
+        initialRouteName={initialRoute}
+        screenOptions={{headerShown: false}}>
         <Stack.Screen name="AccountTypeScreen" component={AccountTypeScreen} />
 
         <Stack.Screen name="Login" component={LoginScreen} />

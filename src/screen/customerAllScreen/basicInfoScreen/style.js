@@ -1,6 +1,6 @@
-import {StyleSheet} from 'react-native';
-import {colors} from '../../../utils/colors';
-import {fontFamily, fontSize, hp, wp} from '../../../utils/helpers';
+import { StyleSheet } from 'react-native';
+import { colors } from '../../../utils/colors';
+import { fontFamily, fontSize, hp, wp } from '../../../utils/helpers';
 
 export const style = StyleSheet.create({
   container: {
@@ -41,7 +41,7 @@ export const style = StyleSheet.create({
     backgroundColor: '#E5E5E5',
   },
   progressBarStyle: {
-    width: '60%',
+    width: '70%',
     height: '100%',
     backgroundColor: colors.primaryColor,
   },

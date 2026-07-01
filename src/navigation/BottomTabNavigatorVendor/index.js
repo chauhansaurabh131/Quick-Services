@@ -2,11 +2,8 @@ import React from 'react';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {Image} from 'react-native';
 
-import HomeScreen from '../../screen/customerAllScreen/homeScreen';
 import BookingScreen from '../../screen/customerAllScreen/bookingScreen';
 import ChatScreen from '../../screen/customerAllScreen/chatScreen';
-import ProfileScreen from '../../screen/customerAllScreen/profileScreen';
-import SettingScreen from '../../screen/customerAllScreen/settingScreen';
 
 import {icons} from '../../assets';
 import {fontFamily, hp} from '../../utils/helpers';
