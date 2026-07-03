@@ -52,4 +52,7 @@ export const icons = {
   secure_Payout_Icon: require('./icons/secure_Payout_Icon.png'),
   wallet_Icon: require('./icons/volet_Icon.png'),
   reply_Icon: require('./icons/reply_icon.png'),
+  password_Show_Icon: require('./icons/password_Show_Icon.png'),
+  password_Hide_Icon: require('./icons/password_Hide_Icon.png'),
+  circle_Profile_Icon: require('./icons/circle_Profile_Icon.png'),
 };

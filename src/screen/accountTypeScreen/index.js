@@ -29,7 +29,7 @@ const AccountTypeScreen = () => {
       if (type === 'customer') {
         navigation.navigate('Login');
       } else {
-        navigation.navigate('Login');
+        navigation.navigate('VendorChooseRegistrationScreen');
       }
     } catch (e) {
       console.error(e);

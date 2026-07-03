@@ -29,6 +29,12 @@ import BottomTabNavigatorVendor from './BottomTabNavigatorVendor';
 import VendorWorkingScreen from '../screen/vendorAllScreen/vendorWorkingScreen';
 import VendorReviewsFeedbackScreen from '../screen/vendorAllScreen/VendorReviewsFeedbackScreen';
 import VendorSecuritySettingsScreen from '../screen/vendorAllScreen/vendorSecuritySettingsScreen';
+import VendorChooseRegistrationScreen from '../screen/vendorAllScreen/vendorChooseRegistrationScreen';
+import VendorRegistrationScreen from '../screen/vendorAllScreen/vendorRegistrationScreen';
+import VendorOtpVerificationScreen from '../screen/vendorAllScreen/vendorOtpVerificationScreen';
+import VendorSetPasswordScreen from '../screen/vendorAllScreen/vendorSetPasswordScreen';
+import VendorLoginScreen from '../screen/vendorAllScreen/vendorLoginScreen';
+import VendorResetPasswordScreen from '../screen/vendorAllScreen/vendorResetPasswordScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -73,12 +79,41 @@ const Navigation = () => {
           name="OtpVerificationScreen"
           component={OtpVerificationScreen}
         />
+
+        <Stack.Screen name="VendorLoginScreen" component={VendorLoginScreen} />
+
         <Stack.Screen name="BasicInfoScreen" component={BasicInfoScreen} />
+
+        <Stack.Screen
+          name="VendorChooseRegistrationScreen"
+          component={VendorChooseRegistrationScreen}
+        />
+
+        <Stack.Screen
+          name="VendorResetPasswordScreen"
+          component={VendorResetPasswordScreen}
+        />
+
+        <Stack.Screen
+          name="VendorRegistrationScreen"
+          component={VendorRegistrationScreen}
+        />
+
+        <Stack.Screen
+          name="VendorOtpVerificationScreen"
+          component={VendorOtpVerificationScreen}
+        />
+
+        <Stack.Screen
+          name="VendorSetPasswordScreen"
+          component={VendorSetPasswordScreen}
+        />
 
         <Stack.Screen
           name="VendorBasicInfoScreen"
           component={VendorBasicInfoScreen}
         />
+
         <Stack.Screen
           name="VendorBusinessAddressScreen"
           component={VendorBusinessAddressScreen}
