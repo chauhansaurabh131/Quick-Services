@@ -35,6 +35,8 @@ import VendorOtpVerificationScreen from '../screen/vendorAllScreen/vendorOtpVeri
 import VendorSetPasswordScreen from '../screen/vendorAllScreen/vendorSetPasswordScreen';
 import VendorLoginScreen from '../screen/vendorAllScreen/vendorLoginScreen';
 import VendorResetPasswordScreen from '../screen/vendorAllScreen/vendorResetPasswordScreen';
+import VendorWatchAndConfirmVerificationScreen from '../screen/vendorAllScreen/vendorWatchAndConfirmVerificationScreen';
+import LegalAcknowledgementAndConsentScreen from '../screen/vendorAllScreen/legalAcknowledgementAndConsentScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -71,6 +73,10 @@ const Navigation = () => {
       <Stack.Navigator
         initialRouteName={initialRoute}
         screenOptions={{headerShown: false}}>
+        {/*<Stack.Screen*/}
+        {/*  name="VendorServiceAndPricingScreen"*/}
+        {/*  component={VendorServiceAndPricingScreen}*/}
+        {/*/>*/}
         <Stack.Screen name="AccountTypeScreen" component={AccountTypeScreen} />
 
         <Stack.Screen name="Login" component={LoginScreen} />
@@ -130,6 +136,16 @@ const Navigation = () => {
         <Stack.Screen
           name="VendorBankDetailsPayoutsScreen"
           component={VendorBankDetailsPayoutsScreen}
+        />
+
+        <Stack.Screen
+          name="VendorWatchAndConfirmVerificationScreen"
+          component={VendorWatchAndConfirmVerificationScreen}
+        />
+
+        <Stack.Screen
+          name="LegalAcknowledgementAndConsentScreen"
+          component={LegalAcknowledgementAndConsentScreen}
         />
 
         {/* Bottom Tabs */}

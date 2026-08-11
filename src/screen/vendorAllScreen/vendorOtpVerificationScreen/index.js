@@ -1,5 +1,7 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   Image,
   Keyboard,
   SafeAreaView,
@@ -8,19 +10,27 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import {colors} from '../../../utils/colors';
-import {fontFamily, fontSize, hp, wp} from '../../../utils/helpers';
-import {icons} from '../../../assets';
-import {useNavigation} from '@react-navigation/native';
+import { useDispatch, useSelector } from 'react-redux';
+import { colors } from '../../../utils/colors';
+import { fontFamily, fontSize, hp, wp } from '../../../utils/helpers';
+import { icons } from '../../../assets';
+import { useNavigation } from '@react-navigation/native';
+import {
+  resendOtpVendor,
+  verifyOtpVendor,
+} from '../../../actions/customerAuthActions';
 
-const VendorOtpVerificationScreen = ({route}) => {
+const VendorOtpVerificationScreen = ({ route }) => {
   const navigation = useNavigation();
+  const dispatch = useDispatch();
+  const { loading } = useSelector(state => state.auth || {});
 
-  const {contact} = route.params || {};
+  const { contact } = route.params || {};
 
   const [otp, setOtp] = useState(['', '', '', '']);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [timer, setTimer] = useState(30);
+  const [resendLoading, setResendLoading] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const inputRefs = useRef([]);
 
@@ -75,8 +85,77 @@ const VendorOtpVerificationScreen = ({route}) => {
     ? `OTP sent to ${contact}`
     : `OTP sent to +91 ${contact}`;
 
+  const handleVerifyOtp = () => {
+    const enteredOtp = otp.join('');
+    if (enteredOtp.length !== 4) {
+      Alert.alert('Error', 'Please enter a valid 4-digit OTP');
+      return;
+    }
+
+    const cleanContact = isEmail ? contact : contact.replace(/\D/g, '');
+
+    const payload = isEmail
+      ? { email: cleanContact, otp: enteredOtp }
+      : { mobileNumber: cleanContact, otp: enteredOtp };
+
+    console.log(
+      'Sending verifyOtpVendor payload:',
+      JSON.stringify(payload, null, 2),
+    );
+
+    dispatch(
+      verifyOtpVendor(payload, (error, response) => {
+        if (error) {
+          Alert.alert(
+            'Verification Failed',
+            error?.message || error?.msg || 'Invalid OTP. Please try again.',
+          );
+        } else {
+          navigation.navigate('VendorSetPasswordScreen');
+        }
+      }),
+    );
+  };
+
+  const handleResendOtp = () => {
+    if (!contact) {
+      Alert.alert('Error', 'Contact details not found');
+      return;
+    }
+
+    setResendLoading(true);
+    const cleanContact = isEmail ? contact : contact.replace(/\D/g, '');
+
+    const payload = isEmail
+      ? { email: cleanContact }
+      : { mobileNumber: cleanContact };
+
+    console.log(
+      'Sending resendOtpVendor payload:',
+      JSON.stringify(payload, null, 2),
+    );
+
+    dispatch(
+      resendOtpVendor(payload, (error, response) => {
+        setResendLoading(false);
+        if (error) {
+          Alert.alert(
+            'Resend Failed',
+            error?.message || error?.msg || 'Failed to resend OTP. Please try again.',
+          );
+        } else {
+          setTimer(30);
+          Alert.alert(
+            'OTP Resent',
+            response?.message || response?.msg || 'A new OTP has been sent successfully.',
+          );
+        }
+      }),
+    );
+  };
+
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: colors.white}}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.white }}>
       {/* HEADER */}
       <View
         style={{
@@ -98,7 +177,7 @@ const VendorOtpVerificationScreen = ({route}) => {
           }}>
           <Image
             source={icons.back_Arrow_Icon}
-            style={{width: wp(15), height: hp(15), resizeMode: 'contain'}}
+            style={{ width: wp(15), height: hp(15), resizeMode: 'contain' }}
           />
         </TouchableOpacity>
 
@@ -123,7 +202,7 @@ const VendorOtpVerificationScreen = ({route}) => {
       </View>
 
       {/* PROGRESS BAR */}
-      <View style={{width: '100%', height: hp(1), backgroundColor: '#E5E5E5'}}>
+      <View style={{ width: '100%', height: hp(1), backgroundColor: '#E5E5E5' }}>
         <View
           style={{
             width: '22.11%',
@@ -133,7 +212,7 @@ const VendorOtpVerificationScreen = ({route}) => {
         />
       </View>
 
-      <View style={{marginTop: hp(70), alignItems: 'center'}}>
+      <View style={{ marginTop: hp(70), alignItems: 'center' }}>
         <Text
           style={{
             color: colors.pureBlack,
@@ -192,22 +271,25 @@ const VendorOtpVerificationScreen = ({route}) => {
         </View>
 
         <TouchableOpacity
-          disabled={timer > 0}
+          disabled={timer > 0 || resendLoading}
           activeOpacity={0.6}
-          onPress={() => setTimer(30)}
+          onPress={handleResendOtp}
           style={{
             marginTop: hp(45),
             alignItems: 'center',
           }}>
-          <Text
-            style={{
-              color: timer > 0 ? '#717171' : colors.pureBlack,
-              // color: colors.pureBlack,
-              fontSize: fontSize(14),
-              fontFamily: fontFamily.poppins400,
-            }}>
-            {timer > 0 ? `Resend OTP in ${timer}s` : 'Resend OTP'}
-          </Text>
+          {resendLoading ? (
+            <ActivityIndicator color={colors.primaryColor} size="large" />
+          ) : (
+            <Text
+              style={{
+                color: timer > 0 ? '#717171' : colors.pureBlack,
+                fontSize: fontSize(14),
+                fontFamily: fontFamily.poppins400,
+              }}>
+              {timer > 0 ? `Resend OTP in ${timer}s` : 'Resend OTP'}
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -219,11 +301,9 @@ const VendorOtpVerificationScreen = ({route}) => {
             width: '100%',
           }}>
           <TouchableOpacity
-            onPress={() => {
-              navigation.navigate('VendorSetPasswordScreen');
-            }}
+            onPress={handleVerifyOtp}
             activeOpacity={0.6}
-            disabled={!isOtpComplete}
+            disabled={!isOtpComplete || loading}
             style={{
               height: hp(50),
               borderRadius: hp(25),
@@ -231,16 +311,20 @@ const VendorOtpVerificationScreen = ({route}) => {
               alignItems: 'center',
               justifyContent: 'center',
               marginHorizontal: wp(36),
-              opacity: isOtpComplete ? 1 : 0.5,
+              opacity: isOtpComplete && !loading ? 1 : 0.5,
             }}>
-            <Text
-              style={{
-                color: colors.white,
-                fontSize: fontSize(16),
-                fontFamily: fontFamily.poppins400,
-              }}>
-              Verify & Proceed
-            </Text>
+            {loading ? (
+              <ActivityIndicator color={colors.white} size="large" />
+            ) : (
+              <Text
+                style={{
+                  color: colors.white,
+                  fontSize: fontSize(16),
+                  fontFamily: fontFamily.poppins400,
+                }}>
+                Verify & Proceed
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
       )}

@@ -1,5 +1,7 @@
-import React, {useState} from 'react';
+import React, { useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   Image,
   SafeAreaView,
   Text,
@@ -7,10 +9,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import {colors} from '../../../utils/colors';
-import {fontFamily, fontSize, hp} from '../../../utils/helpers';
-import {icons} from '../../../assets';
-import {useNavigation} from '@react-navigation/native';
+import { colors } from '../../../utils/colors';
+import { fontFamily, fontSize, hp } from '../../../utils/helpers';
+import { icons } from '../../../assets';
+import { useNavigation } from '@react-navigation/native';
+import { useDispatch, useSelector } from 'react-redux';
+import { loginVendor } from '../../../actions/customerAuthActions';
 
 const VendorLoginScreen = () => {
   const [emailOrMobile, setEmailOrMobile] = useState('');
@@ -18,12 +22,67 @@ const VendorLoginScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
 
   const navigation = useNavigation();
+  const dispatch = useDispatch();
+  const { loading } = useSelector(state => state.auth || {});
 
   const isFormValid =
     emailOrMobile.trim().length > 0 && password.trim().length > 0;
 
+  const handleLogin = () => {
+    if (!isFormValid || loading) {
+      return;
+    }
+
+    const trimmedInput = emailOrMobile.trim();
+    const isEmail = trimmedInput.includes('@');
+
+    let payload = {
+      password: password,
+    };
+
+    if (isEmail) {
+      payload.email = trimmedInput;
+    } else {
+      const cleanNumber = trimmedInput.replace(/\D/g, '');
+      if (cleanNumber.length !== 10) {
+        Alert.alert(
+          'Invalid Mobile Number',
+          'Please enter a valid 10-digit mobile number or email address.',
+        );
+        return;
+      }
+      payload.mobileNumber = cleanNumber;
+      payload.countryCodeId = '6a420c2f668100ad2212e8ea';
+    }
+
+    const defaultToken =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTI1NWI1N2NmNWY3MzRiNjAyN2JmZWYiLCJpYXQiOjE3NjQwNTU5MDksImV4cCI6MTc2NDIzNTkwOX0.LBljN_-Uk2eig2LgGefiNI9vCqkfMXIsLJrXmZy9NPs';
+
+    dispatch(
+      loginVendor(
+        payload,
+        (error, response) => {
+          if (error) {
+            const errorMsg =
+              typeof error === 'string'
+                ? error
+                : error?.message || error?.error || 'Login failed. Please check your credentials.';
+            Alert.alert('Login Failed', errorMsg);
+          } else {
+            console.log('Vendor Login successful:', response);
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'VendorApp' }],
+            });
+          }
+        },
+        defaultToken,
+      ),
+    );
+  };
+
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: colors.white}}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.white }}>
       <Text
         style={{
           padding: hp(26),
@@ -34,7 +93,7 @@ const VendorLoginScreen = () => {
         Karyaah
       </Text>
 
-      <View style={{alignItems: 'center', marginTop: hp(90)}}>
+      <View style={{ alignItems: 'center', marginTop: hp(90) }}>
         <Text
           style={{
             color: colors.pureBlack,
@@ -67,6 +126,8 @@ const VendorLoginScreen = () => {
           placeholderTextColor="#717171"
           value={emailOrMobile}
           onChangeText={setEmailOrMobile}
+          autoCapitalize="none"
+          keyboardType="email-address"
           style={{
             height: hp(50),
             borderWidth: hp(1),
@@ -128,11 +189,9 @@ const VendorLoginScreen = () => {
         {/* Login Button */}
 
         <TouchableOpacity
-          onPress={() => {
-            navigation.navigate('VendorResetPasswordScreen');
-          }}
+          onPress={handleLogin}
           activeOpacity={0.6}
-          disabled={!isFormValid}
+          disabled={!isFormValid || loading}
           style={{
             height: hp(50),
             borderRadius: hp(25),
@@ -140,22 +199,29 @@ const VendorLoginScreen = () => {
             justifyContent: 'center',
             alignItems: 'center',
             marginTop: hp(30),
-            opacity: isFormValid ? 1 : 0.5,
+            opacity: isFormValid && !loading ? 1 : 0.5,
           }}>
-          <Text
-            style={{
-              color: colors.white,
-              fontSize: fontSize(16),
-              fontFamily: fontFamily.poppins500,
-            }}>
-            Login
-          </Text>
+          {loading ? (
+            <ActivityIndicator color={colors.white} size="small" />
+          ) : (
+            <Text
+              style={{
+                color: colors.white,
+                fontSize: fontSize(16),
+                fontFamily: fontFamily.poppins500,
+              }}>
+              Login
+            </Text>
+          )}
         </TouchableOpacity>
 
         {/* Reset Password */}
 
         <TouchableOpacity
           activeOpacity={0.6}
+          onPress={() => {
+            navigation.navigate('VendorResetPasswordScreen');
+          }}
           style={{
             alignItems: 'center',
             marginTop: hp(28),
@@ -184,6 +250,9 @@ const VendorLoginScreen = () => {
 
         <TouchableOpacity
           activeOpacity={0.6}
+          onPress={() => {
+            navigation.navigate('VendorChooseRegistrationScreen');
+          }}
           style={{
             alignItems: 'center',
             marginTop: hp(40),
@@ -203,3 +272,4 @@ const VendorLoginScreen = () => {
 };
 
 export default VendorLoginScreen;
+

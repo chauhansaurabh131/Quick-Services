@@ -1,26 +1,51 @@
-import React, {useEffect, useState} from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
   Image,
+  Keyboard,
   SafeAreaView,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  FlatList,
-  Keyboard,
 } from 'react-native';
-import {colors} from '../../../utils/colors';
-import {fontFamily, fontSize, hp, wp} from '../../../utils/helpers';
-import {icons} from '../../../assets';
-import {useNavigation} from '@react-navigation/native';
+import { useDispatch, useSelector } from 'react-redux';
+import { colors } from '../../../utils/colors';
+import { fontFamily, fontSize, hp, wp } from '../../../utils/helpers';
+import { icons } from '../../../assets';
+import { useNavigation } from '@react-navigation/native';
+import RBSheet from 'react-native-raw-bottom-sheet';
+import {
+  getServicesByCategory,
+  getVendorCategories,
+  saveVendorServices,
+} from '../../../actions/customerAuthActions';
 
 const VendorServiceAndPricingScreen = () => {
   const navigation = useNavigation();
+  const dispatch = useDispatch();
+
+  const { loading, user } = useSelector(state => state.auth || {});
+  const reduxUser = user?.user || user?.data?.user || user || {};
+
+  // console.log('====>user', user?.vendorUser?.id)
 
   const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [categoriesList, setCategoriesList] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+
+  const [servicesList, setServicesList] = useState([]);
+  const [servicesLoading, setServicesLoading] = useState(false);
+
   const [selectedServices, setSelectedServices] = useState([]);
   const [prices, setPrices] = useState({});
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  const bottomSheetRef = useRef(null);
 
   useEffect(() => {
     const showListener = Keyboard.addListener('keyboardDidShow', () => {
@@ -37,76 +62,55 @@ const VendorServiceAndPricingScreen = () => {
     };
   }, []);
 
-  // 🔥 ALL SERVICES DATA
-  const servicesData = [
-    // SALON
-    {id: 1, category: 'Salon', title: 'Hair Cut', desc: 'Professional trim'},
-    {id: 2, category: 'Salon', title: 'Hair Spa', desc: 'Deep nourishment'},
-    {id: 3, category: 'Salon', title: 'Facial', desc: 'Skin glow treatment'},
-    {
-      id: 4,
-      category: 'Salon',
-      title: 'Beard Trim',
-      desc: 'Clean beard styling',
-    },
-    {id: 5, category: 'Salon', title: 'Hair Coloring', desc: 'Color services'},
+  const handleOpenBottomSheet = () => {
+    bottomSheetRef.current?.open();
+    setCategoriesLoading(true);
+    dispatch(
+      getVendorCategories((error, response) => {
+        setCategoriesLoading(false);
+        if (error) {
+          console.log('Error fetching vendor categories:', error);
+        } else {
+          console.log('Vendor Categories API Response:', response);
+          const list =
+            response?.data || response?.categories || response || [];
+          setCategoriesList(Array.isArray(list) ? list : []);
+        }
+      }),
+    );
+  };
 
-    // AC REPAIR
-    {
-      id: 6,
-      category: 'AC Repair',
-      title: 'AC Installation',
-      desc: 'Install AC',
-    },
-    {
-      id: 7,
-      category: 'AC Repair',
-      title: 'AC Service',
-      desc: 'General service',
-    },
-    {id: 8, category: 'AC Repair', title: 'Gas Refilling', desc: 'Refill gas'},
-    {id: 9, category: 'AC Repair', title: 'AC Repair', desc: 'Fix issues'},
-    {
-      id: 10,
-      category: 'AC Repair',
-      title: 'AC Cleaning',
-      desc: 'Deep cleaning',
-    },
+  const handleSelectCategory = item => {
+    const categoryName =
+      typeof item === 'string'
+        ? item
+        : item.name || item.title || item.categoryName || '';
+    const catId = typeof item === 'string' ? null : item._id || item.id;
 
-    // CLEANING
-    {id: 11, category: 'Cleaning', title: 'Home Cleaning', desc: 'Full house'},
-    {
-      id: 12,
-      category: 'Cleaning',
-      title: 'Kitchen Cleaning',
-      desc: 'Deep clean',
-    },
-    {
-      id: 13,
-      category: 'Cleaning',
-      title: 'Bathroom Cleaning',
-      desc: 'Sanitize',
-    },
-    {
-      id: 14,
-      category: 'Cleaning',
-      title: 'Sofa Cleaning',
-      desc: 'Fabric clean',
-    },
-    {
-      id: 15,
-      category: 'Cleaning',
-      title: 'Carpet Cleaning',
-      desc: 'Dust removal',
-    },
-  ];
+    setSearch(categoryName);
+    setSelectedCategory(item);
+    bottomSheetRef.current?.close();
 
-  // 🔥 FILTER LOGIC
-  const filteredServices = servicesData.filter(item =>
-    item.category.toLowerCase().includes(search.toLowerCase()),
-  );
+    if (catId) {
+      setServicesLoading(true);
+      setServicesList([]);
+      dispatch(
+        getServicesByCategory(catId, (error, response) => {
+          setServicesLoading(false);
+          if (error) {
+            console.log('Error fetching services by category:', error);
+            setServicesList([]);
+          } else {
+            console.log('Services by Category API Response:', response);
+            const list =
+              response?.data || response?.services || response || [];
+            setServicesList(Array.isArray(list) ? list : []);
+          }
+        }),
+      );
+    }
+  };
 
-  // 🔥 SELECT
   const toggleService = id => {
     if (selectedServices.includes(id)) {
       setSelectedServices(prev => prev.filter(i => i !== id));
@@ -115,7 +119,6 @@ const VendorServiceAndPricingScreen = () => {
     }
   };
 
-  // 🔥 PRICE
   const handlePrice = (id, value) => {
     setPrices(prev => ({
       ...prev,
@@ -123,10 +126,96 @@ const VendorServiceAndPricingScreen = () => {
     }));
   };
 
+  const handleSaveVendorServices = () => {
+    if (selectedServices.length === 0) {
+      Alert.alert('Selection Required', 'Please select at least one service');
+      return;
+    }
+
+    const vendorId =
+      user?.vendorUser?.id ||
+      user?.vendorUser?._id ||
+      reduxUser?.vendorUser?.id ||
+      reduxUser?.vendorUser?._id ||
+      reduxUser._id ||
+      reduxUser.id ||
+      reduxUser.vendorId ||
+      reduxUser.vendor_id ||
+      user?.user?._id ||
+      user?.user?.id ||
+      user?.data?.user?._id ||
+      user?.data?.user?.id ||
+      user?.data?._id ||
+      user?.data?.id ||
+      user?._id ||
+      user?.id ||
+      '';
+
+    const isSalonCategory = Boolean(
+      search &&
+      (search.trim().toLowerCase().includes('salon') ||
+        search.trim().toLowerCase().includes('saloon')),
+    );
+
+    if (isSalonCategory) {
+      for (const id of selectedServices) {
+        const enteredVal = prices[id] ? prices[id].toString().trim() : '';
+        if (!enteredVal || isNaN(Number(enteredVal)) || Number(enteredVal) <= 0) {
+          const serviceObj = servicesList.find(
+            item => (item._id || item.id) === id,
+          );
+          const serviceTitle =
+            serviceObj?.title || serviceObj?.name || serviceObj?.serviceName || 'selected service';
+          Alert.alert(
+            'Price Required',
+            `Please enter a price for "${serviceTitle}"`,
+          );
+          return;
+        }
+      }
+    }
+
+    const servicesPayload = selectedServices.map(id => {
+      const parsedPrice = prices[id] ? Number(prices[id]) || 0 : 0;
+      return {
+        serviceId: id,
+        pricingType: isSalonCategory ? 'fixed' : 'visiting',
+        price: parsedPrice,
+      };
+    });
+
+    const payload = {
+      vendorId: vendorId,
+      services: servicesPayload,
+    };
+
+    console.log(
+      'Sending Vendor Services Payload:',
+      JSON.stringify(payload, null, 2),
+    );
+
+    dispatch(
+      saveVendorServices(payload, (error, response) => {
+        if (error) {
+          console.log('Save Vendor Services Error Response:', error);
+          Alert.alert(
+            'Save Failed',
+            error?.message ||
+            error?.msg ||
+            'Something went wrong while saving services',
+          );
+        } else {
+          console.log('Save Vendor Services Success Response:', response);
+          navigation.navigate('VendorWatchAndConfirmVerificationScreen');
+        }
+      }),
+    );
+  };
+
   const isButtonEnabled = selectedServices.length > 0;
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: colors.white}}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.white }}>
       {/* HEADER */}
       <View
         style={{
@@ -148,7 +237,7 @@ const VendorServiceAndPricingScreen = () => {
           }}>
           <Image
             source={icons.back_Arrow_Icon}
-            style={{width: wp(15), height: hp(15), resizeMode: 'contain'}}
+            style={{ width: wp(15), height: hp(15), resizeMode: 'contain' }}
           />
         </TouchableOpacity>
 
@@ -173,7 +262,7 @@ const VendorServiceAndPricingScreen = () => {
       </View>
 
       {/* PROGRESS BAR */}
-      <View style={{width: '100%', height: hp(1), backgroundColor: '#E5E5E5'}}>
+      <View style={{ width: '100%', height: hp(1), backgroundColor: '#E5E5E5' }}>
         <View
           style={{
             width: '88%',
@@ -183,8 +272,8 @@ const VendorServiceAndPricingScreen = () => {
         />
       </View>
 
-      {/* SEARCH */}
-      <View style={{marginHorizontal: wp(18), marginTop: hp(20)}}>
+      {/* SEARCH / CATEGORY SELECTOR */}
+      <View style={{ marginHorizontal: wp(18), marginTop: hp(20) }}>
         <Text
           style={{
             color: colors.pureBlack,
@@ -202,7 +291,9 @@ const VendorServiceAndPricingScreen = () => {
           Pick your skills and set your rates
         </Text>
 
-        <View
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={handleOpenBottomSheet}
           style={{
             flexDirection: 'row',
             alignItems: 'center',
@@ -217,134 +308,192 @@ const VendorServiceAndPricingScreen = () => {
           }}>
           <Image
             source={icons.search_Icon}
-            style={{width: hp(15), height: hp(15), marginRight: hp(10)}}
+            style={{
+              width: hp(15),
+              height: hp(15),
+              marginRight: hp(10),
+              resizeMode: 'contain',
+            }}
           />
 
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholderTextColor={'gray'}
-            placeholder="Search (Salon / AC / Cleaning)"
+          <Text
             style={{
               flex: 1,
               fontSize: fontSize(14),
               fontFamily: fontFamily.poppins400,
-              top: 2,
-              color: colors.black,
+              color: search ? colors.pureBlack : 'gray',
+            }}>
+            {search || 'Select Service'}
+          </Text>
+
+          <Image
+            source={icons.bottom_Arrow_Icon}
+            style={{
+              width: hp(12),
+              height: hp(12),
+              resizeMode: 'contain',
             }}
           />
-        </View>
+        </TouchableOpacity>
       </View>
 
-      {/* LIST */}
-      <FlatList
-        data={filteredServices}
-        keyExtractor={item => item.id.toString()}
-        contentContainerStyle={{padding: hp(18), paddingBottom: hp(130)}}
-        showsVerticalScrollIndicator={false}
-        renderItem={({item}) => {
-          const isSelected = selectedServices.includes(item.id);
-
-          return (
-            <TouchableOpacity
-              onPress={() => toggleService(item.id)}
+      {/* SERVICES CONTENT AREA */}
+      {servicesLoading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator color={colors.primaryColor} size="large" />
+          <Text
+            style={{
+              color: 'gray',
+              fontSize: fontSize(12),
+              fontFamily: fontFamily.poppins400,
+              marginTop: hp(10),
+            }}>
+            Loading services...
+          </Text>
+        </View>
+      ) : servicesList.length > 0 ? (
+        <FlatList
+          data={servicesList}
+          keyExtractor={(item, idx) => (item._id || item.id || idx).toString()}
+          contentContainerStyle={{
+            paddingHorizontal: wp(18),
+            paddingTop: hp(18),
+            paddingBottom: hp(130),
+          }}
+          showsVerticalScrollIndicator={false}
+          ListHeaderComponent={
+            <Text
               style={{
-                borderWidth: hp(1),
-                borderColor: isSelected ? '#99B8FF' : '#E0E0E0',
-                borderRadius: hp(16),
-                padding: hp(15),
-                marginBottom: hp(12),
-                backgroundColor: isSelected ? '#EEF4FF' : '#F7F7F7',
+                color: colors.pureBlack,
+                fontSize: fontSize(14),
+                fontFamily: fontFamily.poppins600,
+                marginBottom: hp(15),
               }}>
-              {/* TITLE */}
-              <View
-                style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                <View style={{flex: 1}}>
-                  <Text
-                    style={{
-                      color: colors.pureBlack,
-                      fontSize: fontSize(16),
-                      fontFamily: fontFamily.poppins500,
-                    }}>
-                    {item.title}
-                  </Text>
+              Select Offered Services
+            </Text>
+          }
+          renderItem={({ item }) => {
+            const itemId = item._id || item.id;
+            const isSelected = selectedServices.includes(itemId);
+            const title = item.title || item.name || item.serviceName || '';
+            const desc = item.desc || item.description || '';
 
-                  <Text
-                    style={{
-                      color: '#AAAAAA',
-                      fontSize: fontSize(12),
-                      fontFamily: fontFamily.poppins500,
-                    }}>
-                    {item.desc}
-                  </Text>
-                </View>
+            const isSalonCategory = Boolean(
+              search &&
+              (search.trim().toLowerCase().includes('salon') ||
+                search.trim().toLowerCase().includes('saloon')),
+            );
 
-                {/* RADIO */}
+            return (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => toggleService(itemId)}
+                style={{
+                  borderWidth: hp(1),
+                  borderColor: isSelected ? '#99B8FF' : '#E0E0E0',
+                  borderRadius: hp(16),
+                  padding: hp(15),
+                  marginBottom: hp(12),
+                  backgroundColor: isSelected ? '#EEF4FF' : '#F7F7F7',
+                }}>
                 <View
                   style={{
-                    width: hp(15),
-                    height: hp(15),
-                    borderRadius: hp(9),
-                    borderWidth: hp(1.5),
-                    borderColor: isSelected ? '#2F80ED' : '#000',
+                    flexDirection: 'row',
                     alignItems: 'center',
-                    justifyContent: 'center',
+                    justifyContent: 'space-between',
                   }}>
-                  {isSelected && (
-                    <Image
-                      source={icons.green_Check_Icon} // ✅ your tick icon
+                  <View style={{ flex: 1, paddingRight: wp(10) }}>
+                    <Text
                       style={{
-                        width: hp(15),
-                        height: hp(15),
-                        tintColor: '#1E59E2',
-                        resizeMode: 'contain',
+                        color: colors.pureBlack,
+                        fontSize: fontSize(16),
+                        fontFamily: fontFamily.poppins500,
+                      }}>
+                      {title}
+                    </Text>
+
+                    {desc ? (
+                      <Text
+                        style={{
+                          color: '#AAAAAA',
+                          fontSize: fontSize(12),
+                          fontFamily: fontFamily.poppins400,
+                          marginTop: hp(2),
+                        }}>
+                        {desc}
+                      </Text>
+                    ) : null}
+                  </View>
+
+                  <Image
+                    source={icons.green_Check_Icon}
+                    resizeMode="contain"
+                    style={{
+                      width: hp(17),
+                      height: hp(17),
+                      tintColor: isSelected ? '#1E59E2' : '#D3D3D3',
+                    }}
+                  />
+                </View>
+
+                {isSelected && isSalonCategory && (
+                  <View
+                    style={{
+                      marginTop: hp(10),
+                      backgroundColor: '#FFFFFF',
+                      borderRadius: hp(10),
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingHorizontal: hp(10),
+                      height: hp(43),
+                    }}>
+                    <TextInput
+                      placeholder="0.00"
+                      placeholderTextColor={'#B9B9B9'}
+                      keyboardType="numeric"
+                      value={prices[itemId] || ''}
+                      onChangeText={val => handlePrice(itemId, val)}
+                      style={{
+                        flex: 1,
+                        fontSize: fontSize(14),
+                        fontFamily: fontFamily.poppins400,
+                        top: 2,
+                        color: colors.black,
                       }}
                     />
-                  )}
-                </View>
-              </View>
+                    <Text
+                      style={{
+                        color: 'grey',
+                        fontSize: fontSize(14),
+                        fontFamily: fontFamily.poppins400,
+                      }}>
+                      Fixed Rate
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          }}
+        />
+      ) : (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text
+            style={{
+              color: 'gray',
+              fontSize: fontSize(14),
+              fontFamily: fontFamily.poppins400,
+              textAlign: 'center',
+              marginHorizontal: wp(30),
+            }}>
+            {search
+              ? `No services found for "${search}"`
+              : 'Tap "Select Service" to pick a category'}
+          </Text>
+        </View>
+      )}
 
-              {/* PRICE */}
-              <View
-                style={{
-                  marginTop: hp(10),
-                  backgroundColor: '#FFFFFF',
-                  borderRadius: hp(10),
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  paddingHorizontal: hp(10),
-                  height: hp(43),
-                }}>
-                <TextInput
-                  placeholder="0.00"
-                  placeholderTextColor={'#B9B9B9'}
-                  keyboardType="numeric"
-                  editable={isSelected}
-                  value={prices[item.id]}
-                  onChangeText={val => handlePrice(item.id, val)}
-                  style={{
-                    flex: 1,
-                    fontSize: fontSize(14),
-                    fontFamily: fontFamily.poppins400,
-                    top: 2,
-                    color: isSelected ? colors.black : '#B9B9B9',
-                  }}
-                />
-                <Text
-                  style={{
-                    color: isSelected ? colors.black : '#B9B9B9',
-                    fontSize: fontSize(14),
-                    fontFamily: fontFamily.poppins400,
-                  }}>
-                  Hour Rate
-                </Text>
-              </View>
-            </TouchableOpacity>
-          );
-        }}
-      />
-
+      {/* BOTTOM BUTTON */}
       {!keyboardVisible && (
         <View
           style={{
@@ -353,9 +502,7 @@ const VendorServiceAndPricingScreen = () => {
             width: '100%',
             alignItems: 'center',
             height: hp(100),
-            backgroundColor: 'white',
-            borderTopWidth: hp(1),
-            borderTopColor: '#DDDDDD',
+            backgroundColor: colors.white
           }}>
           <Text
             style={{
@@ -368,8 +515,8 @@ const VendorServiceAndPricingScreen = () => {
           </Text>
 
           <TouchableOpacity
-            activeOpacity={isButtonEnabled ? 0.6 : 1}
-            disabled={!isButtonEnabled} // 🔥 disable press
+            activeOpacity={isButtonEnabled && !loading ? 0.6 : 1}
+            disabled={!isButtonEnabled || loading}
             style={{
               width: '93%',
               height: hp(50),
@@ -378,37 +525,164 @@ const VendorServiceAndPricingScreen = () => {
               alignItems: 'center',
               justifyContent: 'center',
               top: hp(5),
-              opacity: isButtonEnabled ? 1 : 0.5,
+              opacity: isButtonEnabled && !loading ? 1 : 0.5,
             }}
-            onPress={() => {
-              if (isButtonEnabled) {
-                navigation.navigate('VendorBankDetailsPayoutsScreen');
-              }
-            }}>
-            <Text
-              style={{
-                color: colors.white,
-                fontSize: fontSize(14),
-                fontFamily: fontFamily.poppins400,
-              }}>
-              Add Bank Details
-            </Text>
+            onPress={handleSaveVendorServices}>
+            {loading ? (
+              <ActivityIndicator color={colors.white} size="small" />
+            ) : (
+              <Text
+                style={{
+                  color: colors.white,
+                  fontSize: fontSize(14),
+                  fontFamily: fontFamily.poppins400,
+                }}>
+                Add Bank Details
+              </Text>
+            )}
 
-            {/* Right Arrow */}
-            <Image
-              source={icons.back_Arrow_Icon}
-              style={{
-                position: 'absolute',
-                right: hp(25),
-                width: hp(15),
-                height: hp(15),
-                tintColor: colors.white,
-                transform: [{rotate: '180deg'}],
-              }}
-            />
+            {!loading && (
+              <Image
+                source={icons.back_Arrow_Icon}
+                style={{
+                  position: 'absolute',
+                  right: hp(25),
+                  width: hp(15),
+                  height: hp(15),
+                  tintColor: colors.white,
+                  transform: [{ rotate: '180deg' }],
+                }}
+              />
+            )}
           </TouchableOpacity>
         </View>
       )}
+
+      {/* BOTTOM SHEET FOR CATEGORIES */}
+      <RBSheet
+        ref={bottomSheetRef}
+        height={hp(420)}
+        openDuration={250}
+        closeOnDragDown={true}
+        closeOnPressMask={true}
+        customStyles={{
+          container: {
+            borderTopLeftRadius: hp(25),
+            borderTopRightRadius: hp(25),
+            paddingBottom: hp(20),
+          },
+          draggableIcon: {
+            backgroundColor: '#D9D9D9',
+            width: wp(45),
+          },
+        }}>
+        <View style={{ paddingHorizontal: wp(20), flex: 1 }}>
+          <Text
+            style={{
+              color: colors.pureBlack,
+              fontSize: fontSize(18),
+              fontFamily: fontFamily.poppins600,
+              marginBottom: hp(15),
+            }}>
+            Select Service
+          </Text>
+
+          {categoriesLoading ? (
+            <ActivityIndicator
+              color={colors.primaryColor}
+              size="large"
+              style={{ marginTop: hp(40) }}
+            />
+          ) : categoriesList.length === 0 ? (
+            <Text
+              style={{
+                color: 'gray',
+                fontSize: fontSize(14),
+                fontFamily: fontFamily.poppins400,
+                textAlign: 'center',
+                marginTop: hp(40),
+              }}>
+              No categories found
+            </Text>
+          ) : (
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {categoriesList.map((item, index) => {
+                const categoryName =
+                  typeof item === 'string'
+                    ? item
+                    : item.name || item.title || item.categoryName || '';
+                const categoryId =
+                  typeof item === 'string'
+                    ? item
+                    : item._id || item.id || index;
+                const isSelected = Boolean(
+                  (search &&
+                    categoryName &&
+                    search.trim().toLowerCase() ===
+                    categoryName.trim().toLowerCase()) ||
+                  (selectedCategory &&
+                    item &&
+                    ((item._id && selectedCategory._id === item._id) ||
+                      (item.id && selectedCategory.id === item.id))),
+                );
+
+                return (
+                  <TouchableOpacity
+                    key={categoryId.toString()}
+                    activeOpacity={0.6}
+                    onPress={() => handleSelectCategory(item)}
+                    style={{
+                      height: hp(48),
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      borderBottomWidth:
+                        index !== categoriesList.length - 1 ? hp(1) : 0,
+                      borderBottomColor: '#EEEEEE',
+                    }}>
+                    <Text
+                      style={{
+                        color: isSelected
+                          ? colors.primaryColor
+                          : colors.pureBlack,
+                        fontSize: fontSize(14),
+                        fontFamily: isSelected
+                          ? fontFamily.poppins600
+                          : fontFamily.poppins400,
+                      }}>
+                      {categoryName}
+                    </Text>
+
+                    <View
+                      style={{
+                        width: hp(20),
+                        height: hp(20),
+                        borderRadius: hp(10),
+                        borderWidth: hp(1.5),
+                        borderColor: isSelected
+                          ? colors.primaryColor
+                          : '#C7C7C7',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                      {isSelected && (
+                        <View
+                          style={{
+                            width: hp(10),
+                            height: hp(10),
+                            borderRadius: hp(5),
+                            backgroundColor: colors.primaryColor,
+                          }}
+                        />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
+        </View>
+      </RBSheet>
     </SafeAreaView>
   );
 };

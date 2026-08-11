@@ -56,3 +56,7 @@ export const icons = {
   password_Hide_Icon: require('./icons/password_Hide_Icon.png'),
   circle_Profile_Icon: require('./icons/circle_Profile_Icon.png'),
 };
+
+export const video = {
+  verification_Video: require('./videos/verification_video.mp4'),
+};

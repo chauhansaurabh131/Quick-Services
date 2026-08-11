@@ -1,5 +1,7 @@
-import React, {useEffect, useState} from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   Image,
   Keyboard,
   SafeAreaView,
@@ -8,13 +10,17 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import {colors} from '../../../utils/colors';
-import {fontFamily, fontSize, hp, wp} from '../../../utils/helpers';
-import {icons} from '../../../assets';
-import {useNavigation} from '@react-navigation/native';
+import { useDispatch, useSelector } from 'react-redux';
+import { colors } from '../../../utils/colors';
+import { fontFamily, fontSize, hp, wp } from '../../../utils/helpers';
+import { icons } from '../../../assets';
+import { useNavigation } from '@react-navigation/native';
+import { registerVendor } from '../../../actions/customerAuthActions';
 
 const VendorRegistrationScreen = () => {
   const navigation = useNavigation();
+  const dispatch = useDispatch();
+  const { loading } = useSelector(state => state.auth || {});
 
   const [businessName, setBusinessName] = useState('');
   const [emailOrMobile, setEmailOrMobile] = useState('');
@@ -38,8 +44,60 @@ const VendorRegistrationScreen = () => {
   const isFormValid =
     businessName.trim().length > 0 && emailOrMobile.trim().length > 0;
 
+  const handleContinue = () => {
+    if (!isFormValid) {
+      Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+
+    const trimmedInput = emailOrMobile.trim();
+    const isEmail = trimmedInput.includes('@');
+
+    let payload = {};
+    if (isEmail) {
+      payload = {
+        businessName: businessName.trim(),
+        email: trimmedInput,
+      };
+    } else {
+      const cleanNumber = trimmedInput.replace(/\D/g, '');
+      if (cleanNumber.length !== 10) {
+        Alert.alert(
+          'Invalid Mobile Number',
+          'Please enter a valid 10-digit mobile number or email address',
+        );
+        return;
+      }
+      payload = {
+        businessName: businessName.trim(),
+        mobileNumber: cleanNumber,
+        countryCodeId: '6a420c2f668100ad2212e8ea',
+      };
+    }
+
+    console.log(
+      'Sending registerVendor payload:',
+      JSON.stringify(payload, null, 2),
+    );
+
+    dispatch(
+      registerVendor(payload, (error, response) => {
+        if (error) {
+          Alert.alert(
+            'Registration Failed',
+            error?.message || error?.msg || 'Something went wrong. Please try again.',
+          );
+        } else {
+          navigation.navigate('VendorOtpVerificationScreen', {
+            contact: trimmedInput,
+          });
+        }
+      }),
+    );
+  };
+
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: colors.white}}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.white }}>
       {/* HEADER */}
       <View
         style={{
@@ -61,7 +119,7 @@ const VendorRegistrationScreen = () => {
           }}>
           <Image
             source={icons.back_Arrow_Icon}
-            style={{width: wp(15), height: hp(15), resizeMode: 'contain'}}
+            style={{ width: wp(15), height: hp(15), resizeMode: 'contain' }}
           />
         </TouchableOpacity>
 
@@ -86,7 +144,7 @@ const VendorRegistrationScreen = () => {
       </View>
 
       {/* PROGRESS BAR */}
-      <View style={{width: '100%', height: hp(1), backgroundColor: '#E5E5E5'}}>
+      <View style={{ width: '100%', height: hp(1), backgroundColor: '#E5E5E5' }}>
         <View
           style={{
             width: '11.11%',
@@ -96,7 +154,7 @@ const VendorRegistrationScreen = () => {
         />
       </View>
 
-      <View style={{marginTop: hp(70), alignItems: 'center'}}>
+      <View style={{ marginTop: hp(70), alignItems: 'center' }}>
         <Text
           style={{
             color: colors.pureBlack,
@@ -117,7 +175,7 @@ const VendorRegistrationScreen = () => {
         </Text>
       </View>
 
-      <View style={{marginHorizontal: wp(36), marginTop: hp(92)}}>
+      <View style={{ marginHorizontal: wp(36), marginTop: hp(92) }}>
         <TextInput
           placeholder={'Enter Business Name'}
           placeholderTextColor={'grey'}
@@ -140,6 +198,8 @@ const VendorRegistrationScreen = () => {
           placeholderTextColor={'grey'}
           value={emailOrMobile}
           onChangeText={setEmailOrMobile}
+          keyboardType={'email-address'}
+          autoCapitalize={'none'}
           style={{
             width: '100%',
             height: hp(50),
@@ -162,13 +222,9 @@ const VendorRegistrationScreen = () => {
             width: '100%',
           }}>
           <TouchableOpacity
-            onPress={() => {
-              navigation.navigate('VendorOtpVerificationScreen', {
-                contact: emailOrMobile,
-              });
-            }}
+            onPress={handleContinue}
             activeOpacity={0.6}
-            disabled={!isFormValid}
+            disabled={!isFormValid || loading}
             style={{
               height: hp(50),
               borderRadius: hp(25),
@@ -176,16 +232,20 @@ const VendorRegistrationScreen = () => {
               alignItems: 'center',
               justifyContent: 'center',
               marginHorizontal: wp(36),
-              opacity: isFormValid ? 1 : 0.5,
+              opacity: isFormValid && !loading ? 1 : 0.5,
             }}>
-            <Text
-              style={{
-                color: colors.white,
-                fontSize: fontSize(16),
-                fontFamily: fontFamily.poppins400,
-              }}>
-              Continue
-            </Text>
+            {loading ? (
+              <ActivityIndicator color={colors.white} size="large" />
+            ) : (
+              <Text
+                style={{
+                  color: colors.white,
+                  fontSize: fontSize(16),
+                  fontFamily: fontFamily.poppins400,
+                }}>
+                Continue
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
       )}

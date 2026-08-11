@@ -1,15 +1,45 @@
-import React, {useState} from 'react';
-import {Image, SafeAreaView, Text, TouchableOpacity, View} from 'react-native';
-import {colors} from '../../../utils/colors';
-import {fontFamily, fontSize, hp, wp} from '../../../utils/helpers';
-import {icons} from '../../../assets';
-import {useNavigation} from '@react-navigation/native';
-import {launchImageLibrary} from 'react-native-image-picker';
-import {useTranslation} from 'react-i18next';
+import React, { useState } from 'react';
+import { Alert, Image, SafeAreaView, Text, TouchableOpacity, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useDispatch } from 'react-redux';
+import { logoutUser } from '../../../actions/customerAuthActions';
+import { colors } from '../../../utils/colors';
+import { fontFamily, fontSize, hp, wp } from '../../../utils/helpers';
+import { icons } from '../../../assets';
+import { useNavigation } from '@react-navigation/native';
+import { launchImageLibrary } from 'react-native-image-picker';
+import { useTranslation } from 'react-i18next';
 
 const ProfileScreen = () => {
   const navigation = useNavigation();
-  const {t} = useTranslation();
+  const dispatch = useDispatch();
+  const { t } = useTranslation();
+
+  const handleLogout = () => {
+    Alert.alert(
+      t('logout') || 'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: t('logout') || 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await AsyncStorage.removeItem('token');
+            } catch (error) {
+              console.log('Error clearing token on logout:', error);
+            }
+            dispatch(logoutUser());
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'AccountTypeScreen' }],
+            });
+          },
+        },
+      ],
+    );
+  };
 
   const [profileImage, setProfileImage] = useState(null);
 
@@ -29,7 +59,7 @@ const ProfileScreen = () => {
   };
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: colors.white}}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.white }}>
       <Text
         style={{
           color: colors.black,
@@ -57,13 +87,13 @@ const ProfileScreen = () => {
         }}>
         {profileImage ? (
           <Image
-            source={{uri: profileImage}}
-            style={{width: '100%', height: '100%', borderRadius: hp(100)}}
+            source={{ uri: profileImage }}
+            style={{ width: '100%', height: '100%', borderRadius: hp(100) }}
           />
         ) : (
           <Image
             source={icons.camera_Icon}
-            style={{width: wp(28), height: hp(26), resizeMode: 'contain'}}
+            style={{ width: wp(28), height: hp(26), resizeMode: 'contain' }}
           />
         )}
       </TouchableOpacity>
@@ -94,7 +124,7 @@ const ProfileScreen = () => {
             alignItems: 'center',
             justifyContent: 'space-between',
           }}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View
               style={{
                 width: hp(29),
@@ -106,7 +136,7 @@ const ProfileScreen = () => {
               }}>
               <Image
                 source={icons.list_Icon}
-                style={{width: hp(11), height: hp(12), resizeMode: 'contain'}}
+                style={{ width: hp(11), height: hp(12), resizeMode: 'contain' }}
               />
             </View>
 
@@ -127,7 +157,7 @@ const ProfileScreen = () => {
               width: hp(9),
               height: hp(6),
               resizeMode: 'contain',
-              transform: [{rotate: '-90deg'}],
+              transform: [{ rotate: '-90deg' }],
             }}
           />
         </TouchableOpacity>
@@ -140,7 +170,7 @@ const ProfileScreen = () => {
             justifyContent: 'space-between',
             marginTop: hp(25),
           }}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View
               style={{
                 width: hp(29),
@@ -152,7 +182,7 @@ const ProfileScreen = () => {
               }}>
               <Image
                 source={icons.list_Icon}
-                style={{width: hp(11), height: hp(12), resizeMode: 'contain'}}
+                style={{ width: hp(11), height: hp(12), resizeMode: 'contain' }}
               />
             </View>
 
@@ -173,7 +203,7 @@ const ProfileScreen = () => {
               width: hp(9),
               height: hp(6),
               resizeMode: 'contain',
-              transform: [{rotate: '-90deg'}],
+              transform: [{ rotate: '-90deg' }],
             }}
           />
         </TouchableOpacity>
@@ -189,7 +219,7 @@ const ProfileScreen = () => {
             justifyContent: 'space-between',
             marginTop: hp(25),
           }}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View
               style={{
                 width: hp(29),
@@ -201,7 +231,7 @@ const ProfileScreen = () => {
               }}>
               <Image
                 source={icons.list_Icon}
-                style={{width: hp(11), height: hp(12), resizeMode: 'contain'}}
+                style={{ width: hp(11), height: hp(12), resizeMode: 'contain' }}
               />
             </View>
 
@@ -222,7 +252,7 @@ const ProfileScreen = () => {
               width: hp(9),
               height: hp(6),
               resizeMode: 'contain',
-              transform: [{rotate: '-90deg'}],
+              transform: [{ rotate: '-90deg' }],
             }}
           />
         </TouchableOpacity>
@@ -235,7 +265,7 @@ const ProfileScreen = () => {
             justifyContent: 'space-between',
             marginTop: hp(25),
           }}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View
               style={{
                 width: hp(29),
@@ -247,7 +277,7 @@ const ProfileScreen = () => {
               }}>
               <Image
                 source={icons.list_Icon}
-                style={{width: hp(11), height: hp(12), resizeMode: 'contain'}}
+                style={{ width: hp(11), height: hp(12), resizeMode: 'contain' }}
               />
             </View>
 
@@ -268,7 +298,7 @@ const ProfileScreen = () => {
               width: hp(9),
               height: hp(6),
               resizeMode: 'contain',
-              transform: [{rotate: '-90deg'}],
+              transform: [{ rotate: '-90deg' }],
             }}
           />
         </TouchableOpacity>
@@ -284,7 +314,7 @@ const ProfileScreen = () => {
             justifyContent: 'space-between',
             marginTop: hp(25),
           }}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View
               style={{
                 width: hp(29),
@@ -296,7 +326,7 @@ const ProfileScreen = () => {
               }}>
               <Image
                 source={icons.list_Icon}
-                style={{width: hp(11), height: hp(12), resizeMode: 'contain'}}
+                style={{ width: hp(11), height: hp(12), resizeMode: 'contain' }}
               />
             </View>
 
@@ -317,7 +347,7 @@ const ProfileScreen = () => {
               width: hp(9),
               height: hp(6),
               resizeMode: 'contain',
-              transform: [{rotate: '-90deg'}],
+              transform: [{ rotate: '-90deg' }],
             }}
           />
         </TouchableOpacity>
@@ -333,7 +363,7 @@ const ProfileScreen = () => {
             justifyContent: 'space-between',
             marginTop: hp(25),
           }}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View
               style={{
                 width: hp(29),
@@ -345,7 +375,7 @@ const ProfileScreen = () => {
               }}>
               <Image
                 source={icons.list_Icon}
-                style={{width: hp(11), height: hp(12), resizeMode: 'contain'}}
+                style={{ width: hp(11), height: hp(12), resizeMode: 'contain' }}
               />
             </View>
 
@@ -366,15 +396,13 @@ const ProfileScreen = () => {
               width: hp(9),
               height: hp(6),
               resizeMode: 'contain',
-              transform: [{rotate: '-90deg'}],
+              transform: [{ rotate: '-90deg' }],
             }}
           />
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => {
-            navigation.navigate('Login');
-          }}
+          onPress={handleLogout}
           activeOpacity={0.6}
           style={{
             flexDirection: 'row',
@@ -382,7 +410,7 @@ const ProfileScreen = () => {
             justifyContent: 'space-between',
             marginTop: hp(25),
           }}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View
               style={{
                 width: hp(29),
@@ -394,7 +422,7 @@ const ProfileScreen = () => {
               }}>
               <Image
                 source={icons.logout_Icon}
-                style={{width: hp(11), height: hp(12), resizeMode: 'contain'}}
+                style={{ width: hp(11), height: hp(12), resizeMode: 'contain' }}
               />
             </View>
 

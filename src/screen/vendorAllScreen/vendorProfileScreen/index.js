@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Alert,
   Image,
   SafeAreaView,
   ScrollView,
@@ -7,6 +8,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {useDispatch} from 'react-redux';
+import {logoutUser} from '../../../actions/customerAuthActions';
 import {colors} from '../../../utils/colors';
 import {fontFamily, fontSize, hp, wp} from '../../../utils/helpers';
 import {icons, images} from '../../../assets';
@@ -15,6 +19,29 @@ import DeviceInfo from 'react-native-device-info';
 
 const VendorProfileScreen = () => {
   const navigation = useNavigation();
+  const dispatch = useDispatch();
+
+  const handleLogout = () => {
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      {text: 'Cancel', style: 'cancel'},
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await AsyncStorage.removeItem('token');
+          } catch (error) {
+            console.log('Error clearing token on logout:', error);
+          }
+          dispatch(logoutUser());
+          navigation.reset({
+            index: 0,
+            routes: [{name: 'AccountTypeScreen'}],
+          });
+        },
+      },
+    ]);
+  };
 
   const appVersion = DeviceInfo.getVersion();
 
@@ -558,9 +585,7 @@ const VendorProfileScreen = () => {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => {
-              navigation.navigate('Login');
-            }}
+            onPress={handleLogout}
             activeOpacity={0.6}
             style={{
               flexDirection: 'row',

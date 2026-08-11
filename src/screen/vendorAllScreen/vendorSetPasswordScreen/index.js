@@ -1,5 +1,7 @@
-import React, {useState} from 'react';
+import React, { useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   Image,
   SafeAreaView,
   Text,
@@ -7,13 +9,17 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import {colors} from '../../../utils/colors';
-import {fontFamily, fontSize, hp, wp} from '../../../utils/helpers';
-import {icons} from '../../../assets';
-import {useNavigation} from '@react-navigation/native';
+import { useDispatch, useSelector } from 'react-redux';
+import { colors } from '../../../utils/colors';
+import { fontFamily, fontSize, hp, wp } from '../../../utils/helpers';
+import { icons } from '../../../assets';
+import { useNavigation } from '@react-navigation/native';
+import { updateVendorProfile, updateUserCustomer } from '../../../actions/customerAuthActions';
 
 const VendorSetPasswordScreen = () => {
   const navigation = useNavigation();
+  const dispatch = useDispatch();
+  const { loading } = useSelector(state => state.auth || {});
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -25,8 +31,57 @@ const VendorSetPasswordScreen = () => {
     confirmPassword.length >= 6 &&
     password === confirmPassword;
 
+  const handleConfirm = () => {
+    if (password.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters long');
+      return;
+    }
+    if (password !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+
+    const payload = {
+      password: password,
+    };
+
+    console.log(
+      'Sending Vendor Set Password Payload:',
+      JSON.stringify(payload, null, 2),
+    );
+
+    dispatch(
+      updateVendorProfile(payload, (error, response) => {
+        if (error) {
+          console.log(
+            'updateVendorProfile failed, trying updateUserCustomer fallback:',
+            error,
+          );
+          dispatch(
+            updateUserCustomer(payload, (err2, res2) => {
+              if (err2) {
+                Alert.alert(
+                  'Failed to Set Password',
+                  error?.message ||
+                    error?.msg ||
+                    err2?.message ||
+                    err2?.msg ||
+                    'Something went wrong. Please try again.',
+                );
+              } else {
+                navigation.navigate('VendorBasicInfoScreen');
+              }
+            }),
+          );
+        } else {
+          navigation.navigate('VendorBasicInfoScreen');
+        }
+      }),
+    );
+  };
+
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: colors.white}}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.white }}>
       {/* HEADER */}
       <View
         style={{
@@ -48,7 +103,7 @@ const VendorSetPasswordScreen = () => {
           }}>
           <Image
             source={icons.back_Arrow_Icon}
-            style={{width: wp(15), height: hp(15), resizeMode: 'contain'}}
+            style={{ width: wp(15), height: hp(15), resizeMode: 'contain' }}
           />
         </TouchableOpacity>
 
@@ -73,7 +128,7 @@ const VendorSetPasswordScreen = () => {
       </View>
 
       {/* PROGRESS BAR */}
-      <View style={{width: '100%', height: hp(1), backgroundColor: '#E5E5E5'}}>
+      <View style={{ width: '100%', height: hp(1), backgroundColor: '#E5E5E5' }}>
         <View
           style={{
             width: '33.11%',
@@ -83,7 +138,7 @@ const VendorSetPasswordScreen = () => {
         />
       </View>
 
-      <View style={{marginTop: hp(70), alignItems: 'center'}}>
+      <View style={{ marginTop: hp(70), alignItems: 'center' }}>
         <Text
           style={{
             color: colors.pureBlack,
@@ -203,11 +258,9 @@ const VendorSetPasswordScreen = () => {
         {/* Confirm Button */}
 
         <TouchableOpacity
-          onPress={() => {
-            navigation.navigate('VendorBasicInfoScreen');
-          }}
+          onPress={handleConfirm}
           activeOpacity={0.6}
-          // disabled={!isValid}
+          disabled={!isValid || loading}
           style={{
             height: hp(50),
             borderRadius: hp(25),
@@ -215,16 +268,20 @@ const VendorSetPasswordScreen = () => {
             justifyContent: 'center',
             alignItems: 'center',
             marginTop: hp(25),
-            // opacity: isValid ? 1 : 0.5,
+            opacity: isValid && !loading ? 1 : 0.5,
           }}>
-          <Text
-            style={{
-              color: colors.white,
-              fontSize: fontSize(16),
-              fontFamily: fontFamily.poppins500,
-            }}>
-            Confirm
-          </Text>
+          {loading ? (
+            <ActivityIndicator color={colors.white} size="large" />
+          ) : (
+            <Text
+              style={{
+                color: colors.white,
+                fontSize: fontSize(16),
+                fontFamily: fontFamily.poppins500,
+              }}>
+              Confirm
+            </Text>
+          )}
         </TouchableOpacity>
 
         {/* Hint */}
@@ -238,15 +295,15 @@ const VendorSetPasswordScreen = () => {
             fontFamily: fontFamily.poppins400,
             lineHeight: hp(18),
           }}>
-          <Text style={{color: colors.pureBlack}}>Hints :</Text> Must be 6-8
+          <Text style={{ color: colors.pureBlack }}>Hints :</Text> Must be 6-8
           characters long,{'\n'}
           including numbers and letters
         </Text>
       </View>
 
-      <View style={{marginHorizontal: wp(37), marginTop: hp(90)}}>
+      <View style={{ marginHorizontal: wp(37), marginTop: hp(90) }}>
         <View
-          style={{width: '100%', height: hp(1), backgroundColor: '#E1E1E1'}}
+          style={{ width: '100%', height: hp(1), backgroundColor: '#E1E1E1' }}
         />
         <TouchableOpacity
           activeOpacity={0.6}

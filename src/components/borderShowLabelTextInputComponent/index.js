@@ -12,6 +12,7 @@ const BorderShowLabelTextInputComponent = ({
   keyboardType = 'default',
   maxLength,
   multiline = true,
+  editable = true,
 }) => {
   const [isFocused, setIsFocused] = useState(false);
 
@@ -27,6 +28,7 @@ const BorderShowLabelTextInputComponent = ({
           borderRadius: hp(12),
           paddingHorizontal: wp(12),
           paddingBottom: hp(10),
+          backgroundColor: editable ? 'transparent' : '#F5F5F5',
         }}>
         {/* Floating Label */}
         {isActive && (
@@ -56,12 +58,13 @@ const BorderShowLabelTextInputComponent = ({
           keyboardType={keyboardType}
           maxLength={maxLength}
           multiline={multiline}
+          editable={editable}
           returnKeyType="done"
           blurOnSubmit
           style={{
             fontSize: fontSize(14),
             fontFamily: fontFamily.poppins400,
-            color: colors.pureBlack,
+            color: editable ? colors.pureBlack : '#666',
             minHeight: multiline ? hp(40) : hp(20),
             top: 7,
           }}
