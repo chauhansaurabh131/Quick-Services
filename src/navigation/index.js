@@ -21,6 +21,7 @@ import AccountTypeScreen from '../screen/accountTypeScreen';
 import VendorBasicInfoScreen from '../screen/vendorAllScreen/vendorBasicInfoScreen';
 import VendorBusinessAddressScreen from '../screen/vendorAllScreen/vendorBusinessAddressScreen';
 import KycDetailsScreen from '../screen/vendorAllScreen/kycDetailsScreen';
+import PreBookingServiceScreen from '../screen/customerAllScreen/preBookingServiceScreen';
 
 import FaceCaptureScreen from '../screen/customerAllScreen/demoScreen/FaceCaptureScreen';
 import VendorServiceAndPricingScreen from '../screen/vendorAllScreen/vendorServiceAndPricingScreen';
@@ -156,6 +157,10 @@ const Navigation = () => {
         <Stack.Screen
           name="BookingSummaryScreen"
           component={BookingSummaryScreen}
+        />
+        <Stack.Screen
+          name="PreBookingServiceScreen"
+          component={PreBookingServiceScreen}
         />
         <Stack.Screen name="SettingScreen" component={SettingScreen} />
 

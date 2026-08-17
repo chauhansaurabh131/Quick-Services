@@ -18,6 +18,8 @@ const customerAuthReducer = (state = initialState, action) => {
     case TYPES.UPDATE_VENDOR_PROFILE:
     case TYPES.SAVE_BUSINESS_ADDRESS:
     case TYPES.SAVE_VENDOR_SERVICES:
+    case TYPES.GET_VENDOR_SERVICES_BY_CATEGORY:
+    case TYPES.GET_VENDOR_USER_DETAILS:
       return {
         ...state,
         loading: true,
@@ -64,9 +66,15 @@ const customerAuthReducer = (state = initialState, action) => {
         user: {
           ...state.user,
           ...action.data,
+          serviceRadius: action.payload?.serviceRadius ?? action.data?.serviceRadius ?? state.user?.serviceRadius,
           user: {
             ...state.user?.user,
             ...action.data?.user,
+            ...action.payload,
+          },
+          vendorUser: {
+            ...state.user?.vendorUser,
+            ...action.data?.vendorUser,
             ...action.payload,
           },
         },
@@ -80,11 +88,39 @@ const customerAuthReducer = (state = initialState, action) => {
         categories: action.data,
         error: null,
       };
+    case TYPES.GET_CATEGORIES_SUCCESS:
+      return {
+        ...state,
+        loading: false,
+        customerCategories: action.data,
+        error: null,
+      };
+    case TYPES.GET_CATEGORY_BY_ID_SUCCESS:
+      return {
+        ...state,
+        loading: false,
+        selectedCategoryDetails: action.data,
+        error: null,
+      };
     case TYPES.GET_SERVICES_BY_CATEGORY_SUCCESS:
       return {
         ...state,
         loading: false,
         services: action.data,
+        error: null,
+      };
+    case TYPES.GET_VENDOR_SERVICES_BY_CATEGORY_SUCCESS:
+      return {
+        ...state,
+        loading: false,
+        vendorServices: action.data,
+        error: null,
+      };
+    case TYPES.GET_VENDOR_USER_DETAILS_SUCCESS:
+      return {
+        ...state,
+        loading: false,
+        vendorUserDetails: action.data,
         error: null,
       };
     case TYPES.RESEND_OTP_VENDOR_SUCCESS:
@@ -102,6 +138,8 @@ const customerAuthReducer = (state = initialState, action) => {
     case TYPES.UPDATE_VENDOR_PROFILE_FAILED:
     case TYPES.SAVE_BUSINESS_ADDRESS_FAILED:
     case TYPES.SAVE_VENDOR_SERVICES_FAILED:
+    case TYPES.GET_VENDOR_SERVICES_BY_CATEGORY_FAILED:
+    case TYPES.GET_VENDOR_USER_DETAILS_FAILED:
     case TYPES.RESEND_OTP_VENDOR_FAILED:
       return {
         ...state,

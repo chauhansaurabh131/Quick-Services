@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   FlatList,
   Image,
@@ -7,50 +7,366 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from 'react-native';
-import {useSelector} from 'react-redux';
+import {useDispatch, useSelector} from 'react-redux';
 import {fontFamily, fontSize, hp, wp} from '../../../utils/helpers';
 import {icons} from '../../../assets';
 import {colors} from '../../../utils/colors';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useRoute} from '@react-navigation/native';
+import {getVendorServicesByCategory} from '../../../actions/customerAuthActions';
 
-const BookingServiceScreen = () => {
-  const {place, fullAddress} = useSelector(state => state.location);
+const BookingServiceScreen = ({route}) => {
+  const dispatch = useDispatch();
+  const {
+    place,
+    fullAddress,
+    longitude: reduxLon,
+    latitude: reduxLat,
+  } = useSelector(state => state.location);
+  const {loading: sagaLoading, vendorServices: reduxVendorServices} =
+    useSelector(state => state.auth || {});
   const [search, setSearch] = useState('');
+  const [vendorServicesList, setVendorServicesList] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   const navigation = useNavigation();
 
-  const serviceList = [
-    {
-      id: '1',
-      name: 'Star Unisex Saloon',
-      service: 'Standard Hair Cut',
-      price: 'Rs. 120',
-      rating: '4.6',
-      time: '20 mins',
-      image: 'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f',
-    },
-    {
-      id: '2',
-      name: 'Royal Hair Studio',
-      service: 'Hair Styling',
-      price: 'Rs. 180',
-      rating: '4.7',
-      time: '25 mins',
-      image: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e',
-    },
-    {
-      id: '3',
-      name: 'Urban Salon',
-      service: 'Hair Spa',
-      price: 'Rs. 350',
-      rating: '4.5',
-      time: '30 mins',
-      image: 'https://images.unsplash.com/photo-1560066984-138dadb4c035',
-    },
-  ];
+  const {
+    category,
+    categoryId: paramCatId,
+    longitude: paramLon,
+    latitude: paramLat,
+  } = route?.params || {};
+
+  const categoryId =
+    paramCatId || category?._id || category?.id || '6a70376b304b3286b0534645';
+  const lon = paramLon || reduxLon || 72.5714;
+  const lat = paramLat || reduxLat || 23.0225;
+
+  useEffect(() => {
+    setLoading(true);
+    console.log(
+      '==================================================',
+      '\n[BookingServiceScreen Dispatching Redux Saga Action]',
+      '\nAction: GET_VENDOR_SERVICES_BY_CATEGORY',
+      `\nCategory ID: ${categoryId}`,
+      `\nLongitude: ${lon}`,
+      `\nLatitude: ${lat}`,
+      '\n==================================================',
+    );
+
+    dispatch(
+      getVendorServicesByCategory(
+        categoryId,
+        lon,
+        lat,
+        (error, responseData) => {
+          setLoading(false);
+          if (error) {
+            console.log(
+              '==================================================',
+              '\n[BookingServiceScreen Redux Saga Error Callback]',
+              '\nError:',
+              JSON.stringify(error, null, 2),
+              '\n==================================================',
+            );
+          } else {
+            console.log(
+              '==================================================',
+              '\n[BookingServiceScreen Redux Saga Success Callback]',
+              '\nData Payload:',
+              JSON.stringify(responseData, null, 2),
+              '\n==================================================',
+            );
+
+            const fetchedList =
+              (Array.isArray(responseData?.data?.docs) &&
+                responseData.data.docs) ||
+              (Array.isArray(responseData?.docs) && responseData.docs) ||
+              (Array.isArray(responseData?.data?.services) &&
+                responseData.data.services) ||
+              (Array.isArray(responseData?.data?.vendorServices) &&
+                responseData.data.vendorServices) ||
+              (Array.isArray(responseData?.services) &&
+                responseData.services) ||
+              (Array.isArray(responseData?.vendorServices) &&
+                responseData.vendorServices) ||
+              (Array.isArray(responseData?.data) && responseData.data) ||
+              (Array.isArray(responseData) ? responseData : []);
+
+            if (Array.isArray(fetchedList)) {
+              setVendorServicesList(fetchedList);
+            }
+          }
+        },
+      ),
+    );
+  }, [categoryId, lon, lat, dispatch]);
+
+  useEffect(() => {
+    if (Array.isArray(reduxVendorServices)) {
+      setVendorServicesList(reduxVendorServices);
+    }
+  }, [reduxVendorServices]);
+
+  const dataToDisplay = vendorServicesList.map((item, idx) => ({
+    id: item._id || item.id || idx.toString(),
+    name:
+      item.businessName ||
+      item.business_name ||
+      item.vendor?.businessName ||
+      item.vendor?.business_name ||
+      item.vendorId?.businessName ||
+      item.vendorId?.business_name ||
+      item.vendorName ||
+      item.vendor_name ||
+      item.vendorId?.name ||
+      item.vendor?.name ||
+      item.name ||
+      item.title ||
+      'Quick Service Provider',
+    service:
+      item.categoryTitle ||
+      item.category_title ||
+      item.serviceDetails?.title ||
+      item.serviceDetails?.name ||
+      item.serviceName ||
+      item.service_name ||
+      item.title ||
+      item.service?.name ||
+      item.serviceId?.name ||
+      category?.name ||
+      'Professional Service',
+    price:
+      item.charge !== null && item.charge !== undefined
+        ? `Rs. ${item.charge}`
+        : item.visitCharge !== null && item.visitCharge !== undefined
+        ? `Rs. ${item.visitCharge}`
+        : item.price
+        ? `Rs. ${item.price}`
+        : 'Rs. 0',
+
+    rating: item.rating ? item.rating.toString() : '4.8',
+    distance:
+      item.distance !== null &&
+      item.distance !== undefined &&
+      !isNaN(Number(item.distance))
+        ? `${Number(item.distance).toFixed(1)} Km Away`
+        : item.dist !== null &&
+          item.dist !== undefined &&
+          !isNaN(Number(item.dist))
+        ? `${Number(item.dist).toFixed(1)} Km Away`
+        : '8.6 Km Away',
+    time:
+      item.distance !== null &&
+      item.distance !== undefined &&
+      !isNaN(Number(item.distance))
+        ? `${Number(item.distance).toFixed(1)} Km Away`
+        : item.duration
+        ? `${item.duration} mins`
+        : '8.6 Km Away',
+    _id: item._id || item.id || item.userId || item.vendorUserId,
+    rawItem: item,
+    image:
+      (typeof item.profilePic === 'string' &&
+        item.profilePic.trim() !== '' &&
+        item.profilePic) ||
+      (typeof item.profile_pic === 'string' &&
+        item.profile_pic.trim() !== '' &&
+        item.profile_pic) ||
+      (typeof item.profileImage === 'string' &&
+        item.profileImage.trim() !== '' &&
+        item.profileImage) ||
+      (Array.isArray(item.profilePic) && item.profilePic[0]) ||
+      (Array.isArray(item.profileImage) && item.profileImage[0]) ||
+      item.image ||
+      item.imageUrl ||
+      item.vendor?.image ||
+      item.vendorId?.image ||
+      'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f',
+  }));
 
   const renderItem = ({item}) => {
+    const nameStr = (
+      category?.name ||
+      category?.title ||
+      category?.key ||
+      category?.categoryName ||
+      item?.categoryTitle ||
+      item?.category_title ||
+      item?.categoryName ||
+      item?.service ||
+      item?.name ||
+      ''
+    ).toLowerCase();
+
+    const isSalonCategory =
+      nameStr.includes('salon') ||
+      nameStr.includes('saloon') ||
+      nameStr.includes('beauty') ||
+      nameStr.includes('barber');
+
+    if (isSalonCategory) {
+      const startingPrice = item.price
+        ? item.price.startsWith('Rs.')
+          ? item.price
+          : `Rs. ${item.price}`
+        : 'Rs. 500';
+
+      return (
+        <View
+          style={{
+            backgroundColor: '#fff',
+            borderRadius: hp(18),
+            marginBottom: hp(16),
+            borderWidth: 1,
+            borderColor: '#E8E8E8',
+            overflow: 'hidden',
+          }}>
+          {/* Image Container */}
+          <View>
+            <Image
+              source={{uri: item.image}}
+              style={{
+                width: '100%',
+                height: hp(140),
+                resizeMode: 'cover',
+              }}
+            />
+
+            {/* Rating Pill */}
+            <View
+              style={{
+                position: 'absolute',
+                top: hp(12),
+                left: wp(12),
+                backgroundColor: 'rgba(28, 28, 28, 0.85)',
+                borderRadius: hp(50),
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: wp(10),
+                paddingVertical: hp(5),
+              }}>
+              <Image
+                source={icons.star_Icon}
+                style={{
+                  width: hp(14),
+                  height: hp(14),
+                  resizeMode: 'contain',
+                  marginRight: wp(6),
+                }}
+              />
+              <Text
+                style={{
+                  color: colors.white,
+                  fontSize: fontSize(12),
+                  fontFamily: fontFamily.poppins600,
+                }}>
+                {item.rating}
+              </Text>
+            </View>
+          </View>
+
+          {/* Card Body */}
+          <View
+            style={{
+              paddingHorizontal: wp(16),
+              paddingTop: hp(14),
+              paddingBottom: hp(12),
+            }}>
+            {/* Business Title & Verified Badge */}
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+              }}>
+              <Text
+                style={{
+                  fontFamily: fontFamily.poppins600,
+                  fontSize: fontSize(18),
+                  color: colors.pureBlack,
+                }}>
+                {item.name}
+              </Text>
+              <Image
+                source={icons.verified_Icon}
+                style={{
+                  width: hp(16),
+                  height: hp(16),
+                  resizeMode: 'contain',
+                  marginLeft: wp(8),
+                }}
+              />
+            </View>
+
+            {/* Starting Price Subtitle */}
+            <Text
+              style={{
+                fontFamily: fontFamily.poppins400,
+                fontSize: fontSize(14),
+                color: '#4A4A4A',
+                marginTop: hp(4),
+              }}>
+              Starting from {startingPrice}
+            </Text>
+
+            {/* Divider Line */}
+            <View
+              style={{
+                width: '100%',
+                height: hp(1),
+                backgroundColor: '#E6E6E6',
+                marginTop: hp(14),
+                marginBottom: hp(12),
+              }}
+            />
+
+            {/* Centered Book Now with Right Arrow */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() =>
+                navigation.navigate('PreBookingServiceScreen', {
+                  vendorUserId:
+                    item._id || item.rawItem?._id || item.id || item.userId,
+                  item: item.rawItem || item,
+                  vendor: item.rawItem || item,
+                })
+              }
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingVertical: hp(2),
+              }}>
+              <Text
+                style={{
+                  color: '#731EE2',
+                  fontFamily: fontFamily.poppins600,
+                  fontSize: fontSize(15),
+                  textAlign: 'center',
+                }}>
+                Book Now
+              </Text>
+
+              <Image
+                source={icons.back_Arrow_Icon}
+                style={{
+                  position: 'absolute',
+                  right: 0,
+                  width: hp(14),
+                  height: hp(14),
+                  resizeMode: 'contain',
+                  transform: [{rotate: '180deg'}],
+                  tintColor: '#731EE2',
+                }}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+
     return (
       <View
         style={{
@@ -124,15 +440,6 @@ const BookingServiceScreen = () => {
               {item.name}
             </Text>
 
-            {/*<Text*/}
-            {/*  style={{*/}
-            {/*    fontFamily: fontFamily.poppins600,*/}
-            {/*    fontSize: fontSize(12),*/}
-            {/*    color: 'black',*/}
-            {/*  }}>*/}
-            {/*  {item.price}*/}
-            {/*</Text>*/}
-
             <Image
               source={icons.verified_Icon}
               style={{
@@ -147,26 +454,23 @@ const BookingServiceScreen = () => {
           <View
             style={{
               flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
             }}>
             <Text
               style={{
                 fontFamily: fontFamily.poppins500,
-                fontSize: fontSize(14),
+                fontSize: fontSize(13),
                 color: '#979797',
                 marginTop: hp(3),
-              }}>
-              {item.service}
-            </Text>
+              }}
+            />
 
             <Text
               style={{
-                fontSize: fontSize(14),
+                fontSize: fontSize(13),
                 fontFamily: fontFamily.poppins600,
                 color: colors.pureBlack,
               }}>
-              {item.price}
+              Visiting Charge Rs. {item.price}
             </Text>
           </View>
 
@@ -193,8 +497,8 @@ const BookingServiceScreen = () => {
                 alignSelf: 'center',
               }}>
               <Image
-                source={icons.timer_Icon}
-                style={{width: hp(12), height: hp(12), resizeMode: 'contain'}}
+                source={icons.location_Icon}
+                style={{width: hp(11), height: hp(13), resizeMode: 'contain'}}
               />
               <Text
                 style={{
@@ -204,7 +508,7 @@ const BookingServiceScreen = () => {
                   marginLeft: wp(11),
                   top: 1.5,
                 }}>
-                {item.time}
+                {item.distance || item.time}
               </Text>
             </View>
 
@@ -216,7 +520,14 @@ const BookingServiceScreen = () => {
               }}>
               <TouchableOpacity
                 activeOpacity={0.6}
-                onPress={() => navigation.navigate('BookingSummaryScreen')}>
+                onPress={() =>
+                  navigation.navigate('PreBookingServiceScreen', {
+                    vendorUserId:
+                      item._id || item.rawItem?._id || item.id || item.userId,
+                    item: item.rawItem || item,
+                    vendor: item.rawItem || item,
+                  })
+                }>
                 <Text
                   style={{
                     color: '#731EE2',
@@ -225,7 +536,7 @@ const BookingServiceScreen = () => {
                     marginRight: wp(7),
                     top: 1,
                   }}>
-                  Book Now
+                  Book Appointment
                 </Text>
               </TouchableOpacity>
 
@@ -362,17 +673,51 @@ const BookingServiceScreen = () => {
         </TouchableOpacity>
       </View>
 
-      <FlatList
-        data={serviceList}
-        keyExtractor={item => item.id}
-        renderItem={renderItem}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{
-          paddingHorizontal: wp(18),
-          marginTop: hp(20),
-          paddingBottom: hp(40),
-        }}
-      />
+      {loading ? (
+        <ActivityIndicator
+          size="large"
+          color={colors.pureBlack}
+          style={{marginTop: hp(270)}}
+        />
+      ) : (
+        <FlatList
+          data={dataToDisplay}
+          keyExtractor={(item, index) => item.id || index.toString()}
+          renderItem={renderItem}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View
+              style={{
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: hp(250),
+              }}>
+              <Image
+                source={icons.search_Icon}
+                style={{
+                  width: hp(36),
+                  height: hp(36),
+                  tintColor: '#C7C7C7',
+                  marginBottom: hp(12),
+                }}
+              />
+              <Text
+                style={{
+                  fontSize: fontSize(14),
+                  fontFamily: fontFamily.poppins500,
+                  color: '#8E8E93',
+                }}>
+                No services available in this category
+              </Text>
+            </View>
+          }
+          contentContainerStyle={{
+            paddingHorizontal: wp(18),
+            marginTop: hp(20),
+            paddingBottom: hp(40),
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 };

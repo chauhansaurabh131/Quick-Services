@@ -19,6 +19,7 @@ import { icons } from '../../../assets';
 import { useNavigation } from '@react-navigation/native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import {
+  getCategoryById,
   getServicesByCategory,
   getVendorCategories,
   saveVendorServices,
@@ -47,6 +48,16 @@ const VendorServiceAndPricingScreen = () => {
 
   const bottomSheetRef = useRef(null);
 
+  const userCategoryId =
+    user?.user?.categoryId ||
+    user?.vendorUser?.categoryId ||
+    user?.data?.user?.categoryId ||
+    user?.data?.vendorUser?.categoryId ||
+    user?.categoryId ||
+    reduxUser?.categoryId ||
+    reduxUser?.vendorUser?.categoryId ||
+    null;
+
   useEffect(() => {
     const showListener = Keyboard.addListener('keyboardDidShow', () => {
       setKeyboardVisible(true);
@@ -61,6 +72,48 @@ const VendorServiceAndPricingScreen = () => {
       hideListener.remove();
     };
   }, []);
+
+  useEffect(() => {
+    if (userCategoryId) {
+      console.log('Fetching category by ID on screen mount:', userCategoryId);
+      setCategoriesLoading(true);
+      dispatch(
+        getCategoryById(userCategoryId, (error, response) => {
+          setCategoriesLoading(false);
+          if (error) {
+            console.log('Error fetching category by ID:', error);
+          } else {
+            console.log('Get Category By ID Response:', response);
+            const categoryObj =
+              response?.data || response?.category || response;
+            const categoryName =
+              categoryObj?.name || categoryObj?.title || categoryObj?.categoryName || '';
+            if (categoryName) {
+              setSearch(categoryName);
+              setSelectedCategory(categoryObj);
+            }
+          }
+        }),
+      );
+
+      setServicesLoading(true);
+      setServicesList([]);
+      dispatch(
+        getServicesByCategory(userCategoryId, (error, response) => {
+          setServicesLoading(false);
+          if (error) {
+            console.log('Error fetching services by category:', error);
+            setServicesList([]);
+          } else {
+            console.log('Services by Category API Response:', response);
+            const list =
+              response?.data || response?.services || response || [];
+            setServicesList(Array.isArray(list) ? list : []);
+          }
+        }),
+      );
+    }
+  }, [userCategoryId]);
 
   const handleOpenBottomSheet = () => {
     bottomSheetRef.current?.open();
@@ -292,38 +345,38 @@ const VendorServiceAndPricingScreen = () => {
         </Text>
 
         <TouchableOpacity
-          activeOpacity={0.7}
+          activeOpacity={userCategoryId ? 1 : 0.7}
+          disabled={Boolean(userCategoryId)}
           onPress={handleOpenBottomSheet}
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            backgroundColor: '#F9FAFB',
+            justifyContent: 'space-between',
+            backgroundColor: userCategoryId ? '#F5F5F5' : '#FFFFFF',
             borderRadius: hp(16),
-            height: hp(50),
+            height: hp(52),
             marginTop: hp(16),
-            paddingHorizontal: wp(15),
+            paddingHorizontal: wp(16),
             borderWidth: 1,
-            borderColor: '#E1E1E1',
+            borderColor: userCategoryId ? '#E0E0E0' : '#E2E2E2',
             marginBottom: hp(5),
           }}>
-          <Image
-            source={icons.search_Icon}
-            style={{
-              width: hp(15),
-              height: hp(15),
-              marginRight: hp(10),
-              resizeMode: 'contain',
-            }}
-          />
+          {categoriesLoading && !search ? (
+            <ActivityIndicator size="small" color={colors.primaryColor} style={{ marginRight: hp(10) }} />
+          ) : null}
 
           <Text
             style={{
               flex: 1,
               fontSize: fontSize(14),
-              fontFamily: fontFamily.poppins400,
-              color: search ? colors.pureBlack : 'gray',
+              fontFamily: fontFamily.poppins500,
+              color: userCategoryId
+                ? '#666666'
+                : search
+                ? colors.pureBlack
+                : '#999999',
             }}>
-            {search || 'Select Service'}
+            {search || (categoriesLoading ? 'Loading category...' : 'Select Service Category')}
           </Text>
 
           <Image
@@ -332,6 +385,7 @@ const VendorServiceAndPricingScreen = () => {
               width: hp(12),
               height: hp(12),
               resizeMode: 'contain',
+              tintColor: userCategoryId ? '#C0C0C0' : '#B0B0B0',
             }}
           />
         </TouchableOpacity>

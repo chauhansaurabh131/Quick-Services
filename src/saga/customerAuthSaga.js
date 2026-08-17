@@ -388,6 +388,114 @@ function* getVendorCategoriesSaga(action) {
   }
 }
 
+function* getCategoriesSaga(action) {
+  try {
+    const callback = action?.data?.callback;
+    let token = yield call(AsyncStorage.getItem, 'token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+    if (!token || token === '[object Object]') {
+      const authState = yield select(state => state.auth);
+      let rawToken =
+        authState?.user?.token ||
+        authState?.user?.accessToken ||
+        authState?.user?.data?.token ||
+        authState?.user?.data?.accessToken ||
+        authState?.user?.tokens?.access?.token ||
+        authState?.user?.tokens?.access ||
+        authState?.user?.data?.tokens?.access?.token ||
+        authState?.user?.data?.tokens?.access ||
+        authState?.user?.user?.token ||
+        authState?.user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    const response = yield call(customerAuth.getCategories, token || '');
+    console.log(
+      'Get Categories Response:',
+      JSON.stringify(response.data, null, 2),
+    );
+
+    const categoriesData =
+      response.data?.data || response.data?.categories || response.data;
+
+    yield put(actions.getCategoriesSuccess(categoriesData));
+
+    if (callback) {
+      callback(null, response.data);
+    }
+  } catch (error) {
+    const errorData = error?.response?.data || error.message;
+    console.log('Get Categories Error:', JSON.stringify(errorData, null, 2));
+    yield put(actions.getCategoriesFailed(errorData));
+
+    if (action?.data?.callback) {
+      action.data.callback(errorData, null);
+    }
+  }
+}
+
+function* getCategoryByIdSaga(action) {
+  try {
+    const {categoryId, callback} = action.data;
+    console.log('Fetching Category By ID:', categoryId);
+    let token = yield call(AsyncStorage.getItem, 'token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+    if (!token || token === '[object Object]') {
+      const authState = yield select(state => state.auth);
+      let rawToken =
+        authState?.user?.token ||
+        authState?.user?.accessToken ||
+        authState?.user?.data?.token ||
+        authState?.user?.data?.accessToken ||
+        authState?.user?.tokens?.access?.token ||
+        authState?.user?.tokens?.access ||
+        authState?.user?.data?.tokens?.access?.token ||
+        authState?.user?.data?.tokens?.access ||
+        authState?.user?.user?.token ||
+        authState?.user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    const response = yield call(
+      customerAuth.getCategoryById,
+      categoryId,
+      token || '',
+    );
+    console.log(
+      'Get Category By ID Response:',
+      JSON.stringify(response.data, null, 2),
+    );
+
+    const categoryData = response.data?.data || response.data;
+
+    yield put(actions.getCategoryByIdSuccess(categoryData));
+
+    if (callback) {
+      callback(null, response.data);
+    }
+  } catch (error) {
+    const errorData = error?.response?.data || error.message;
+    console.log('Get Category By ID Error:', JSON.stringify(errorData, null, 2));
+    yield put(actions.getCategoryByIdFailed(errorData));
+
+    if (action?.data?.callback) {
+      action.data.callback(errorData, null);
+    }
+  }
+}
+
 function* getServicesByCategorySaga(action) {
   try {
     const {categoryId, callback} = action.data;
@@ -438,6 +546,172 @@ function* getServicesByCategorySaga(action) {
     const errorData = error?.response?.data || error.message;
     console.log('Get Services By Category Error:', JSON.stringify(errorData, null, 2));
     yield put(actions.getServicesByCategoryFailed(errorData));
+
+    if (action?.data?.callback) {
+      action.data.callback(errorData, null);
+    }
+  }
+}
+
+function* getVendorServicesByCategorySaga(action) {
+  try {
+    const {categoryId, longitude, latitude, callback} = action.data;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: GET_VENDOR_SERVICES_BY_CATEGORY Request]',
+      `\nCategory ID: ${categoryId}`,
+      `\nLongitude: ${longitude}`,
+      `\nLatitude: ${latitude}`,
+      '\n==================================================',
+    );
+
+    let token = yield call(AsyncStorage.getItem, 'token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+    if (!token || token === '[object Object]') {
+      const authState = yield select(state => state.auth);
+      let rawToken =
+        authState?.user?.token ||
+        authState?.user?.accessToken ||
+        authState?.user?.data?.token ||
+        authState?.user?.data?.accessToken ||
+        authState?.user?.tokens?.access?.token ||
+        authState?.user?.tokens?.access ||
+        authState?.user?.data?.tokens?.access?.token ||
+        authState?.user?.data?.tokens?.access ||
+        authState?.user?.user?.token ||
+        authState?.user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    if (!token) {
+      token =
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2YTcwMzc2YjMwNGIzMjg2YjA1MzQ2NDUiLCJpYXQiOjE3ODY0MjkwNzYsImV4cCI6MTc4NjYwOTA3Nn0.9FBnZ2Ez6EqzBxJ62Ra8QCZjxI0kkhtxx4KPImEvNPI';
+    }
+
+    const response = yield call(
+      customerAuth.getVendorServicesByCategory,
+      categoryId,
+      longitude,
+      latitude,
+      token || '',
+    );
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: GET_VENDOR_SERVICES_BY_CATEGORY Response]',
+      `\nStatus: ${response?.status}`,
+      '\nData:',
+      JSON.stringify(response?.data, null, 2),
+      '\n==================================================',
+    );
+
+    const vendorServicesData =
+      (Array.isArray(response?.data?.data?.docs) && response.data.data.docs) ||
+      (Array.isArray(response?.data?.docs) && response.data.docs) ||
+      (Array.isArray(response?.data?.data?.services) && response.data.data.services) ||
+      (Array.isArray(response?.data?.data?.vendorServices) && response.data.data.vendorServices) ||
+      (Array.isArray(response?.data?.services) && response.data.services) ||
+      (Array.isArray(response?.data?.data) && response.data.data) ||
+      (Array.isArray(response?.data) ? response.data : []);
+
+    yield put(
+      actions.getVendorServicesByCategorySuccess(vendorServicesData, categoryId),
+    );
+
+    if (callback) {
+      callback(null, response.data);
+    }
+  } catch (error) {
+    const errorData = error?.response?.data || error.message;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: GET_VENDOR_SERVICES_BY_CATEGORY Error]',
+      `\nStatus Code: ${error?.response?.status || 'N/A'}`,
+      '\nError Details:',
+      JSON.stringify(errorData, null, 2),
+      '\n==================================================',
+    );
+    yield put(actions.getVendorServicesByCategoryFailed(errorData));
+
+    if (action?.data?.callback) {
+      action.data.callback(errorData, null);
+    }
+  }
+}
+
+function* getVendorUserDetailsSaga(action) {
+  try {
+    const {vendorUserId, callback} = action.data;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: GET_VENDOR_USER_DETAILS Request]',
+      `\nVendor User ID: ${vendorUserId}`,
+      '\n==================================================',
+    );
+
+    let token = yield call(AsyncStorage.getItem, 'token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+    if (!token || token === '[object Object]') {
+      const authState = yield select(state => state.auth);
+      let rawToken =
+        authState?.user?.token ||
+        authState?.user?.accessToken ||
+        authState?.user?.data?.token ||
+        authState?.user?.data?.accessToken ||
+        authState?.user?.tokens?.access?.token ||
+        authState?.user?.tokens?.access ||
+        authState?.user?.data?.tokens?.access?.token ||
+        authState?.user?.data?.tokens?.access ||
+        authState?.user?.user?.token ||
+        authState?.user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    const response = yield call(
+      customerAuth.getVendorUserDetails,
+      vendorUserId,
+      token || '',
+    );
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: GET_VENDOR_USER_DETAILS Response]',
+      `\nStatus: ${response?.status}`,
+      '\nData:',
+      JSON.stringify(response?.data, null, 2),
+      '\n==================================================',
+    );
+
+    const vendorDetails = response?.data?.data || response?.data;
+
+    yield put(actions.getVendorUserDetailsSuccess(vendorDetails));
+
+    if (callback) {
+      callback(null, response.data);
+    }
+  } catch (error) {
+    const errorData = error?.response?.data || error.message;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: GET_VENDOR_USER_DETAILS Error]',
+      `\nStatus Code: ${error?.response?.status || 'N/A'}`,
+      '\nError Details:',
+      JSON.stringify(errorData, null, 2),
+      '\n==================================================',
+    );
+    yield put(actions.getVendorUserDetailsFailed(errorData));
 
     if (action?.data?.callback) {
       action.data.callback(errorData, null);
@@ -589,7 +863,14 @@ export default function* customerAuthSaga() {
   yield takeLatest(TYPES.UPDATE_VENDOR_PROFILE, updateVendorProfileSaga);
   yield takeLatest(TYPES.SAVE_BUSINESS_ADDRESS, saveBusinessAddressSaga);
   yield takeLatest(TYPES.GET_VENDOR_CATEGORIES, getVendorCategoriesSaga);
+  yield takeLatest(TYPES.GET_CATEGORIES, getCategoriesSaga);
+  yield takeLatest(TYPES.GET_CATEGORY_BY_ID, getCategoryByIdSaga);
   yield takeLatest(TYPES.GET_SERVICES_BY_CATEGORY, getServicesByCategorySaga);
+  yield takeLatest(
+    TYPES.GET_VENDOR_SERVICES_BY_CATEGORY,
+    getVendorServicesByCategorySaga,
+  );
+  yield takeLatest(TYPES.GET_VENDOR_USER_DETAILS, getVendorUserDetailsSaga);
   yield takeLatest(TYPES.SAVE_VENDOR_SERVICES, saveVendorServicesSaga);
   yield takeLatest(TYPES.RESEND_OTP_VENDOR, resendOtpVendorSaga);
   yield takeLatest(TYPES.LOGIN_VENDOR, loginVendorSaga);

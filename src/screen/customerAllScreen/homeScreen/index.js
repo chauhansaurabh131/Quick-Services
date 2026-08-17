@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useState, useRef} from 'react';
 import {
   SafeAreaView,
   Text,
@@ -24,6 +24,8 @@ import {setLocation} from '../../../actions/locationActions';
 import HomeScreenOurServicesComponent from '../../../components/homeScreenOurServicesComponent';
 import HomeScreenQuickBookComponent from '../../../components/homeScreenQuickBookComponent';
 import {useTranslation} from 'react-i18next';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {customerAuth} from '../../../apis';
 
 const HomeScreen = () => {
   const dispatch = useDispatch();
@@ -33,13 +35,118 @@ const HomeScreen = () => {
     place,
     fullAddress,
   } = useSelector(state => state.location);
+  const {user} = useSelector(state => state.auth || {});
 
   const [search, setSearch] = useState('');
   const {t} = useTranslation();
 
+  const locationRef = useRef({latitude: savedLat, longitude: savedLon});
+
   useEffect(() => {
-    getCurrentLocation();
+    locationRef.current = {latitude: savedLat, longitude: savedLon};
+  }, [savedLat, savedLon]);
+
+  const getAuthTokenAndUserId = async () => {
+    let token = await AsyncStorage.getItem('token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+
+    if (!token || token === '[object Object]') {
+      let rawToken =
+        user?.token ||
+        user?.accessToken ||
+        user?.data?.token ||
+        user?.data?.accessToken ||
+        user?.tokens?.access?.token ||
+        user?.tokens?.access ||
+        user?.data?.tokens?.access?.token ||
+        user?.data?.tokens?.access ||
+        user?.user?.token ||
+        user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    const userId =
+      user?.id ||
+      user?._id ||
+      user?.user?.id ||
+      user?.user?._id ||
+      user?.customerUser?.id ||
+      user?.customerUser?._id ||
+      user?.data?.user?.id ||
+      user?.data?.user?._id ||
+      user?.data?.id ||
+      user?.data?._id;
+
+    return {token, userId};
+  };
+
+  useEffect(() => {
+    let watchId = null;
+
+    const initLocationTracking = async () => {
+      const hasPermission = await requestLocationPermission();
+      if (!hasPermission) {
+        dispatch(
+          setLocation({
+            latitude: null,
+            longitude: null,
+            place: 'Permission denied',
+            fullAddress: '',
+          }),
+        );
+        return;
+      }
+
+      getCurrentLocation();
+
+      watchId = Geolocation.watchPosition(
+        position => {
+          const {longitude, latitude} = position.coords;
+          console.log(
+            'HomeScreen Live Location Update -> Longitude:',
+            longitude,
+            'Latitude:',
+            latitude,
+          );
+          handleNewCoordinates(longitude, latitude);
+        },
+        error => {
+          console.log('HomeScreen Geolocation watch error:', error);
+        },
+        {
+          enableHighAccuracy: true,
+          distanceFilter: 5,
+          interval: 4000,
+          fastestInterval: 2000,
+        },
+      );
+    };
+
+    initLocationTracking();
+
+    return () => {
+      if (watchId !== null) {
+        Geolocation.clearWatch(watchId);
+      }
+    };
   }, []);
+
+  useEffect(() => {
+    if (savedLon !== null && savedLat !== null) {
+      console.log(
+        'HomeScreen Redux Location -> Longitude:',
+        savedLon,
+        'Latitude:',
+        savedLat,
+      );
+    }
+  }, [savedLon, savedLat]);
 
   const requestLocationPermission = async () => {
     if (Platform.OS === 'android') {
@@ -49,6 +156,112 @@ const HomeScreen = () => {
       return granted === PermissionsAndroid.RESULTS.GRANTED;
     }
     return true;
+  };
+
+  const handleNewCoordinates = async (longitude, latitude) => {
+    const prevLon = locationRef.current.longitude;
+    const prevLat = locationRef.current.latitude;
+
+    if (
+      prevLon &&
+      prevLat &&
+      Math.abs(prevLon - longitude) < 0.0001 &&
+      Math.abs(prevLat - latitude) < 0.0001
+    ) {
+      return;
+    }
+
+    // Send PUT request to location API
+    try {
+      const {token, userId} = await getAuthTokenAndUserId();
+      console.log('Updating location API for User ID:', userId);
+
+      if (userId && token) {
+        const locationPayload = {
+          location: {
+            type: 'Point',
+            coordinates: [longitude, latitude],
+          },
+        };
+
+        console.log(
+          `PUT Request to /customer/user/${userId}:`,
+          JSON.stringify(locationPayload),
+        );
+
+        const apiRes = await customerAuth.updateUserLocation(
+          userId,
+          locationPayload,
+          token,
+        );
+
+        console.log(
+          'Location API Update Success:',
+          JSON.stringify(apiRes?.data, null, 2),
+        );
+      } else {
+        console.log(
+          'Location API Update skipped (Missing User ID or Token). User ID:',
+          userId,
+          '| Token present:',
+          !!token,
+        );
+      }
+    } catch (apiErr) {
+      console.log(
+        'Location API Update Error:',
+        apiErr?.response?.data || apiErr?.message,
+      );
+    }
+
+    try {
+      const addressRes = await axios.get(
+        'https://nominatim.openstreetmap.org/reverse',
+        {
+          params: {
+            lat: latitude,
+            lon: longitude,
+            format: 'json',
+          },
+          headers: {
+            'User-Agent': 'doormigo-app',
+          },
+        },
+      );
+
+      const addr = addressRes.data.address || {};
+
+      const city =
+        addr.city ||
+        addr.town ||
+        addr.village ||
+        addr.hamlet ||
+        addr.county ||
+        '';
+
+      const district = addr.state_district || '';
+      const state = addr.state || '';
+
+      const newFullAddress = `${city}, ${district}, ${state}`;
+
+      dispatch(
+        setLocation({
+          latitude,
+          longitude,
+          place: city,
+          fullAddress: newFullAddress,
+        }),
+      );
+    } catch (error) {
+      dispatch(
+        setLocation({
+          latitude,
+          longitude,
+          place: 'Unable to fetch location',
+          fullAddress: '',
+        }),
+      );
+    }
   };
 
   const getCurrentLocation = async () => {
@@ -66,66 +279,15 @@ const HomeScreen = () => {
     }
 
     Geolocation.getCurrentPosition(
-      async position => {
-        const {latitude, longitude} = position.coords;
-
-        if (
-          savedLat &&
-          savedLon &&
-          Math.abs(savedLat - latitude) < 0.0001 &&
-          Math.abs(savedLon - longitude) < 0.0001
-        ) {
-          return;
-        }
-
-        try {
-          const addressRes = await axios.get(
-            'https://nominatim.openstreetmap.org/reverse',
-            {
-              params: {
-                lat: latitude,
-                lon: longitude,
-                format: 'json',
-              },
-              headers: {
-                'User-Agent': 'doormigo-app',
-              },
-            },
-          );
-
-          const addr = addressRes.data.address;
-
-          const city =
-            addr.city ||
-            addr.town ||
-            addr.village ||
-            addr.hamlet ||
-            addr.county ||
-            '';
-
-          const district = addr.state_district || '';
-          const state = addr.state || '';
-
-          const newFullAddress = `${city}, ${district}, ${state}`;
-
-          dispatch(
-            setLocation({
-              latitude,
-              longitude,
-              place: city,
-              fullAddress: newFullAddress,
-            }),
-          );
-        } catch (error) {
-          dispatch(
-            setLocation({
-              latitude,
-              longitude,
-              place: 'Unable to fetch location',
-              fullAddress: '',
-            }),
-          );
-        }
+      position => {
+        const {longitude, latitude} = position.coords;
+        console.log(
+          'HomeScreen Initial Location -> Longitude:',
+          longitude,
+          'Latitude:',
+          latitude,
+        );
+        handleNewCoordinates(longitude, latitude);
       },
       error => {
         dispatch(

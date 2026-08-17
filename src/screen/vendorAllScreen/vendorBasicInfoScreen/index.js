@@ -4,6 +4,8 @@ import {
   Alert,
   Image,
   Keyboard,
+  PermissionsAndroid,
+  Platform,
   SafeAreaView,
   ScrollView,
   Text,
@@ -14,6 +16,9 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RBSheet from 'react-native-raw-bottom-sheet';
+import Geolocation from 'react-native-geolocation-service';
+import axios from 'axios';
+import { setLocation } from '../../../actions/locationActions';
 import { colors } from '../../../utils/colors';
 import { icons } from '../../../assets';
 import { fontFamily, fontSize, hp, wp } from '../../../utils/helpers';
@@ -22,6 +27,7 @@ import { launchImageLibrary } from 'react-native-image-picker';
 import BorderShowLabelTextInputComponent from '../../../components/borderShowLabelTextInputComponent';
 import { customerAuth, s3Api } from '../../../apis';
 import {
+  getVendorCategories,
   resendOtpVendor,
   updateUserCustomer,
   updateVendorProfile,
@@ -53,38 +59,228 @@ const VendorBasicInfoScreen = () => {
   );
   const [email, setEmail] = useState(reduxUser.email || '');
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [categoriesList, setCategoriesList] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+
+  const getAuthTokenAndUserId = async () => {
+    let token = await AsyncStorage.getItem('token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+
+    if (!token || token === '[object Object]') {
+      let rawToken =
+        user?.token ||
+        user?.accessToken ||
+        user?.data?.token ||
+        user?.data?.accessToken ||
+        user?.tokens?.access?.token ||
+        user?.tokens?.access ||
+        user?.data?.tokens?.access?.token ||
+        user?.data?.tokens?.access ||
+        user?.user?.token ||
+        user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    const userId =
+      user?.id ||
+      user?._id ||
+      user?.user?.id ||
+      user?.user?._id ||
+      user?.vendorUser?.id ||
+      user?.vendorUser?._id ||
+      user?.customerUser?.id ||
+      user?.customerUser?._id ||
+      user?.data?.user?.id ||
+      user?.data?.user?._id ||
+      user?.data?.id ||
+      user?.data?._id;
+
+    return { token, userId };
+  };
+
+  const requestLocationPermission = async () => {
+    if (Platform.OS === 'android') {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+      );
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    }
+    return true;
+  };
+
+  useEffect(() => {
+    const fetchAndUpdateLocationOnMount = async () => {
+      const hasPermission = await requestLocationPermission();
+      if (!hasPermission) {
+        console.log('VendorBasicInfoScreen: Location permission denied');
+        return;
+      }
+
+      Geolocation.getCurrentPosition(
+        async position => {
+          const longitude = position.coords.longitude || 72.5714;
+          const latitude = position.coords.latitude || 23.0225;
+
+          console.log(
+            'VendorBasicInfoScreen GPS Location -> Longitude:',
+            longitude,
+            'Latitude:',
+            latitude,
+          );
+
+          await updateLocationApi(longitude, latitude);
+        },
+        async error => {
+          console.log('VendorBasicInfoScreen Geolocation error:', error, 'Using fallback coordinates');
+          await updateLocationApi(72.5714, 23.0225);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 10000,
+        },
+      );
+    };
+
+    const updateLocationApi = async (longitude, latitude) => {
+      try {
+        const { token, userId } = await getAuthTokenAndUserId();
+        console.log(
+          '==================================================',
+          '\n[VendorBasicInfoScreen Location PUT Request]',
+          `\nUser ID: ${userId}`,
+          `\nCoordinates: [${longitude}, ${latitude}] (Longitude first, Latitude second)`,
+          `\nToken Preview: ${token ? `${token.substring(0, 20)}...` : 'NONE'}`,
+          '\n==================================================',
+        );
+
+        if (userId && token) {
+          const locationPayload = {
+            location: {
+              type: 'Point',
+              coordinates: [longitude, latitude], // Longitude first, Latitude second
+            },
+          };
+
+          const apiRes = await customerAuth.updateUserLocation(
+            userId,
+            locationPayload,
+            token,
+          );
+
+          console.log(
+            '==================================================',
+            '\n[VendorBasicInfoScreen Location PUT Success]',
+            '\nResponse Data:',
+            JSON.stringify(apiRes?.data, null, 2),
+            '\n==================================================',
+          );
+        } else {
+          console.log(
+            'VendorBasicInfoScreen Location PUT skipped (Missing User ID or Token). User ID:',
+            userId,
+            '| Token present:',
+            !!token,
+          );
+        }
+      } catch (apiErr) {
+        console.log(
+          '==================================================',
+          '\n[VendorBasicInfoScreen Location PUT Error]',
+          '\nError Details:',
+          JSON.stringify(apiErr?.response?.data || apiErr?.message, null, 2),
+          '\n==================================================',
+        );
+      }
+
+      try {
+        const addressRes = await axios.get(
+          'https://nominatim.openstreetmap.org/reverse',
+          {
+            params: {
+              lat: latitude,
+              lon: longitude,
+              format: 'json',
+            },
+            headers: {
+              'User-Agent': 'doormigo-app',
+            },
+          },
+        );
+
+        const addr = addressRes.data.address || {};
+        const city =
+          addr.city ||
+          addr.town ||
+          addr.village ||
+          addr.hamlet ||
+          addr.county ||
+          '';
+        const district = addr.state_district || '';
+        const state = addr.state || '';
+        const newFullAddress = `${city}, ${district}, ${state}`;
+
+        dispatch(
+          setLocation({
+            longitude,
+            latitude,
+            place: city,
+            fullAddress: newFullAddress,
+          }),
+        );
+      } catch (error) {
+        dispatch(
+          setLocation({
+            longitude,
+            latitude,
+            place: 'Unable to fetch location',
+            fullAddress: '',
+          }),
+        );
+      }
+    };
+
+    fetchAndUpdateLocationOnMount();
+  }, []);
 
   const hasPreviousEmail = Boolean(
     reduxUser.email ||
-      reduxUser.user?.email ||
-      reduxUser.data?.email ||
-      user?.vendorUser?.email ||
-      user?.email,
+    reduxUser.user?.email ||
+    reduxUser.data?.email ||
+    user?.vendorUser?.email ||
+    user?.email,
   );
 
   const hasPreviousMobile = Boolean(
     reduxUser.mobileNumber ||
-      reduxUser.mobile ||
-      reduxUser.user?.mobileNumber ||
-      reduxUser.data?.mobileNumber ||
-      user?.vendorUser?.mobileNumber ||
-      user?.mobileNumber,
+    reduxUser.mobile ||
+    reduxUser.user?.mobileNumber ||
+    reduxUser.data?.mobileNumber ||
+    user?.vendorUser?.mobileNumber ||
+    user?.mobileNumber,
   );
 
   const hasPreviousBusinessName = Boolean(
     reduxUser.businessName ||
-      reduxUser.business_name ||
-      reduxUser.user?.businessName ||
-      reduxUser.data?.businessName ||
-      user?.vendorUser?.businessName ||
-      user?.businessName,
+    reduxUser.business_name ||
+    reduxUser.user?.businessName ||
+    reduxUser.data?.businessName ||
+    user?.vendorUser?.businessName ||
+    user?.businessName,
   );
 
   const [mobileVerified, setMobileVerified] = useState(
     Boolean(
       hasPreviousMobile ||
-        reduxUser.mobileVerified ||
-        reduxUser.isMobileVerified,
+      reduxUser.mobileVerified ||
+      reduxUser.isMobileVerified,
     ),
   );
   const [emailVerified, setEmailVerified] = useState(
@@ -100,7 +296,45 @@ const VendorBasicInfoScreen = () => {
   const [mobileTimer, setMobileTimer] = useState(0);
 
   const mobileSheetRef = useRef();
+  const categorySheetRef = useRef();
   const otpInputRef = useRef(null);
+
+  const handleOpenCategorySheet = () => {
+    categorySheetRef.current?.open();
+    setCategoriesLoading(true);
+    dispatch(
+      getVendorCategories((error, response) => {
+        setCategoriesLoading(false);
+        if (error) {
+          console.log('Error fetching vendor categories:', error);
+        } else {
+          console.log('Vendor Categories API Response:', response);
+          const list =
+            response?.data || response?.categories || response || [];
+          setCategoriesList(Array.isArray(list) ? list : []);
+        }
+      }),
+    );
+  };
+
+  const handleSelectCategory = item => {
+    setSelectedCategory(item);
+    categorySheetRef.current?.close();
+
+    const catId = typeof item === 'string' ? item : item._id || item.id;
+    if (catId) {
+      console.log('Dispatching updateVendorProfile with categoryId:', catId);
+      dispatch(
+        updateVendorProfile({ categoryId: catId }, (error, response) => {
+          if (error) {
+            console.log('Error updating categoryId in vendor profile:', error);
+          } else {
+            console.log('Successfully updated categoryId in vendor profile:', response);
+          }
+        }),
+      );
+    }
+  };
 
   useEffect(() => {
     const showListener = Keyboard.addListener('keyboardDidShow', () => {
@@ -487,6 +721,17 @@ const VendorBasicInfoScreen = () => {
       payload.gstNumber = gstNumber.trim();
     }
 
+    if (selectedCategory) {
+      const catId =
+        typeof selectedCategory === 'string'
+          ? null
+          : selectedCategory._id || selectedCategory.id;
+
+      if (catId) {
+        payload.categoryId = catId;
+      }
+    }
+
     const imageToSave = s3UploadedImage || profileImage;
     if (imageToSave) {
       payload.profileImage = imageToSave;
@@ -629,6 +874,8 @@ const VendorBasicInfoScreen = () => {
           )}
         </TouchableOpacity>
 
+        <Text style={{ color: '#7E7E7E', textAlign: 'center', marginTop: hp(15), marginBottom: hp(30), fontSize: fontSize(12), fontFamily: fontFamily.poppins400 }}>Upload Store/Company Logo</Text>
+
         <BorderShowLabelTextInputComponent
           label={'Full Name'}
           value={name}
@@ -643,6 +890,66 @@ const VendorBasicInfoScreen = () => {
           editable={!hasPreviousBusinessName}
           multiline={false}
         />
+
+        {/* SELECT SERVICE CATEGORY */}
+        <View style={{ marginTop: hp(16), paddingHorizontal: wp(16) }}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={handleOpenCategorySheet}
+            style={{
+              borderWidth: 1.5,
+              borderColor: selectedCategory ? '#CDADF6' : '#D2D2D2',
+              borderRadius: hp(12),
+              paddingHorizontal: wp(12),
+              height: hp(62),
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              backgroundColor: colors.white,
+            }}>
+            {selectedCategory && (
+              <Text
+                style={{
+                  position: 'absolute',
+                  top: -hp(9),
+                  left: wp(10),
+                  backgroundColor: colors.white,
+                  paddingHorizontal: wp(4),
+                  fontSize: fontSize(10),
+                  fontFamily: fontFamily.poppins400,
+                  color: colors.pureBlack,
+                }}>
+                Select Service Category
+              </Text>
+            )}
+
+            <Text
+              style={{
+                fontSize: fontSize(14),
+                fontFamily: fontFamily.poppins400,
+                color: selectedCategory ? colors.pureBlack : '#999',
+                flex: 1,
+              }}>
+              {selectedCategory
+                ? typeof selectedCategory === 'string'
+                  ? selectedCategory
+                  : selectedCategory.name ||
+                  selectedCategory.title ||
+                  selectedCategory.categoryName ||
+                  'Select Service Category'
+                : 'Select Service Category'}
+            </Text>
+
+            <Image
+              source={icons.bottom_Arrow_Icon}
+              style={{
+                width: hp(14),
+                height: hp(14),
+                resizeMode: 'contain',
+              }}
+            />
+          </TouchableOpacity>
+        </View>
 
         <BorderShowLabelTextInputComponent
           label={'GSTIN or Registration Number'}
@@ -1086,6 +1393,134 @@ const VendorBasicInfoScreen = () => {
             </TouchableOpacity>
           </View>
         )}
+      </RBSheet>
+
+      {/* BOTTOM SHEET FOR SERVICE CATEGORIES */}
+      <RBSheet
+        ref={categorySheetRef}
+        height={hp(420)}
+        openDuration={250}
+        closeOnDragDown={true}
+        closeOnPressMask={true}
+        customStyles={{
+          container: {
+            borderTopLeftRadius: hp(25),
+            borderTopRightRadius: hp(25),
+            paddingBottom: hp(20),
+          },
+          draggableIcon: {
+            backgroundColor: '#D9D9D9',
+            width: wp(45),
+          },
+        }}>
+        <View style={{ paddingHorizontal: wp(20), flex: 1 }}>
+          <Text
+            style={{
+              color: colors.pureBlack,
+              fontSize: fontSize(18),
+              fontFamily: fontFamily.poppins600,
+              marginBottom: hp(15),
+              marginVertical: hp(20)
+            }}>
+            Select Service Category
+          </Text>
+
+          <View style={{ width: '100%', height: hp(1), backgroundColor: '#E6E6E6', marginBottom: hp(15) }} />
+
+          {categoriesLoading ? (
+            <ActivityIndicator
+              color={colors.primaryColor}
+              size="large"
+              style={{ marginTop: hp(40) }}
+            />
+          ) : categoriesList.length === 0 ? (
+            <Text
+              style={{
+                color: 'gray',
+                fontSize: fontSize(14),
+                fontFamily: fontFamily.poppins400,
+                textAlign: 'center',
+                marginTop: hp(40),
+              }}>
+              No categories found
+            </Text>
+          ) : (
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {categoriesList.map((item, index) => {
+                const categoryName =
+                  typeof item === 'string'
+                    ? item
+                    : item.name || item.title || item.categoryName || '';
+                const categoryId =
+                  typeof item === 'string'
+                    ? item
+                    : item._id || item.id || index;
+                const isSelected = Boolean(
+                  selectedCategory &&
+                  ((typeof selectedCategory === 'string' &&
+                    selectedCategory === categoryName) ||
+                    (item._id && selectedCategory._id === item._id) ||
+                    (item.id && selectedCategory.id === item.id) ||
+                    (selectedCategory.name &&
+                      selectedCategory.name === categoryName)),
+                );
+
+                return (
+                  <TouchableOpacity
+                    key={categoryId.toString()}
+                    activeOpacity={0.6}
+                    onPress={() => handleSelectCategory(item)}
+                    style={{
+                      height: hp(48),
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      borderBottomWidth:
+                        index !== categoriesList.length - 1 ? hp(1) : 0,
+                      borderBottomColor: '#EEEEEE',
+                    }}>
+                    <Text
+                      style={{
+                        color: isSelected
+                          ? colors.primaryColor
+                          : colors.pureBlack,
+                        fontSize: fontSize(14),
+                        fontFamily: isSelected
+                          ? fontFamily.poppins600
+                          : fontFamily.poppins400,
+                      }}>
+                      {categoryName}
+                    </Text>
+
+                    <View
+                      style={{
+                        width: hp(20),
+                        height: hp(20),
+                        borderRadius: hp(10),
+                        borderWidth: hp(1.5),
+                        borderColor: isSelected
+                          ? colors.primaryColor
+                          : '#C7C7C7',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                      {isSelected && (
+                        <View
+                          style={{
+                            width: hp(10),
+                            height: hp(10),
+                            borderRadius: hp(5),
+                            backgroundColor: colors.primaryColor,
+                          }}
+                        />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
+        </View>
       </RBSheet>
     </SafeAreaView>
   );

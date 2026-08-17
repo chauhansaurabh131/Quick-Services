@@ -18,6 +18,12 @@ export const customerAuth = {
         Authorization: token.startsWith('Bearer ') ? token : `Bearer ${token}`,
       },
     }),
+  updateUserLocation: (userId, payload, token) =>
+    api.put(`/customer/user/${userId}`, payload, {
+      headers: {
+        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
+      },
+    }),
   verifyUpdateOtp: (payload, token) =>
     api.post('/customer/auth/verify-update-otp', payload, {
       headers: {
@@ -42,6 +48,34 @@ export const customerAuth = {
         Authorization: token.startsWith('Bearer ') ? token : `Bearer ${token}`,
       },
     }),
+  getCategories: token =>
+    api.get('/customer/categories', {
+      headers: {
+        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
+      },
+    }),
+  getCategoryById: (categoryId, token) =>
+    api.get(`/vendor/categories/${categoryId}`, {
+      headers: {
+        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
+      },
+    }),
+  getVendorServicesByCategory: (categoryId, longitude, latitude, token) =>
+    api.get(`/customer/vendorUser/category/${categoryId}`, {
+      params: {
+        latitude: latitude,
+        longitude: longitude,
+      },
+      headers: {
+        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
+      },
+    }),
+  getVendorUserDetails: (vendorUserId, token) =>
+    api.get(`/customer/vendorUser/${vendorUserId}`, {
+      headers: {
+        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
+      },
+    }),
   getServicesByCategory: (categoryId, token) =>
     api.get(`/vendor/services/category/${categoryId}`, {
       headers: {
@@ -62,12 +96,12 @@ export const customerAuth = {
       payload,
       token
         ? {
-            headers: {
-              Authorization: token.startsWith('Bearer ')
-                ? token
-                : `Bearer ${token}`,
-            },
-          }
+          headers: {
+            Authorization: token.startsWith('Bearer ')
+              ? token
+              : `Bearer ${token}`,
+          },
+        }
         : {},
     ),
 };
@@ -96,7 +130,7 @@ export const s3Api = {
 
     try {
       console.log('Attempting S3 upload request on service.mntech.website...');
-      return await api.post('/s3/profilepic', payload, {headers});
+      return await api.post('/s3/profilepic', payload, { headers });
     } catch (err) {
       console.log(
         'service.mntech.website S3 request error status:',
@@ -108,7 +142,7 @@ export const s3Api = {
       return await axios.post(
         'https://mntrendigo.mntech.website/api/v1/s3/profilepic',
         payload,
-        {headers},
+        { headers },
       );
     }
   },

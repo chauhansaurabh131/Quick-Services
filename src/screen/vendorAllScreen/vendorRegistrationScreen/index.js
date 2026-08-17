@@ -190,6 +190,7 @@ const VendorRegistrationScreen = () => {
             paddingHorizontal: wp(24),
             fontSize: fontSize(14),
             fontFamily: fontFamily.poppins500,
+            color: colors.pureBlack
           }}
         />
 
@@ -210,6 +211,7 @@ const VendorRegistrationScreen = () => {
             fontSize: fontSize(14),
             fontFamily: fontFamily.poppins500,
             marginTop: hp(17),
+            color: colors.pureBlack
           }}
         />
       </View>

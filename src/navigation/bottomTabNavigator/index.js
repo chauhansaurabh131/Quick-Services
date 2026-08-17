@@ -1,22 +1,21 @@
 import React from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Image } from 'react-native';
+import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
+import {Image} from 'react-native';
 
 import HomeScreen from '../../screen/customerAllScreen/homeScreen';
 import BookingScreen from '../../screen/customerAllScreen/bookingScreen';
 import ChatScreen from '../../screen/customerAllScreen/chatScreen';
 import ProfileScreen from '../../screen/customerAllScreen/profileScreen';
-import { icons } from '../../assets';
-import { fontFamily, hp } from '../../utils/helpers';
+import {icons} from '../../assets';
+import {fontFamily, hp} from '../../utils/helpers';
 import BookingServiceScreen from '../../screen/customerAllScreen/bookingServiceScreen';
-import SettingScreen from '../../screen/customerAllScreen/settingScreen';
 
 const Tab = createBottomTabNavigator();
 
 const BottomTabNavigator = () => {
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
+      screenOptions={({route}) => ({
         headerShown: false,
 
         tabBarHideOnKeyboard: true,
@@ -39,7 +38,7 @@ const BottomTabNavigator = () => {
           fontFamily: fontFamily.poppins400,
         },
 
-        tabBarIcon: ({ focused, color }) => {
+        tabBarIcon: ({focused, color}) => {
           let icon;
 
           switch (route.name) {
@@ -81,7 +80,7 @@ const BottomTabNavigator = () => {
         component={BookingServiceScreen}
         options={{
           tabBarButton: () => null,
-          tabBarItemStyle: { display: 'none' },
+          tabBarItemStyle: {display: 'none'},
         }}
       />
     </Tab.Navigator>

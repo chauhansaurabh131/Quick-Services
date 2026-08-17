@@ -123,6 +123,36 @@ export const getVendorCategoriesFailed = error => ({
   error,
 });
 
+export const getCategories = callback => ({
+  type: TYPES.GET_CATEGORIES,
+  data: {callback},
+});
+
+export const getCategoriesSuccess = data => ({
+  type: TYPES.GET_CATEGORIES_SUCCESS,
+  data,
+});
+
+export const getCategoriesFailed = error => ({
+  type: TYPES.GET_CATEGORIES_FAILED,
+  error,
+});
+
+export const getCategoryById = (categoryId, callback) => ({
+  type: TYPES.GET_CATEGORY_BY_ID,
+  data: {categoryId, callback},
+});
+
+export const getCategoryByIdSuccess = data => ({
+  type: TYPES.GET_CATEGORY_BY_ID_SUCCESS,
+  data,
+});
+
+export const getCategoryByIdFailed = error => ({
+  type: TYPES.GET_CATEGORY_BY_ID_FAILED,
+  error,
+});
+
 export const getServicesByCategory = (categoryId, callback) => ({
   type: TYPES.GET_SERVICES_BY_CATEGORY,
   data: {categoryId, callback},
@@ -136,6 +166,37 @@ export const getServicesByCategorySuccess = (data, categoryId) => ({
 
 export const getServicesByCategoryFailed = error => ({
   type: TYPES.GET_SERVICES_BY_CATEGORY_FAILED,
+  error,
+});
+
+export const getVendorServicesByCategory = (categoryId, longitude, latitude, callback) => ({
+  type: TYPES.GET_VENDOR_SERVICES_BY_CATEGORY,
+  data: {categoryId, longitude, latitude, callback},
+});
+
+export const getVendorServicesByCategorySuccess = (data, categoryId) => ({
+  type: TYPES.GET_VENDOR_SERVICES_BY_CATEGORY_SUCCESS,
+  data,
+  categoryId,
+});
+
+export const getVendorServicesByCategoryFailed = error => ({
+  type: TYPES.GET_VENDOR_SERVICES_BY_CATEGORY_FAILED,
+  error,
+});
+
+export const getVendorUserDetails = (vendorUserId, callback) => ({
+  type: TYPES.GET_VENDOR_USER_DETAILS,
+  data: {vendorUserId, callback},
+});
+
+export const getVendorUserDetailsSuccess = data => ({
+  type: TYPES.GET_VENDOR_USER_DETAILS_SUCCESS,
+  data,
+});
+
+export const getVendorUserDetailsFailed = error => ({
+  type: TYPES.GET_VENDOR_USER_DETAILS_FAILED,
   error,
 });
 
