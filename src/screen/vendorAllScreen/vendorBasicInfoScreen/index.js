@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -13,31 +13,32 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useDispatch, useSelector } from 'react-redux';
+import {useDispatch, useSelector} from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import Geolocation from 'react-native-geolocation-service';
 import axios from 'axios';
-import { setLocation } from '../../../actions/locationActions';
-import { colors } from '../../../utils/colors';
-import { icons } from '../../../assets';
-import { fontFamily, fontSize, hp, wp } from '../../../utils/helpers';
-import { useNavigation } from '@react-navigation/native';
-import { launchImageLibrary } from 'react-native-image-picker';
+import {setLocation} from '../../../actions/locationActions';
+import {colors} from '../../../utils/colors';
+import {icons} from '../../../assets';
+import {fontFamily, fontSize, hp, wp} from '../../../utils/helpers';
+import {useNavigation} from '@react-navigation/native';
+import {launchImageLibrary} from 'react-native-image-picker';
 import BorderShowLabelTextInputComponent from '../../../components/borderShowLabelTextInputComponent';
-import { customerAuth, s3Api } from '../../../apis';
+import {customerAuth, s3Api} from '../../../apis';
 import {
   getVendorCategories,
   resendOtpVendor,
   updateUserCustomer,
   updateVendorProfile,
+  updateUserLocation,
 } from '../../../actions/customerAuthActions';
 
 const VendorBasicInfoScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
 
-  const { loading, user } = useSelector(state => state.auth || {});
+  const {loading, user} = useSelector(state => state.auth || {});
   const reduxUser = user?.user || user?.data?.user || user || {};
 
   const [profileImage, setProfileImage] = useState(
@@ -102,7 +103,7 @@ const VendorBasicInfoScreen = () => {
       user?.data?.id ||
       user?.data?._id;
 
-    return { token, userId };
+    return {token, userId};
   };
 
   const requestLocationPermission = async () => {
@@ -138,7 +139,11 @@ const VendorBasicInfoScreen = () => {
           await updateLocationApi(longitude, latitude);
         },
         async error => {
-          console.log('VendorBasicInfoScreen Geolocation error:', error, 'Using fallback coordinates');
+          console.log(
+            'VendorBasicInfoScreen Geolocation error:',
+            error,
+            'Using fallback coordinates',
+          );
           await updateLocationApi(72.5714, 23.0225);
         },
         {
@@ -151,7 +156,7 @@ const VendorBasicInfoScreen = () => {
 
     const updateLocationApi = async (longitude, latitude) => {
       try {
-        const { token, userId } = await getAuthTokenAndUserId();
+        const {token, userId} = await getAuthTokenAndUserId();
         console.log(
           '==================================================',
           '\n[VendorBasicInfoScreen Location PUT Request]',
@@ -169,18 +174,26 @@ const VendorBasicInfoScreen = () => {
             },
           };
 
-          const apiRes = await customerAuth.updateUserLocation(
-            userId,
-            locationPayload,
-            token,
-          );
-
-          console.log(
-            '==================================================',
-            '\n[VendorBasicInfoScreen Location PUT Success]',
-            '\nResponse Data:',
-            JSON.stringify(apiRes?.data, null, 2),
-            '\n==================================================',
+          dispatch(
+            updateUserLocation(userId, locationPayload, (err, res) => {
+              if (err) {
+                console.log(
+                  '==================================================',
+                  '\n[VendorBasicInfoScreen Location PUT Error]',
+                  '\nError:',
+                  err,
+                  '\n==================================================',
+                );
+              } else {
+                console.log(
+                  '==================================================',
+                  '\n[VendorBasicInfoScreen Location PUT Success]',
+                  '\nResponse Data:',
+                  JSON.stringify(res, null, 2),
+                  '\n==================================================',
+                );
+              }
+            }),
           );
         } else {
           console.log(
@@ -252,35 +265,35 @@ const VendorBasicInfoScreen = () => {
 
   const hasPreviousEmail = Boolean(
     reduxUser.email ||
-    reduxUser.user?.email ||
-    reduxUser.data?.email ||
-    user?.vendorUser?.email ||
-    user?.email,
+      reduxUser.user?.email ||
+      reduxUser.data?.email ||
+      user?.vendorUser?.email ||
+      user?.email,
   );
 
   const hasPreviousMobile = Boolean(
     reduxUser.mobileNumber ||
-    reduxUser.mobile ||
-    reduxUser.user?.mobileNumber ||
-    reduxUser.data?.mobileNumber ||
-    user?.vendorUser?.mobileNumber ||
-    user?.mobileNumber,
+      reduxUser.mobile ||
+      reduxUser.user?.mobileNumber ||
+      reduxUser.data?.mobileNumber ||
+      user?.vendorUser?.mobileNumber ||
+      user?.mobileNumber,
   );
 
   const hasPreviousBusinessName = Boolean(
     reduxUser.businessName ||
-    reduxUser.business_name ||
-    reduxUser.user?.businessName ||
-    reduxUser.data?.businessName ||
-    user?.vendorUser?.businessName ||
-    user?.businessName,
+      reduxUser.business_name ||
+      reduxUser.user?.businessName ||
+      reduxUser.data?.businessName ||
+      user?.vendorUser?.businessName ||
+      user?.businessName,
   );
 
   const [mobileVerified, setMobileVerified] = useState(
     Boolean(
       hasPreviousMobile ||
-      reduxUser.mobileVerified ||
-      reduxUser.isMobileVerified,
+        reduxUser.mobileVerified ||
+        reduxUser.isMobileVerified,
     ),
   );
   const [emailVerified, setEmailVerified] = useState(
@@ -309,8 +322,7 @@ const VendorBasicInfoScreen = () => {
           console.log('Error fetching vendor categories:', error);
         } else {
           console.log('Vendor Categories API Response:', response);
-          const list =
-            response?.data || response?.categories || response || [];
+          const list = response?.data || response?.categories || response || [];
           setCategoriesList(Array.isArray(list) ? list : []);
         }
       }),
@@ -325,11 +337,14 @@ const VendorBasicInfoScreen = () => {
     if (catId) {
       console.log('Dispatching updateVendorProfile with categoryId:', catId);
       dispatch(
-        updateVendorProfile({ categoryId: catId }, (error, response) => {
+        updateVendorProfile({categoryId: catId}, (error, response) => {
           if (error) {
             console.log('Error updating categoryId in vendor profile:', error);
           } else {
-            console.log('Successfully updated categoryId in vendor profile:', response);
+            console.log(
+              'Successfully updated categoryId in vendor profile:',
+              response,
+            );
           }
         }),
       );
@@ -435,10 +450,7 @@ const VendorBasicInfoScreen = () => {
             s3Payload,
             token || '',
           );
-          console.log(
-            'S3 API response:',
-            JSON.stringify(apiRes.data, null, 2),
-          );
+          console.log('S3 API response:', JSON.stringify(apiRes.data, null, 2));
 
           const resData = apiRes?.data?.data || apiRes?.data || {};
 
@@ -448,7 +460,7 @@ const VendorBasicInfoScreen = () => {
             resData.presignedUrl ||
             resData.putUrl ||
             (typeof resData.url === 'string' &&
-              resData.url.includes('X-Amz-Algorithm')
+            resData.url.includes('X-Amz-Algorithm')
               ? resData.url
               : null);
 
@@ -546,7 +558,9 @@ const VendorBasicInfoScreen = () => {
         if (error) {
           Alert.alert(
             'Error',
-            error?.message || error?.msg || 'Something went wrong while sending OTP',
+            error?.message ||
+              error?.msg ||
+              'Something went wrong while sending OTP',
           );
         } else {
           setMobileTimer(30);
@@ -559,10 +573,7 @@ const VendorBasicInfoScreen = () => {
   const handleVerifyEmail = () => {
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !trimmedEmail.includes('@')) {
-      Alert.alert(
-        'Invalid Email',
-        'Please enter a valid email address',
-      );
+      Alert.alert('Invalid Email', 'Please enter a valid email address');
       return;
     }
 
@@ -587,7 +598,9 @@ const VendorBasicInfoScreen = () => {
         if (error) {
           Alert.alert(
             'Error',
-            error?.message || error?.msg || 'Something went wrong while sending OTP',
+            error?.message ||
+              error?.msg ||
+              'Something went wrong while sending OTP',
           );
         } else {
           setMobileTimer(30);
@@ -600,10 +613,7 @@ const VendorBasicInfoScreen = () => {
   const handleResendEmailOtp = () => {
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !trimmedEmail.includes('@')) {
-      Alert.alert(
-        'Invalid Email',
-        'Please enter a valid email address',
-      );
+      Alert.alert('Invalid Email', 'Please enter a valid email address');
       return;
     }
 
@@ -633,7 +643,9 @@ const VendorBasicInfoScreen = () => {
           setMobileTimer(30);
           Alert.alert(
             'OTP Sent',
-            response?.message || response?.msg || 'A new OTP has been sent successfully.',
+            response?.message ||
+              response?.msg ||
+              'A new OTP has been sent successfully.',
           );
         }
       }),
@@ -678,7 +690,9 @@ const VendorBasicInfoScreen = () => {
           setMobileTimer(30);
           Alert.alert(
             'OTP Sent',
-            response?.message || response?.msg || 'A new OTP has been sent successfully.',
+            response?.message ||
+              response?.msg ||
+              'A new OTP has been sent successfully.',
           );
         }
       }),
@@ -748,8 +762,8 @@ const VendorBasicInfoScreen = () => {
           Alert.alert(
             'Update Failed',
             error?.message ||
-            error?.msg ||
-            'Something went wrong while updating details',
+              error?.msg ||
+              'Something went wrong while updating details',
           );
         } else {
           navigation.navigate('VendorBusinessAddressScreen');
@@ -759,7 +773,7 @@ const VendorBasicInfoScreen = () => {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.white }}>
+    <SafeAreaView style={{flex: 1, backgroundColor: colors.white}}>
       {/* HEADER */}
       <View
         style={{
@@ -781,7 +795,7 @@ const VendorBasicInfoScreen = () => {
           }}>
           <Image
             source={icons.back_Arrow_Icon}
-            style={{ width: wp(15), height: hp(15), resizeMode: 'contain' }}
+            style={{width: wp(15), height: hp(15), resizeMode: 'contain'}}
           />
         </TouchableOpacity>
 
@@ -806,7 +820,7 @@ const VendorBasicInfoScreen = () => {
       </View>
 
       {/* PROGRESS BAR */}
-      <View style={{ width: '100%', height: hp(1), backgroundColor: '#E5E5E5' }}>
+      <View style={{width: '100%', height: hp(1), backgroundColor: '#E5E5E5'}}>
         <View
           style={{
             width: '44.44%',
@@ -817,7 +831,7 @@ const VendorBasicInfoScreen = () => {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={{ marginTop: hp(41), alignItems: 'center' }}>
+        <View style={{marginTop: hp(41), alignItems: 'center'}}>
           <Text
             style={{
               color: colors.pureBlack,
@@ -863,18 +877,28 @@ const VendorBasicInfoScreen = () => {
                   ? profileImage.replace('http://', 'https://')
                   : profileImage,
               }}
-              style={{ width: '100%', height: '100%', borderRadius: hp(100) }}
+              style={{width: '100%', height: '100%', borderRadius: hp(100)}}
               resizeMode="cover"
             />
           ) : (
             <Image
               source={icons.camera_Icon}
-              style={{ width: wp(28), height: hp(26), resizeMode: 'contain' }}
+              style={{width: wp(28), height: hp(26), resizeMode: 'contain'}}
             />
           )}
         </TouchableOpacity>
 
-        <Text style={{ color: '#7E7E7E', textAlign: 'center', marginTop: hp(15), marginBottom: hp(30), fontSize: fontSize(12), fontFamily: fontFamily.poppins400 }}>Upload Store/Company Logo</Text>
+        <Text
+          style={{
+            color: '#7E7E7E',
+            textAlign: 'center',
+            marginTop: hp(15),
+            marginBottom: hp(30),
+            fontSize: fontSize(12),
+            fontFamily: fontFamily.poppins400,
+          }}>
+          Upload Store/Company Logo
+        </Text>
 
         <BorderShowLabelTextInputComponent
           label={'Full Name'}
@@ -892,7 +916,7 @@ const VendorBasicInfoScreen = () => {
         />
 
         {/* SELECT SERVICE CATEGORY */}
-        <View style={{ marginTop: hp(16), paddingHorizontal: wp(16) }}>
+        <View style={{marginTop: hp(16), paddingHorizontal: wp(16)}}>
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={handleOpenCategorySheet}
@@ -934,9 +958,9 @@ const VendorBasicInfoScreen = () => {
                 ? typeof selectedCategory === 'string'
                   ? selectedCategory
                   : selectedCategory.name ||
-                  selectedCategory.title ||
-                  selectedCategory.categoryName ||
-                  'Select Service Category'
+                    selectedCategory.title ||
+                    selectedCategory.categoryName ||
+                    'Select Service Category'
                 : 'Select Service Category'}
             </Text>
 
@@ -980,7 +1004,7 @@ const VendorBasicInfoScreen = () => {
             <Image
               source={icons.verified_Icon}
               tintColor={'#1DC34C'}
-              style={{ width: hp(15), height: hp(15), resizeMode: 'contain' }}
+              style={{width: hp(15), height: hp(15), resizeMode: 'contain'}}
             />
             <Text
               style={{
@@ -1014,7 +1038,7 @@ const VendorBasicInfoScreen = () => {
             <Image
               source={icons.verified_Icon}
               tintColor={'#1DC34C'}
-              style={{ width: hp(15), height: hp(15), resizeMode: 'contain' }}
+              style={{width: hp(15), height: hp(15), resizeMode: 'contain'}}
             />
             <Text
               style={{
@@ -1029,7 +1053,7 @@ const VendorBasicInfoScreen = () => {
           </View>
         )}
 
-        <View style={{ height: hp(120) }} />
+        <View style={{height: hp(120)}} />
       </ScrollView>
 
       {!keyboardVisible && (
@@ -1042,7 +1066,9 @@ const VendorBasicInfoScreen = () => {
             height: hp(90),
             backgroundColor: colors.white,
           }}>
-          {!hasPreviousMobile && (contactNumber ?? '').toString().trim() !== '' && !mobileVerified ? (
+          {!hasPreviousMobile &&
+          (contactNumber ?? '').toString().trim() !== '' &&
+          !mobileVerified ? (
             <TouchableOpacity
               activeOpacity={0.8}
               disabled={mobileVerifyLoading || uploadingImage}
@@ -1160,7 +1186,7 @@ const VendorBasicInfoScreen = () => {
             <Image
               source={icons.verified_Icon}
               tintColor={'#1DC34C'}
-              style={{ width: hp(30), height: hp(30), resizeMode: 'contain' }}
+              style={{width: hp(30), height: hp(30), resizeMode: 'contain'}}
             />
 
             <Text
@@ -1340,8 +1366,14 @@ const VendorBasicInfoScreen = () => {
                     type: verifyType,
                   };
 
-                  console.log('Calling verifyUpdateOtp API with payload:', payload);
-                  console.log('Authorization Token:', token ? `${token.substring(0, 25)}...` : 'NULL');
+                  console.log(
+                    'Calling verifyUpdateOtp API with payload:',
+                    payload,
+                  );
+                  console.log(
+                    'Authorization Token:',
+                    token ? `${token.substring(0, 25)}...` : 'NULL',
+                  );
 
                   const response = await customerAuth.verifyUpdateOtp(
                     payload,
@@ -1374,7 +1406,10 @@ const VendorBasicInfoScreen = () => {
                     error?.response?.data?.msg ||
                     error?.message ||
                     'Verification failed';
-                  console.log('verifyUpdateOtp Error:', error?.response?.data || error.message);
+                  console.log(
+                    'verifyUpdateOtp Error:',
+                    error?.response?.data || error.message,
+                  );
                   Alert.alert('Verification Failed', errorMsg);
                 }
               }}>
@@ -1413,25 +1448,32 @@ const VendorBasicInfoScreen = () => {
             width: wp(45),
           },
         }}>
-        <View style={{ paddingHorizontal: wp(20), flex: 1 }}>
+        <View style={{paddingHorizontal: wp(20), flex: 1}}>
           <Text
             style={{
               color: colors.pureBlack,
               fontSize: fontSize(18),
               fontFamily: fontFamily.poppins600,
               marginBottom: hp(15),
-              marginVertical: hp(20)
+              marginVertical: hp(20),
             }}>
             Select Service Category
           </Text>
 
-          <View style={{ width: '100%', height: hp(1), backgroundColor: '#E6E6E6', marginBottom: hp(15) }} />
+          <View
+            style={{
+              width: '100%',
+              height: hp(1),
+              backgroundColor: '#E6E6E6',
+              marginBottom: hp(15),
+            }}
+          />
 
           {categoriesLoading ? (
             <ActivityIndicator
               color={colors.primaryColor}
               size="large"
-              style={{ marginTop: hp(40) }}
+              style={{marginTop: hp(40)}}
             />
           ) : categoriesList.length === 0 ? (
             <Text
@@ -1457,12 +1499,12 @@ const VendorBasicInfoScreen = () => {
                     : item._id || item.id || index;
                 const isSelected = Boolean(
                   selectedCategory &&
-                  ((typeof selectedCategory === 'string' &&
-                    selectedCategory === categoryName) ||
-                    (item._id && selectedCategory._id === item._id) ||
-                    (item.id && selectedCategory.id === item.id) ||
-                    (selectedCategory.name &&
-                      selectedCategory.name === categoryName)),
+                    ((typeof selectedCategory === 'string' &&
+                      selectedCategory === categoryName) ||
+                      (item._id && selectedCategory._id === item._id) ||
+                      (item.id && selectedCategory.id === item.id) ||
+                      (selectedCategory.name &&
+                        selectedCategory.name === categoryName)),
                 );
 
                 return (

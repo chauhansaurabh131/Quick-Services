@@ -88,15 +88,21 @@ function* verifyOtpCustomer(action) {
 function* updateCustomerUser(action) {
   try {
     const {payload, callback} = action.data;
-    console.log('Update Customer User Request Payload:', payload);
-    let token = yield call(AsyncStorage.getItem, 'token');
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: UPDATE_USER_CUSTOMER Request]',
+      '\nEndpoint: PUT https://service.mntech.website/v1/customer/auth/update-user',
+      '\nPayload:',
+      JSON.stringify(payload, null, 2),
+      '\n==================================================',
+    );
+
+    let token = yield call([AsyncStorage, 'getItem'], 'token');
     if (typeof token === 'object' && token !== null) {
       token = token.token || token.accessToken;
     }
-    console.log('Retrieved Token from AsyncStorage for Update:', token);
 
     if (!token || token === '[object Object]') {
-      console.log('Token not found in AsyncStorage. Querying Redux state...');
       const authState = yield select(state => state.auth);
       let rawToken =
         authState?.user?.token ||
@@ -114,13 +120,15 @@ function* updateCustomerUser(action) {
         rawToken = rawToken.token || rawToken.accessToken;
       }
       token = typeof rawToken === 'string' ? rawToken : null;
-      console.log('Extracted Token from Redux state:', token);
     }
 
     const response = yield call(customerAuth.updateUser, payload, token || '');
     console.log(
-      'Update Customer User Response:',
+      '==================================================',
+      '\n[Redux Saga: UPDATE_USER_CUSTOMER Success]',
+      '\nResponse:',
       JSON.stringify(response.data, null, 2),
+      '\n==================================================',
     );
 
     yield put(
@@ -136,12 +144,16 @@ function* updateCustomerUser(action) {
   } catch (error) {
     const errorData = error?.response?.data || error.message;
     console.log(
-      'Update Customer User Error:',
+      '==================================================',
+      '\n[Redux Saga: UPDATE_USER_CUSTOMER Error]',
+      `\nStatus Code: ${error?.response?.status || 'N/A'}`,
+      '\nError Details:',
       JSON.stringify(errorData, null, 2),
+      '\n==================================================',
     );
     yield put(actions.updateUserCustomerFailed(errorData));
 
-    if (action.data.callback) {
+    if (action?.data?.callback) {
       action.data.callback(errorData, null);
     }
   }
@@ -255,7 +267,11 @@ function* updateVendorProfileSaga(action) {
       token = typeof rawToken === 'string' ? rawToken : null;
     }
 
-    const response = yield call(customerAuth.updateVendorProfile, payload, token || '');
+    const response = yield call(
+      customerAuth.updateVendorProfile,
+      payload,
+      token || '',
+    );
     console.log(
       'Update Vendor Profile Response:',
       JSON.stringify(response.data, null, 2),
@@ -273,7 +289,10 @@ function* updateVendorProfileSaga(action) {
     }
   } catch (error) {
     const errorData = error?.response?.data || error.message;
-    console.log('Update Vendor Profile Error:', JSON.stringify(errorData, null, 2));
+    console.log(
+      'Update Vendor Profile Error:',
+      JSON.stringify(errorData, null, 2),
+    );
     yield put(actions.updateVendorProfileFailed(errorData));
 
     if (action.data.callback) {
@@ -310,7 +329,11 @@ function* saveBusinessAddressSaga(action) {
       token = typeof rawToken === 'string' ? rawToken : null;
     }
 
-    const response = yield call(customerAuth.saveBusinessAddress, payload, token || '');
+    const response = yield call(
+      customerAuth.saveBusinessAddress,
+      payload,
+      token || '',
+    );
     console.log(
       'Save Business Address Response:',
       JSON.stringify(response.data, null, 2),
@@ -328,7 +351,10 @@ function* saveBusinessAddressSaga(action) {
     }
   } catch (error) {
     const errorData = error?.response?.data || error.message;
-    console.log('Save Business Address Error:', JSON.stringify(errorData, null, 2));
+    console.log(
+      'Save Business Address Error:',
+      JSON.stringify(errorData, null, 2),
+    );
     yield put(actions.saveBusinessAddressFailed(errorData));
 
     if (action.data.callback) {
@@ -370,7 +396,8 @@ function* getVendorCategoriesSaga(action) {
       JSON.stringify(response.data, null, 2),
     );
 
-    const categoriesData = response.data?.data || response.data?.categories || response.data;
+    const categoriesData =
+      response.data?.data || response.data?.categories || response.data;
 
     yield put(actions.getVendorCategoriesSuccess(categoriesData));
 
@@ -379,7 +406,10 @@ function* getVendorCategoriesSaga(action) {
     }
   } catch (error) {
     const errorData = error?.response?.data || error.message;
-    console.log('Get Vendor Categories Error:', JSON.stringify(errorData, null, 2));
+    console.log(
+      'Get Vendor Categories Error:',
+      JSON.stringify(errorData, null, 2),
+    );
     yield put(actions.getVendorCategoriesFailed(errorData));
 
     if (action?.data?.callback) {
@@ -487,7 +517,10 @@ function* getCategoryByIdSaga(action) {
     }
   } catch (error) {
     const errorData = error?.response?.data || error.message;
-    console.log('Get Category By ID Error:', JSON.stringify(errorData, null, 2));
+    console.log(
+      'Get Category By ID Error:',
+      JSON.stringify(errorData, null, 2),
+    );
     yield put(actions.getCategoryByIdFailed(errorData));
 
     if (action?.data?.callback) {
@@ -544,7 +577,10 @@ function* getServicesByCategorySaga(action) {
     }
   } catch (error) {
     const errorData = error?.response?.data || error.message;
-    console.log('Get Services By Category Error:', JSON.stringify(errorData, null, 2));
+    console.log(
+      'Get Services By Category Error:',
+      JSON.stringify(errorData, null, 2),
+    );
     yield put(actions.getServicesByCategoryFailed(errorData));
 
     if (action?.data?.callback) {
@@ -555,13 +591,22 @@ function* getServicesByCategorySaga(action) {
 
 function* getVendorServicesByCategorySaga(action) {
   try {
-    const {categoryId, longitude, latitude, callback} = action.data;
+    const {
+      categoryId,
+      longitude,
+      latitude,
+      callback,
+      page = 1,
+      limit = 10,
+    } = action.data;
     console.log(
       '==================================================',
       '\n[Redux Saga: GET_VENDOR_SERVICES_BY_CATEGORY Request]',
       `\nCategory ID: ${categoryId}`,
       `\nLongitude: ${longitude}`,
       `\nLatitude: ${latitude}`,
+      `\nPage: ${page}`,
+      `\nLimit: ${limit}`,
       '\n==================================================',
     );
 
@@ -600,6 +645,8 @@ function* getVendorServicesByCategorySaga(action) {
       longitude,
       latitude,
       token || '',
+      page,
+      limit,
     );
 
     console.log(
@@ -614,14 +661,19 @@ function* getVendorServicesByCategorySaga(action) {
     const vendorServicesData =
       (Array.isArray(response?.data?.data?.docs) && response.data.data.docs) ||
       (Array.isArray(response?.data?.docs) && response.data.docs) ||
-      (Array.isArray(response?.data?.data?.services) && response.data.data.services) ||
-      (Array.isArray(response?.data?.data?.vendorServices) && response.data.data.vendorServices) ||
+      (Array.isArray(response?.data?.data?.services) &&
+        response.data.data.services) ||
+      (Array.isArray(response?.data?.data?.vendorServices) &&
+        response.data.data.vendorServices) ||
       (Array.isArray(response?.data?.services) && response.data.services) ||
       (Array.isArray(response?.data?.data) && response.data.data) ||
       (Array.isArray(response?.data) ? response.data : []);
 
     yield put(
-      actions.getVendorServicesByCategorySuccess(vendorServicesData, categoryId),
+      actions.getVendorServicesByCategorySuccess(
+        vendorServicesData,
+        categoryId,
+      ),
     );
 
     if (callback) {
@@ -722,7 +774,10 @@ function* getVendorUserDetailsSaga(action) {
 function* saveVendorServicesSaga(action) {
   try {
     const {payload, callback} = action.data;
-    console.log('Sending Vendor Services Payload:', JSON.stringify(payload, null, 2));
+    console.log(
+      'Sending Vendor Services Payload:',
+      JSON.stringify(payload, null, 2),
+    );
     let token = yield call(AsyncStorage.getItem, 'token');
     if (typeof token === 'object' && token !== null) {
       token = token.token || token.accessToken;
@@ -769,7 +824,10 @@ function* saveVendorServicesSaga(action) {
     }
   } catch (error) {
     const errorData = error?.response?.data || error.message;
-    console.log('Save Vendor Services Error:', JSON.stringify(errorData, null, 2));
+    console.log(
+      'Save Vendor Services Error:',
+      JSON.stringify(errorData, null, 2),
+    );
     yield put(actions.saveVendorServicesFailed(errorData));
 
     if (action?.data?.callback) {
@@ -810,11 +868,12 @@ function* loginVendorSaga(action) {
     const {payload, callback, token} = action.data;
     console.log('Login Vendor Request Payload:', payload);
     const response = yield call(customerAuth.loginVendor, payload, token);
-    console.log('Login Vendor Response:', JSON.stringify(response.data, null, 2));
-
-    yield put(
-      actions.loginVendorSuccess(response.data.data || response.data),
+    console.log(
+      'Login Vendor Response:',
+      JSON.stringify(response.data, null, 2),
     );
+
+    yield put(actions.loginVendorSuccess(response.data.data || response.data));
 
     let rawToken =
       response.data?.token ||
@@ -854,6 +913,703 @@ function* loginVendorSaga(action) {
   }
 }
 
+function* getMyAvailabilitySaga(action) {
+  try {
+    const callback = action?.data?.callback;
+    let token = yield call(AsyncStorage.getItem, 'token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+    if (!token || token === '[object Object]') {
+      const authState = yield select(state => state.auth);
+      let rawToken =
+        authState?.user?.token ||
+        authState?.user?.accessToken ||
+        authState?.user?.data?.token ||
+        authState?.user?.data?.accessToken ||
+        authState?.user?.tokens?.access?.token ||
+        authState?.user?.tokens?.access ||
+        authState?.user?.data?.tokens?.access?.token ||
+        authState?.user?.data?.tokens?.access ||
+        authState?.user?.user?.token ||
+        authState?.user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: GET_MY_AVAILABILITY Request]',
+      '\nEndpoint: /vendor/vendorAvailability/my-availability',
+      `\nToken Preview: ${token ? `${token.substring(0, 25)}...` : 'NONE'}`,
+      '\n==================================================',
+    );
+
+    const response = yield call(customerAuth.getMyAvailability, token || '');
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: GET_MY_AVAILABILITY Response]',
+      `\nStatus: ${response?.status}`,
+      '\nData:',
+      JSON.stringify(response?.data, null, 2),
+      '\n==================================================',
+    );
+
+    const availabilityData = response?.data?.data || response?.data;
+
+    yield put(actions.getMyAvailabilitySuccess(availabilityData));
+
+    if (callback) {
+      callback(null, response.data);
+    }
+  } catch (error) {
+    const errorData = error?.response?.data || error.message;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: GET_MY_AVAILABILITY Error]',
+      `\nStatus Code: ${error?.response?.status || 'N/A'}`,
+      '\nError Details:',
+      JSON.stringify(errorData, null, 2),
+      '\n==================================================',
+    );
+    yield put(actions.getMyAvailabilityFailed(errorData));
+
+    if (action?.data?.callback) {
+      action.data.callback(errorData, null);
+    }
+  }
+}
+
+function* updateMyAvailabilitySaga(action) {
+  try {
+    const {payload, callback} = action.data;
+    let token = yield call(AsyncStorage.getItem, 'token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+    if (!token || token === '[object Object]') {
+      const authState = yield select(state => state.auth);
+      let rawToken =
+        authState?.user?.token ||
+        authState?.user?.accessToken ||
+        authState?.user?.data?.token ||
+        authState?.user?.data?.accessToken ||
+        authState?.user?.tokens?.access?.token ||
+        authState?.user?.tokens?.access ||
+        authState?.user?.data?.tokens?.access?.token ||
+        authState?.user?.data?.tokens?.access ||
+        authState?.user?.user?.token ||
+        authState?.user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: UPDATE_MY_AVAILABILITY Request]',
+      '\nEndpoint: PUT /vendor/vendorAvailability/my-availability',
+      '\nPayload:',
+      JSON.stringify(payload, null, 2),
+      `\nToken Preview: ${token ? `${token.substring(0, 25)}...` : 'NONE'}`,
+      '\n==================================================',
+    );
+
+    const response = yield call(
+      customerAuth.updateMyAvailability,
+      payload,
+      token || '',
+    );
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: UPDATE_MY_AVAILABILITY Response]',
+      `\nStatus: ${response?.status}`,
+      '\nData:',
+      JSON.stringify(response?.data, null, 2),
+      '\n==================================================',
+    );
+
+    const responseData = response?.data?.data || response?.data;
+
+    yield put(actions.updateMyAvailabilitySuccess(responseData, payload));
+
+    if (callback) {
+      callback(null, response.data);
+    }
+  } catch (error) {
+    const errorData = error?.response?.data || error.message;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: UPDATE_MY_AVAILABILITY Error]',
+      `\nStatus Code: ${error?.response?.status || 'N/A'}`,
+      '\nError Details:',
+      JSON.stringify(errorData, null, 2),
+      '\n==================================================',
+    );
+    yield put(actions.updateMyAvailabilityFailed(errorData));
+
+    if (action?.data?.callback) {
+      action.data.callback(errorData, null);
+    }
+  }
+}
+
+function* updateUserLocationSaga(action) {
+  try {
+    const {userId, payload, callback} = action.data;
+    let token = yield call([AsyncStorage, 'getItem'], 'token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+
+    if (!token || token === '[object Object]') {
+      const authState = yield select(state => state.auth);
+      let rawToken =
+        authState?.user?.token ||
+        authState?.user?.accessToken ||
+        authState?.user?.data?.token ||
+        authState?.user?.data?.accessToken ||
+        authState?.user?.tokens?.access?.token ||
+        authState?.user?.tokens?.access ||
+        authState?.user?.data?.tokens?.access?.token ||
+        authState?.user?.data?.tokens?.access ||
+        authState?.user?.user?.token ||
+        authState?.user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: UPDATE_USER_LOCATION Request]',
+      `\nUserId: ${userId}`,
+      '\nPayload:',
+      JSON.stringify(payload, null, 2),
+      `\nToken Preview: ${token ? `${token.substring(0, 25)}...` : 'NONE'}`,
+      `\nPUT https://service.mntech.website/v1/customer/user/${userId}`,
+      '\n==================================================',
+    );
+    const response = yield call(
+      customerAuth.updateUserLocation,
+      userId,
+      payload,
+      token || '',
+    );
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: UPDATE_USER_LOCATION Success]',
+      '\nData Payload:',
+      JSON.stringify(response.data, null, 2),
+      '\n==================================================',
+    );
+
+    yield put(
+      actions.updateUserLocationSuccess(response.data.data || response.data),
+    );
+
+    if (callback) {
+      callback(null, response.data);
+    }
+  } catch (error) {
+    const errorData = error?.response?.data || error.message;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: UPDATE_USER_LOCATION Error]',
+      `\nStatus Code: ${error?.response?.status || 'N/A'}`,
+      '\nError Details:',
+      JSON.stringify(errorData, null, 2),
+      '\n==================================================',
+    );
+    yield put(actions.updateUserLocationFailed(errorData));
+
+    if (action?.data?.callback) {
+      action.data.callback(errorData, null);
+    }
+  }
+}
+
+function* saveCustomerAddressSaga(action) {
+  try {
+    const {payload, callback} = action.data;
+    let token = yield call([AsyncStorage, 'getItem'], 'token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+
+    if (!token || token === '[object Object]') {
+      const authState = yield select(state => state.auth);
+      let rawToken =
+        authState?.user?.token ||
+        authState?.user?.accessToken ||
+        authState?.user?.data?.token ||
+        authState?.user?.data?.accessToken ||
+        authState?.user?.tokens?.access?.token ||
+        authState?.user?.tokens?.access ||
+        authState?.user?.data?.tokens?.access?.token ||
+        authState?.user?.data?.tokens?.access ||
+        authState?.user?.user?.token ||
+        authState?.user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: SAVE_CUSTOMER_ADDRESS Request]',
+      '\nEndpoint: POST https://service.mntech.website/v1/customer/address',
+      '\nPayload:',
+      JSON.stringify(payload, null, 2),
+      `\nToken Preview: ${token ? `${token.substring(0, 25)}...` : 'NONE'}`,
+      '\n==================================================',
+    );
+
+    const response = yield call(
+      customerAuth.saveCustomerAddress,
+      payload,
+      token || '',
+    );
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: SAVE_CUSTOMER_ADDRESS Success]',
+      '\nResponse Data:',
+      JSON.stringify(response.data, null, 2),
+      '\n==================================================',
+    );
+
+    yield put(
+      actions.saveCustomerAddressSuccess(response.data.data || response.data),
+    );
+
+    if (callback) {
+      callback(null, response.data);
+    }
+  } catch (error) {
+    const errorData = error?.response?.data || error.message;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: SAVE_CUSTOMER_ADDRESS Error]',
+      `\nStatus Code: ${error?.response?.status || 'N/A'}`,
+      '\nError Details:',
+      JSON.stringify(errorData, null, 2),
+      '\n==================================================',
+    );
+    yield put(actions.saveCustomerAddressFailed(errorData));
+
+    if (action?.data?.callback) {
+      action.data.callback(errorData, null);
+    }
+  }
+}
+
+function* updateCustomerAddressSaga(action) {
+  try {
+    const {addressId, payload, callback} = action.data;
+    let token = yield call([AsyncStorage, 'getItem'], 'token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+
+    if (!token || token === '[object Object]') {
+      const authState = yield select(state => state.auth);
+      let rawToken =
+        authState?.user?.token ||
+        authState?.user?.accessToken ||
+        authState?.user?.data?.token ||
+        authState?.user?.data?.accessToken ||
+        authState?.user?.tokens?.access?.token ||
+        authState?.user?.tokens?.access ||
+        authState?.user?.data?.tokens?.access?.token ||
+        authState?.user?.data?.tokens?.access ||
+        authState?.user?.user?.token ||
+        authState?.user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: UPDATE_CUSTOMER_ADDRESS Request]',
+      `\nEndpoint: PUT https://service.mntech.website/v1/customer/address/${addressId}`,
+      '\nPayload:',
+      JSON.stringify(payload, null, 2),
+      `\nToken Preview: ${token ? `${token.substring(0, 25)}...` : 'NONE'}`,
+      '\n==================================================',
+    );
+
+    const response = yield call(
+      customerAuth.updateCustomerAddress,
+      addressId,
+      payload,
+      token || '',
+    );
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: UPDATE_CUSTOMER_ADDRESS Success]',
+      '\nResponse Data:',
+      JSON.stringify(response.data, null, 2),
+      '\n==================================================',
+    );
+
+    yield put(
+      actions.updateCustomerAddressSuccess(response.data.data || response.data),
+    );
+
+    if (callback) {
+      callback(null, response.data);
+    }
+  } catch (error) {
+    const errorData = error?.response?.data || error.message;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: UPDATE_CUSTOMER_ADDRESS Error]',
+      `\nStatus Code: ${error?.response?.status || 'N/A'}`,
+      '\nError Details:',
+      JSON.stringify(errorData, null, 2),
+      '\n==================================================',
+    );
+    yield put(actions.updateCustomerAddressFailed(errorData));
+
+    if (action?.data?.callback) {
+      action.data.callback(errorData, null);
+    }
+  }
+}
+
+function* getCustomerAddressesSaga(action) {
+  try {
+    let {userId, callback} = action.data || {};
+    let token = yield call([AsyncStorage, 'getItem'], 'token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+
+    const authState = yield select(state => state.auth);
+    if (!token || token === '[object Object]') {
+      let rawToken =
+        authState?.user?.token ||
+        authState?.user?.accessToken ||
+        authState?.user?.data?.token ||
+        authState?.user?.data?.accessToken ||
+        authState?.user?.tokens?.access?.token ||
+        authState?.user?.tokens?.access ||
+        authState?.user?.data?.tokens?.access?.token ||
+        authState?.user?.data?.tokens?.access ||
+        authState?.user?.user?.token ||
+        authState?.user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    if (!userId) {
+      userId =
+        authState?.user?.id ||
+        authState?.user?._id ||
+        authState?.user?.user?.id ||
+        authState?.user?.user?._id ||
+        authState?.user?.data?.user?.id ||
+        authState?.user?.data?.user?._id;
+    }
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: GET_CUSTOMER_ADDRESSES Request]',
+      `\nEndpoint: GET https://service.mntech.website/v1/customer/address/user/${userId}`,
+      `\nToken Preview: ${token ? `${token.substring(0, 25)}...` : 'NONE'}`,
+      '\n==================================================',
+    );
+
+    const response = yield call(
+      customerAuth.getCustomerAddressesByUserId,
+      userId,
+      token || '',
+    );
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: GET_CUSTOMER_ADDRESSES Success]',
+      '\nResponse Data:',
+      JSON.stringify(response.data, null, 2),
+      '\n==================================================',
+    );
+
+    yield put(
+      actions.getCustomerAddressesSuccess(
+        response.data?.data || response.data?.docs || response.data,
+      ),
+    );
+
+    if (callback) {
+      callback(null, response.data);
+    }
+  } catch (error) {
+    const errorData = error?.response?.data || error.message;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: GET_CUSTOMER_ADDRESSES Error]',
+      `\nStatus Code: ${error?.response?.status || 'N/A'}`,
+      '\nError Details:',
+      JSON.stringify(errorData, null, 2),
+      '\n==================================================',
+    );
+    yield put(actions.getCustomerAddressesFailed(errorData));
+
+    if (action?.data?.callback) {
+      action.data.callback(errorData, null);
+    }
+  }
+}
+
+function* deleteCustomerAddressSaga(action) {
+  try {
+    const {addressId, callback} = action.data;
+    let token = yield call([AsyncStorage, 'getItem'], 'token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+
+    if (!token || token === '[object Object]') {
+      const authState = yield select(state => state.auth);
+      let rawToken =
+        authState?.user?.token ||
+        authState?.user?.accessToken ||
+        authState?.user?.data?.token ||
+        authState?.user?.data?.accessToken ||
+        authState?.user?.tokens?.access?.token ||
+        authState?.user?.tokens?.access ||
+        authState?.user?.data?.tokens?.access?.token ||
+        authState?.user?.data?.tokens?.access ||
+        authState?.user?.user?.token ||
+        authState?.user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: DELETE_CUSTOMER_ADDRESS Request]',
+      `\nEndpoint: DELETE https://service.mntech.website/v1/customer/address/${addressId}`,
+      `\nToken Preview: ${token ? `${token.substring(0, 25)}...` : 'NONE'}`,
+      '\n==================================================',
+    );
+
+    const response = yield call(
+      customerAuth.deleteCustomerAddress,
+      addressId,
+      token || '',
+    );
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: DELETE_CUSTOMER_ADDRESS Success]',
+      '\nResponse Data:',
+      JSON.stringify(response.data, null, 2),
+      '\n==================================================',
+    );
+
+    yield put(
+      actions.deleteCustomerAddressSuccess(
+        response.data?.data || response.data,
+        addressId,
+      ),
+    );
+
+    if (callback) {
+      callback(null, response.data);
+    }
+  } catch (error) {
+    const errorData = error?.response?.data || error.message;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: DELETE_CUSTOMER_ADDRESS Error]',
+      `\nStatus Code: ${error?.response?.status || 'N/A'}`,
+      '\nError Details:',
+      JSON.stringify(errorData, null, 2),
+      '\n==================================================',
+    );
+    yield put(actions.deleteCustomerAddressFailed(errorData));
+
+    if (action?.data?.callback) {
+      action.data.callback(errorData, null);
+    }
+  }
+}
+
+function* createBookingSaga(action) {
+  try {
+    const {payload, callback} = action.data;
+    let token = yield call([AsyncStorage, 'getItem'], 'token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+
+    if (!token || token === '[object Object]') {
+      const authState = yield select(state => state.auth);
+      let rawToken =
+        authState?.user?.token ||
+        authState?.user?.accessToken ||
+        authState?.user?.data?.token ||
+        authState?.user?.data?.accessToken ||
+        authState?.user?.tokens?.access?.token ||
+        authState?.user?.tokens?.access ||
+        authState?.user?.data?.tokens?.access?.token ||
+        authState?.user?.data?.tokens?.access ||
+        authState?.user?.user?.token ||
+        authState?.user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: CREATE_BOOKING Request]',
+      '\nEndpoint: POST https://service.mntech.website/v1/customer/bookings',
+      '\nPayload:',
+      JSON.stringify(payload, null, 2),
+      `\nToken Preview: ${token ? `${token.substring(0, 25)}...` : 'NONE'}`,
+      '\n==================================================',
+    );
+
+    const response = yield call(
+      customerAuth.createBooking,
+      payload,
+      token || '',
+    );
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: CREATE_BOOKING Success]',
+      '\nResponse Data:',
+      JSON.stringify(response.data, null, 2),
+      '\n==================================================',
+    );
+
+    yield put(
+      actions.createBookingSuccess(response.data?.data || response.data),
+    );
+
+    if (callback) {
+      callback(null, response.data);
+    }
+  } catch (error) {
+    const errorData = error?.response?.data || error.message;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: CREATE_BOOKING Error]',
+      `\nStatus Code: ${error?.response?.status || 'N/A'}`,
+      '\nError Details:',
+      JSON.stringify(errorData, null, 2),
+      '\n==================================================',
+    );
+    yield put(actions.createBookingFailed(errorData));
+
+    if (action?.data?.callback) {
+      action.data.callback(errorData, null);
+    }
+  }
+}
+
+function* getBookingByIdSaga(action) {
+  try {
+    const {bookingId, callback} = action.data;
+    let token = yield call([AsyncStorage, 'getItem'], 'token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+
+    if (!token || token === '[object Object]') {
+      const authState = yield select(state => state.auth);
+      let rawToken =
+        authState?.user?.token ||
+        authState?.user?.accessToken ||
+        authState?.user?.data?.token ||
+        authState?.user?.data?.accessToken ||
+        authState?.user?.tokens?.access?.token ||
+        authState?.user?.tokens?.access ||
+        authState?.user?.data?.tokens?.access?.token ||
+        authState?.user?.data?.tokens?.access ||
+        authState?.user?.user?.token ||
+        authState?.user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: GET_BOOKING_BY_ID Request]',
+      `\nEndpoint: GET https://service.mntech.website/v1/customer/bookings/${bookingId}`,
+      `\nToken Preview: ${token ? `${token.substring(0, 25)}...` : 'NONE'}`,
+      '\n==================================================',
+    );
+
+    const response = yield call(
+      customerAuth.getBookingDetailsById,
+      bookingId,
+      token || '',
+    );
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: GET_BOOKING_BY_ID Success]',
+      '\nResponse Data:',
+      JSON.stringify(response.data, null, 2),
+      '\n==================================================',
+    );
+
+    yield put(
+      actions.getBookingByIdSuccess(response.data?.data || response.data),
+    );
+
+    if (callback) {
+      callback(null, response.data);
+    }
+  } catch (error) {
+    const errorData = error?.response?.data || error.message;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: GET_BOOKING_BY_ID Error]',
+      `\nStatus Code: ${error?.response?.status || 'N/A'}`,
+      '\nError Details:',
+      JSON.stringify(errorData, null, 2),
+      '\n==================================================',
+    );
+    yield put(actions.getBookingByIdFailed(errorData));
+
+    if (action?.data?.callback) {
+      action.data.callback(errorData, null);
+    }
+  }
+}
+
 export default function* customerAuthSaga() {
   yield takeLatest(TYPES.LOGIN_CUSTOMER, registerCustomer);
   yield takeLatest(TYPES.REGISTER_VENDOR, registerVendor);
@@ -874,5 +1630,13 @@ export default function* customerAuthSaga() {
   yield takeLatest(TYPES.SAVE_VENDOR_SERVICES, saveVendorServicesSaga);
   yield takeLatest(TYPES.RESEND_OTP_VENDOR, resendOtpVendorSaga);
   yield takeLatest(TYPES.LOGIN_VENDOR, loginVendorSaga);
+  yield takeLatest(TYPES.GET_MY_AVAILABILITY, getMyAvailabilitySaga);
+  yield takeLatest(TYPES.UPDATE_MY_AVAILABILITY, updateMyAvailabilitySaga);
+  yield takeLatest(TYPES.UPDATE_USER_LOCATION, updateUserLocationSaga);
+  yield takeLatest(TYPES.SAVE_CUSTOMER_ADDRESS, saveCustomerAddressSaga);
+  yield takeLatest(TYPES.UPDATE_CUSTOMER_ADDRESS, updateCustomerAddressSaga);
+  yield takeLatest(TYPES.GET_CUSTOMER_ADDRESSES, getCustomerAddressesSaga);
+  yield takeLatest(TYPES.DELETE_CUSTOMER_ADDRESS, deleteCustomerAddressSaga);
+  yield takeLatest(TYPES.CREATE_BOOKING, createBookingSaga);
+  yield takeLatest(TYPES.GET_BOOKING_BY_ID, getBookingByIdSaga);
 }
-

@@ -1,5 +1,58 @@
 import * as TYPES from '../actions/actionTypes';
 
+const dedupeAddresses = list => {
+  if (!Array.isArray(list)) {
+    return [];
+  }
+  const map = new Map();
+  list.forEach(item => {
+    if (!item) {
+      return;
+    }
+    const key = item._id || item.id || (typeof item === 'string' ? item : null);
+    if (key) {
+      map.set(String(key), item);
+    }
+  });
+  return Array.from(map.values());
+};
+
+const syncUserAddresses = (stateUser, addressList) => {
+  if (!stateUser) {
+    return stateUser;
+  }
+
+  const cleanList = dedupeAddresses(addressList);
+  const updatedUser = {...stateUser};
+
+  // Remove top-level addresses property if present ("dont create outside of user")
+  if ('addresses' in updatedUser) {
+    delete updatedUser.addresses;
+  }
+
+  if (updatedUser.user && typeof updatedUser.user === 'object') {
+    updatedUser.user = {
+      ...updatedUser.user,
+      addresses: cleanList,
+    };
+  } else if (
+    updatedUser.data?.user &&
+    typeof updatedUser.data.user === 'object'
+  ) {
+    updatedUser.data = {
+      ...updatedUser.data,
+      user: {
+        ...updatedUser.data.user,
+        addresses: cleanList,
+      },
+    };
+  } else {
+    updatedUser.addresses = cleanList;
+  }
+
+  return updatedUser;
+};
+
 const initialState = {
   loading: false,
   user: null,
@@ -20,6 +73,8 @@ const customerAuthReducer = (state = initialState, action) => {
     case TYPES.SAVE_VENDOR_SERVICES:
     case TYPES.GET_VENDOR_SERVICES_BY_CATEGORY:
     case TYPES.GET_VENDOR_USER_DETAILS:
+    case TYPES.GET_MY_AVAILABILITY:
+    case TYPES.UPDATE_MY_AVAILABILITY:
       return {
         ...state,
         loading: true,
@@ -66,7 +121,10 @@ const customerAuthReducer = (state = initialState, action) => {
         user: {
           ...state.user,
           ...action.data,
-          serviceRadius: action.payload?.serviceRadius ?? action.data?.serviceRadius ?? state.user?.serviceRadius,
+          serviceRadius:
+            action.payload?.serviceRadius ??
+            action.data?.serviceRadius ??
+            state.user?.serviceRadius,
           user: {
             ...state.user?.user,
             ...action.data?.user,
@@ -123,6 +181,158 @@ const customerAuthReducer = (state = initialState, action) => {
         vendorUserDetails: action.data,
         error: null,
       };
+    case TYPES.GET_MY_AVAILABILITY_SUCCESS:
+      return {
+        ...state,
+        loading: false,
+        vendorAvailability: action.data,
+        error: null,
+      };
+    case TYPES.UPDATE_MY_AVAILABILITY_SUCCESS:
+      return {
+        ...state,
+        loading: false,
+        vendorAvailability: {
+          ...(typeof state.vendorAvailability === 'object'
+            ? state.vendorAvailability
+            : {}),
+          ...(typeof action.data === 'object' ? action.data : {}),
+          ...(typeof action.payload === 'object' ? action.payload : {}),
+        },
+        error: null,
+      };
+    case TYPES.UPDATE_USER_LOCATION_SUCCESS:
+      return {
+        ...state,
+        loading: false,
+        locationUpdateData: action.data,
+        error: null,
+      };
+    case TYPES.GET_CUSTOMER_ADDRESSES_SUCCESS: {
+      const extractedList = Array.isArray(action.data)
+        ? action.data
+        : Array.isArray(action.data?.docs)
+        ? action.data.docs
+        : Array.isArray(action.data?.addresses)
+        ? action.data.addresses
+        : Array.isArray(action.data?.data)
+        ? action.data.data
+        : Array.isArray(action.data?.data?.docs)
+        ? action.data.data.docs
+        : Array.isArray(action.data?.data?.addresses)
+        ? action.data.data.addresses
+        : [];
+
+      return {
+        ...state,
+        loading: false,
+        user: syncUserAddresses(state.user, extractedList),
+        customerAddressData: action.data,
+        error: null,
+      };
+    }
+    case TYPES.SAVE_CUSTOMER_ADDRESS_SUCCESS: {
+      const existingAddresses =
+        state.user?.user?.addresses ||
+        state.user?.data?.user?.addresses ||
+        state.user?.addresses ||
+        [];
+
+      let updatedList = [];
+      const newAddressItem = action.data?.data || action.data;
+
+      if (Array.isArray(newAddressItem)) {
+        updatedList = newAddressItem;
+      } else if (newAddressItem && typeof newAddressItem === 'object') {
+        updatedList = [...existingAddresses, newAddressItem];
+      } else {
+        updatedList = existingAddresses;
+      }
+
+      return {
+        ...state,
+        loading: false,
+        user: syncUserAddresses(state.user, updatedList),
+        customerAddressData: action.data,
+        error: null,
+      };
+    }
+    case TYPES.UPDATE_CUSTOMER_ADDRESS_SUCCESS: {
+      const existingAddresses =
+        state.user?.user?.addresses ||
+        state.user?.data?.user?.addresses ||
+        state.user?.addresses ||
+        [];
+
+      let updatedList = [];
+      const modifiedItem = action.data?.data || action.data;
+
+      if (Array.isArray(modifiedItem)) {
+        updatedList = modifiedItem;
+      } else if (modifiedItem && typeof modifiedItem === 'object') {
+        const modId = modifiedItem._id || modifiedItem.id;
+        if (modId) {
+          updatedList = existingAddresses.map(item =>
+            (item._id || item.id) === modId ? {...item, ...modifiedItem} : item,
+          );
+        } else {
+          updatedList = existingAddresses;
+        }
+      } else {
+        updatedList = existingAddresses;
+      }
+
+      return {
+        ...state,
+        loading: false,
+        user: syncUserAddresses(state.user, updatedList),
+        customerAddressData: action.data,
+        error: null,
+      };
+    }
+    case TYPES.DELETE_CUSTOMER_ADDRESS_SUCCESS: {
+      const targetAddressId =
+        action.addressId ||
+        action.data?.addressId ||
+        action.data?.id ||
+        action.data?._id;
+
+      const existingAddresses =
+        state.user?.user?.addresses ||
+        state.user?.data?.user?.addresses ||
+        state.user?.addresses ||
+        [];
+
+      const filteredList = targetAddressId
+        ? existingAddresses.filter(
+            item =>
+              (item._id || item.id) !== targetAddressId &&
+              item !== targetAddressId,
+          )
+        : existingAddresses;
+
+      return {
+        ...state,
+        loading: false,
+        user: syncUserAddresses(state.user, filteredList),
+        customerAddressData: action.data,
+        error: null,
+      };
+    }
+    case TYPES.CREATE_BOOKING_SUCCESS:
+      return {
+        ...state,
+        loading: false,
+        bookingData: action.data,
+        error: null,
+      };
+    case TYPES.GET_BOOKING_BY_ID_SUCCESS:
+      return {
+        ...state,
+        loading: false,
+        activeBookingDetails: action.data,
+        error: null,
+      };
     case TYPES.RESEND_OTP_VENDOR_SUCCESS:
       return {
         ...state,
@@ -140,6 +350,15 @@ const customerAuthReducer = (state = initialState, action) => {
     case TYPES.SAVE_VENDOR_SERVICES_FAILED:
     case TYPES.GET_VENDOR_SERVICES_BY_CATEGORY_FAILED:
     case TYPES.GET_VENDOR_USER_DETAILS_FAILED:
+    case TYPES.GET_MY_AVAILABILITY_FAILED:
+    case TYPES.UPDATE_MY_AVAILABILITY_FAILED:
+    case TYPES.UPDATE_USER_LOCATION_FAILED:
+    case TYPES.SAVE_CUSTOMER_ADDRESS_FAILED:
+    case TYPES.UPDATE_CUSTOMER_ADDRESS_FAILED:
+    case TYPES.GET_CUSTOMER_ADDRESSES_FAILED:
+    case TYPES.DELETE_CUSTOMER_ADDRESS_FAILED:
+    case TYPES.CREATE_BOOKING_FAILED:
+    case TYPES.GET_BOOKING_BY_ID_FAILED:
     case TYPES.RESEND_OTP_VENDOR_FAILED:
       return {
         ...state,

@@ -16,7 +16,46 @@ import SwitchButton from '../../../components/switchButton';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import {useTranslation} from 'react-i18next';
 
+import {useDispatch, useSelector} from 'react-redux';
+import {
+  getCustomerAddresses,
+  deleteCustomerAddress,
+} from '../../../actions/customerAuthActions';
+
+const normalizeAddressItem = item => {
+  if (!item || typeof item !== 'object') {
+    return null;
+  }
+
+  const locType = item.locationType || item.type || 'Home';
+  const typeCapitalized =
+    typeof locType === 'string' && locType.length > 0
+      ? locType.charAt(0).toUpperCase() + locType.slice(1).toLowerCase()
+      : 'Home';
+
+  return {
+    id: item._id || item.id || String(Math.random()),
+    _id: item._id || item.id || String(Math.random()),
+    type: typeCapitalized,
+    locationType: (item.locationType || locType || 'home').toLowerCase(),
+    address: item.address || '',
+    floor: item.floor || '',
+    landmark: item.landmark || '',
+    name: item.receiverName || item.name || item.fullName || '',
+    receiverName: item.receiverName || item.name || item.fullName || '',
+    mobile: item.receiverMobile
+      ? String(item.receiverMobile)
+      : item.mobile
+      ? String(item.mobile)
+      : '',
+    receiverMobile: item.receiverMobile || item.mobile || '',
+    isDefault: Boolean(item.isDefault),
+    rawItem: item,
+  };
+};
+
 const ManageAddressesScreen = () => {
+  const dispatch = useDispatch();
   const navigation = useNavigation();
   const {t} = useTranslation();
   const [addresses, setAddresses] = useState([]);
@@ -24,17 +63,168 @@ const ManageAddressesScreen = () => {
   const refRBSheet = useRef();
   const [selectedAddress, setSelectedAddress] = useState(null);
 
+  const reduxAuthUser = useSelector(
+    state => state.auth?.user || state.auth || {},
+  );
+
+  const handleDeleteAddress = () => {
+    if (!selectedAddress) {
+      return;
+    }
+
+    const targetId = selectedAddress.id || selectedAddress._id;
+    refRBSheet.current?.close();
+
+    console.log(
+      '==================================================',
+      '\n[ManageAddressesScreen Dispatching Redux Saga DELETE]',
+      `\nTarget Address ID: ${targetId}`,
+      '\n==================================================',
+    );
+
+    dispatch(
+      deleteCustomerAddress(targetId, (error, responseData) => {
+        if (error) {
+          console.log(
+            '==================================================',
+            '\n[ManageAddressesScreen Delete Error]',
+            '\nError:',
+            JSON.stringify(error, null, 2),
+            '\n==================================================',
+          );
+          Alert.alert('Error', error?.message || 'Failed to delete address');
+          return;
+        }
+
+        console.log(
+          '==================================================',
+          '\n[ManageAddressesScreen Delete Success]',
+          '\nResponse:',
+          JSON.stringify(responseData, null, 2),
+          '\n==================================================',
+        );
+
+        setAddresses(prev =>
+          prev.filter(item => item.id !== targetId && item._id !== targetId),
+        );
+      }),
+    );
+  };
+
   useEffect(() => {
-    const load = async () => {
-      const data = await AsyncStorage.getItem('ADDRESSES');
-      if (data) {
-        setAddresses(JSON.parse(data));
+    const loadAddresses = async () => {
+      // 1. First load from AsyncStorage for instant UI display
+      try {
+        const localData = await AsyncStorage.getItem('ADDRESSES');
+        if (localData) {
+          const parsed = JSON.parse(localData);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setAddresses(parsed.map(normalizeAddressItem).filter(Boolean));
+          }
+        }
+      } catch (e) {
+        console.log('[ManageAddressesScreen] Local load error:', e);
       }
+
+      // 2. Extract logged in userId
+      let userId =
+        reduxAuthUser?.id ||
+        reduxAuthUser?._id ||
+        reduxAuthUser?.user?.id ||
+        reduxAuthUser?.user?._id ||
+        reduxAuthUser?.data?.user?.id ||
+        reduxAuthUser?.data?.user?._id;
+
+      if (!userId) {
+        try {
+          const storedUserStr = await AsyncStorage.getItem('userData');
+          if (storedUserStr) {
+            const parsedUser = JSON.parse(storedUserStr);
+            userId =
+              parsedUser?.id ||
+              parsedUser?._id ||
+              parsedUser?.user?.id ||
+              parsedUser?.user?._id;
+          }
+        } catch (e) {
+          console.log('[ManageAddressesScreen] Storage user error:', e);
+        }
+      }
+
+      console.log(
+        '==================================================',
+        '\n[ManageAddressesScreen Fetching API Addresses]',
+        `\nUser ID: ${userId || 'N/A'}`,
+        '\n==================================================',
+      );
+
+      // 3. Dispatch Redux Saga getCustomerAddresses
+      dispatch(
+        getCustomerAddresses(userId, async (error, responseData) => {
+          if (error) {
+            console.log(
+              '==================================================',
+              '\n[ManageAddressesScreen API Error]',
+              '\nError:',
+              JSON.stringify(error, null, 2),
+              '\n==================================================',
+            );
+            return;
+          }
+
+          console.log(
+            '==================================================',
+            '\n[ManageAddressesScreen API Success Payload]',
+            '\nResponse:',
+            JSON.stringify(responseData, null, 2),
+            '\n==================================================',
+          );
+
+          let rawList = [];
+          if (Array.isArray(responseData)) {
+            rawList = responseData;
+          } else if (Array.isArray(responseData?.data)) {
+            rawList = responseData.data;
+          } else if (Array.isArray(responseData?.data?.docs)) {
+            rawList = responseData.data.docs;
+          } else if (Array.isArray(responseData?.data?.addresses)) {
+            rawList = responseData.data.addresses;
+          } else if (Array.isArray(responseData?.docs)) {
+            rawList = responseData.docs;
+          } else if (Array.isArray(responseData?.addresses)) {
+            rawList = responseData.addresses;
+          }
+
+          console.log(
+            '[ManageAddressesScreen Extracted List Count]:',
+            rawList.length,
+          );
+
+          if (Array.isArray(rawList)) {
+            const normalizedList = rawList
+              .map(normalizeAddressItem)
+              .filter(Boolean);
+            setAddresses(normalizedList);
+            try {
+              await AsyncStorage.setItem(
+                'ADDRESSES',
+                JSON.stringify(normalizedList),
+              );
+            } catch (storageErr) {
+              console.log(
+                '[ManageAddressesScreen] Storage save error:',
+                storageErr,
+              );
+            }
+          }
+        }),
+      );
     };
 
-    const unsubscribe = navigation.addListener('focus', load);
+    const unsubscribe = navigation.addListener('focus', loadAddresses);
+    loadAddresses();
     return unsubscribe;
-  }, []);
+  }, [navigation, dispatch]);
 
   console.log(' === Get addresses ===> ', addresses);
 
@@ -222,7 +412,7 @@ const ManageAddressesScreen = () => {
                   fontSize: fontSize(12),
                   color: '#7D7575',
                 }}>
-                {t(item.type.toLowerCase())}
+                {item.type ? t(item.type.toLowerCase()) || item.type : 'Home'}
               </Text>
 
               <View style={{flexDirection: 'row', alignItems: 'center'}}>
@@ -276,16 +466,7 @@ const ManageAddressesScreen = () => {
         <View style={{paddingHorizontal: wp(16)}}>
           {/* Delete */}
           <TouchableOpacity
-            onPress={async () => {
-              const filtered = addresses.filter(
-                item => item.id !== selectedAddress.id,
-              );
-
-              setAddresses(filtered);
-              await AsyncStorage.setItem('ADDRESSES', JSON.stringify(filtered));
-
-              refRBSheet.current.close();
-            }}
+            onPress={handleDeleteAddress}
             style={{
               flexDirection: 'row',
               marginTop: hp(27),

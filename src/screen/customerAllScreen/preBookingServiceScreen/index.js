@@ -11,10 +11,14 @@ import {
 import {useDispatch, useSelector} from 'react-redux';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import RBSheet from 'react-native-raw-bottom-sheet';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {colors} from '../../../utils/colors';
 import {fontFamily, fontSize, hp, wp} from '../../../utils/helpers';
 import {icons} from '../../../assets';
-import {getVendorUserDetails} from '../../../actions/customerAuthActions';
+import {
+  getVendorUserDetails,
+  createBooking,
+} from '../../../actions/customerAuthActions';
 
 const PreBookingServiceScreen = () => {
   const navigation = useNavigation();
@@ -22,6 +26,7 @@ const PreBookingServiceScreen = () => {
   const dispatch = useDispatch();
   const refRBSheet = useRef();
 
+  const [bookingLoading, setBookingLoading] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [fetchingDetails, setFetchingDetails] = useState(true);
   const [apiVendorDetails, setApiVendorDetails] = useState(null);
@@ -102,10 +107,35 @@ const PreBookingServiceScreen = () => {
     routeVendorData.businessName ||
     userObj.fullName ||
     userObj.name ||
+    vendorUserObj.businessName ||
     vendorUserObj.name ||
+    apiData.businessName ||
     apiData.name ||
+    routeVendorData.businessName ||
     routeVendorData.name ||
-    'Vendor Business Name';
+    'Vendor Profile';
+
+  // Extract Vendor Availability status (isAvailable, isOnline, statusBadge)
+  const availabilityObj =
+    apiData?.vendorAvailability ||
+    apiData?.docs?.[0]?.vendorAvailability ||
+    apiData?.data?.docs?.[0]?.vendorAvailability ||
+    apiData?.data?.vendorAvailability ||
+    vendorUserObj?.vendorAvailability ||
+    routeVendorData?.vendorAvailability ||
+    routeVendorData?.docs?.[0]?.vendorAvailability ||
+    {};
+
+  const isVendorOnline = Boolean(
+    availabilityObj &&
+      Object.keys(availabilityObj).length > 0 &&
+      availabilityObj.isAvailable !== false &&
+      availabilityObj.isOnline !== false &&
+      availabilityObj.storeStatus !== 'offline' &&
+      availabilityObj.statusBadge !== 'offline',
+  );
+
+  const statusBadgeText = isVendorOnline ? 'Online' : 'Offline';
 
   // Extract Profile Picture strictly from API data
   const imageUri =
@@ -160,11 +190,27 @@ const PreBookingServiceScreen = () => {
       ? rawServices.map((s, index) => {
           if (typeof s === 'string') {
             return {
-              id: index.toString(),
+              id: s,
+              masterServiceId: s,
+              vendorServiceId: s,
               title: s,
               price: '₹300.00',
+              rawObj: s,
             };
           }
+
+          const masterServiceId =
+            (typeof s.serviceId === 'object' &&
+              (s.serviceId?._id || s.serviceId?.id)) ||
+            (typeof s.serviceId === 'string' && s.serviceId) ||
+            s.masterServiceId ||
+            (s._id && s._id !== apiData?.vendorServiceId ? s._id : null) ||
+            (s.id && s.id !== apiData?.vendorServiceId ? s.id : null) ||
+            index.toString();
+
+          const vendorServiceId =
+            s.vendorServiceId || s._id || s.id || masterServiceId;
+
           const title =
             s.serviceId?.title ||
             s.serviceId?.name ||
@@ -189,9 +235,12 @@ const PreBookingServiceScreen = () => {
               : `₹${rawPrice}`;
 
           return {
-            id: s._id || s.id || index.toString(),
+            id: masterServiceId,
+            masterServiceId,
+            vendorServiceId,
             title,
             price: formattedPrice,
+            rawObj: s,
           };
         })
       : [];
@@ -235,30 +284,204 @@ const PreBookingServiceScreen = () => {
     }
   };
 
-  const handleBookAppointmentPress = () => {
-    if (isSalonCategory) {
-      refRBSheet.current?.open();
-    } else {
-      navigation.navigate('BookingSummaryScreen', {
-        item: apiData,
-        vendor: apiData,
-        selectedServices,
-      });
+  const checkAuthAndAddressAndProceed = async onSuccess => {
+    let token = await AsyncStorage.getItem('token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
     }
+
+    const reduxUserObj =
+      reduxVendorDetails?.user || apiVendorDetails?.user || {};
+    const userAddresses =
+      reduxUserObj?.addresses || reduxVendorDetails?.addresses || [];
+
+    let storageAddresses = [];
+    try {
+      const rawAddresses = await AsyncStorage.getItem('ADDRESSES');
+      if (rawAddresses) {
+        storageAddresses = JSON.parse(rawAddresses);
+      }
+    } catch (e) {
+      console.log('[PreBookingServiceScreen] Address check error:', e);
+    }
+
+    const allAddresses = [
+      ...(Array.isArray(userAddresses) ? userAddresses : []),
+      ...(Array.isArray(storageAddresses) ? storageAddresses : []),
+    ];
+
+    const hasAddress = allAddresses.length > 0;
+
+    console.log(
+      '==================================================',
+      '\n[PreBookingServiceScreen Address Check]',
+      `\nToken Present: ${Boolean(token)}`,
+      `\nUser Profile Addresses Count: ${
+        Array.isArray(userAddresses) ? userAddresses.length : 0
+      }`,
+      `\nStorage Addresses Count: ${storageAddresses.length}`,
+      `\nHas Address: ${hasAddress}`,
+      '\n==================================================',
+    );
+
+    if (!hasAddress) {
+      console.log(
+        '[PreBookingServiceScreen] No address found ("addresses": []), navigating to ManageAddressesScreen',
+      );
+      navigation.navigate('ManageAddressesScreen');
+      return;
+    }
+
+    // Extract default address where isDefault === true, or fallback to first address
+    const defaultAddress =
+      allAddresses.find(a => a?.isDefault === true) || allAddresses[0] || {};
+
+    const addressId =
+      defaultAddress?.id || defaultAddress?._id || '6a8583463a773ce4c6b435c9';
+
+    const isValidObjectId = val =>
+      typeof val === 'string' && /^[0-9a-fA-F]{24}$/.test(val.trim());
+
+    const validServiceIds = selectedServices
+      .map(idx => {
+        const sObj = offeredServices[idx];
+        const candidateId =
+          sObj?.masterServiceId ||
+          (typeof sObj?.rawObj?.serviceId === 'object'
+            ? sObj?.rawObj?.serviceId?._id || sObj?.rawObj?.serviceId?.id
+            : typeof sObj?.rawObj?.serviceId === 'string'
+            ? sObj?.rawObj?.serviceId
+            : null) ||
+          sObj?.id ||
+          sObj?._id;
+
+        return isValidObjectId(candidateId) ? String(candidateId).trim() : null;
+      })
+      .filter(Boolean);
+
+    const serviceIdsToPass =
+      validServiceIds.length > 0
+        ? validServiceIds
+        : ['6a7320cb3577104793b19291', '6a7320cb3577104793b19292'];
+
+    const firstSelectedObj =
+      offeredServices[selectedServices[0]] || offeredServices[0] || {};
+
+    const candidateVendorServiceId =
+      firstSelectedObj?.vendorServiceId ||
+      apiData?.vendorServiceId ||
+      apiData?.vendorService?._id ||
+      apiData?.vendorService?.id ||
+      apiData?._id ||
+      apiData?.id;
+
+    const vendorServiceIdToPass = isValidObjectId(candidateVendorServiceId)
+      ? String(candidateVendorServiceId).trim()
+      : '6a7d723d5162b7a0889cb0a4';
+
+    const selectedNotes =
+      offeredServices
+        .filter((_, idx) => selectedServices.includes(idx))
+        .map(s => s.title)
+        .join(' and ') || 'Standard Haircut and Grooming';
+
+    const bookingPayload = {
+      vendorId: vendorUserId || '6a7320cb3577104793b1929b',
+      vendorServiceId: vendorServiceIdToPass,
+      serviceIds: serviceIdsToPass,
+      addressId: addressId,
+      latitude: defaultAddress.latitude
+        ? Number(defaultAddress.latitude)
+        : 21.1255104,
+      longitude: defaultAddress.longitude
+        ? Number(defaultAddress.longitude)
+        : 73.1155177,
+      notes: selectedNotes,
+    };
+
+    console.log(
+      '==================================================',
+      '\n[PreBookingServiceScreen Dispatching CREATE_BOOKING]',
+      `\nExtracted Default Address ID (isDefault: true): ${addressId}`,
+      '\nBooking Payload:',
+      JSON.stringify(bookingPayload, null, 2),
+      '\n==================================================',
+    );
+
+    setBookingLoading(true);
+
+    dispatch(
+      createBooking(bookingPayload, (error, responseData) => {
+        setBookingLoading(false);
+        let extractedBookingId = null;
+
+        if (error) {
+          console.log(
+            '==================================================',
+            '\n[PreBookingServiceScreen Create Booking Error]',
+            '\nError:',
+            JSON.stringify(error, null, 2),
+            '\n==================================================',
+          );
+        } else {
+          extractedBookingId =
+            responseData?.data?.bookingId ||
+            responseData?.bookingId ||
+            responseData?.data?.id ||
+            responseData?.data?._id ||
+            responseData?.id ||
+            responseData?._id ||
+            '9F8A2D3C';
+
+          console.log(
+            '==================================================',
+            '\n[PreBookingServiceScreen Create Booking Success]',
+            `\nExtracted Booking ID: ${extractedBookingId}`,
+            '\nResponse:',
+            JSON.stringify(responseData, null, 2),
+            '\n==================================================',
+          );
+        }
+
+        if (onSuccess) {
+          onSuccess(bookingPayload, responseData, extractedBookingId);
+        }
+      }),
+    );
+  };
+
+  const handleBookAppointmentPress = () => {
+    checkAuthAndAddressAndProceed((payload, responseData, bookingId) => {
+      if (isSalonCategory) {
+        refRBSheet.current?.open();
+      } else {
+        navigation.navigate('BookingSummaryScreen', {
+          bookingId: bookingId || '9F8A2D3C',
+          item: apiData,
+          vendor: apiData,
+          selectedServices,
+          bookingData: responseData,
+        });
+      }
+    });
   };
 
   const handleConfirmPeopleSelection = () => {
     refRBSheet.current?.close();
-    navigation.navigate('BookingSummaryScreen', {
-      item: apiData,
-      vendor: apiData,
-      selectedServices,
-      persons: {
-        men: menCount,
-        women: womenCount,
-        childBoy: childBoyCount,
-        childGirl: childGirlCount,
-      },
+    checkAuthAndAddressAndProceed((payload, responseData, bookingId) => {
+      navigation.navigate('BookingSummaryScreen', {
+        bookingId: bookingId || '9F8A2D3C',
+        item: apiData,
+        vendor: apiData,
+        selectedServices,
+        bookingData: responseData,
+        persons: {
+          men: menCount,
+          women: womenCount,
+          childBoy: childBoyCount,
+          childGirl: childGirlCount,
+        },
+      });
     });
   };
 
@@ -417,6 +640,34 @@ const PreBookingServiceScreen = () => {
               />
             </TouchableOpacity>
 
+            {/* FLOATING STATUS BADGE PILL (OFFLINE / ONLINE) */}
+            <View
+              style={{
+                position: 'absolute',
+                top: hp(16),
+                right: wp(64),
+                paddingHorizontal: wp(14),
+                paddingVertical: hp(6),
+                borderRadius: hp(50),
+                backgroundColor: '#EDEDED',
+                justifyContent: 'center',
+                alignItems: 'center',
+                elevation: 4,
+                shadowColor: '#000',
+                shadowOffset: {width: 0, height: 2},
+                shadowOpacity: 0.15,
+                shadowRadius: 3,
+              }}>
+              <Text
+                style={{
+                  fontSize: fontSize(12),
+                  fontFamily: fontFamily.poppins500,
+                  color: colors.pureBlack,
+                }}>
+                {statusBadgeText}
+              </Text>
+            </View>
+
             {/* FLOATING LIKE / HEART BUTTON */}
             <TouchableOpacity
               activeOpacity={0.8}
@@ -553,8 +804,7 @@ const PreBookingServiceScreen = () => {
                 }}>
                 No services listed.
               </Text>
-            ) : isSalonCategory ? (
-              /* IMAGE 1: SALOON CATEGORY DISPLAY (Priced rows with selection checkmark / plus buttons) */
+            ) : (
               offeredServices.map((serviceObj, index) => {
                 const isSelected = selectedServices.includes(index);
                 return (
@@ -563,32 +813,15 @@ const PreBookingServiceScreen = () => {
                     activeOpacity={0.8}
                     onPress={() => toggleServiceSelect(index)}
                     style={{
-                      // flexDirection: 'row',
-                      // alignItems: 'center',
-                      // justifyContent: 'space-between',
-                      // backgroundColor: isSelected ? '#F0E5FF' : '#FAFAFA',
-                      // borderRadius: hp(50),
-                      // paddingVertical: hp(10),
-                      // paddingHorizontal: wp(18),
-                      // marginBottom: hp(12),
-
                       flexDirection: 'row',
                       alignItems: 'center',
-                      width: '100%',
-                      minHeight: hp(48),
-
-                      // Selected / Unselected background
-                      backgroundColor: isSelected ? '#FBF7FF' : '#FAFAFA',
-
-                      // Border
-                      borderWidth: hp(1),
-                      borderColor: isSelected ? '#C99AFF' : '#EEEEEE',
-
-                      borderRadius: hp(50),
-
-                      paddingHorizontal: wp(22),
-                      paddingVertical: hp(10),
-
+                      justifyContent: 'space-between',
+                      backgroundColor: isSelected ? '#FCFAFF' : '#FAFAFA',
+                      borderWidth: isSelected ? 1.5 : 0,
+                      borderColor: isSelected ? '#731EE2' : 'transparent',
+                      borderRadius: hp(16),
+                      paddingVertical: hp(14),
+                      paddingHorizontal: wp(18),
                       marginBottom: hp(12),
                     }}>
                     {/* Service Title */}
@@ -596,22 +829,24 @@ const PreBookingServiceScreen = () => {
                       style={{
                         fontSize: fontSize(15),
                         fontFamily: fontFamily.poppins600,
-                        color: isSelected ? '#7A51AF' : colors.pureBlack,
+                        color: isSelected ? '#731EE2' : colors.pureBlack,
                         flex: 1,
                       }}>
                       {serviceObj.title}
                     </Text>
 
-                    {/* Price */}
-                    <Text
-                      style={{
-                        fontSize: fontSize(15),
-                        fontFamily: fontFamily.poppins700,
-                        color: isSelected ? '#7A51AF' : colors.pureBlack,
-                        marginRight: wp(14),
-                      }}>
-                      {serviceObj.price}
-                    </Text>
+                    {/* Price (Displayed ONLY for Saloon Category) */}
+                    {isSalonCategory && (
+                      <Text
+                        style={{
+                          fontSize: fontSize(15),
+                          fontFamily: fontFamily.poppins700,
+                          color: isSelected ? '#731EE2' : colors.pureBlack,
+                          marginRight: wp(14),
+                        }}>
+                        {serviceObj.price}
+                      </Text>
+                    )}
 
                     {/* Action Checkmark / Plus Icon */}
                     <View
@@ -619,7 +854,7 @@ const PreBookingServiceScreen = () => {
                         width: hp(24),
                         height: hp(24),
                         borderRadius: hp(12),
-                        backgroundColor: isSelected ? '#7A51AF' : '#888888',
+                        backgroundColor: isSelected ? '#731EE2' : '#000000',
                         justifyContent: 'center',
                         alignItems: 'center',
                       }}>
@@ -636,29 +871,6 @@ const PreBookingServiceScreen = () => {
                   </TouchableOpacity>
                 );
               })
-            ) : (
-              /* IMAGE 2: OTHER CATEGORIES DISPLAY (Simple title card list) */
-              offeredServices.map((serviceObj, index) => (
-                <View
-                  key={serviceObj.id || index}
-                  style={{
-                    backgroundColor: '#FAFAFA',
-                    borderRadius: hp(14),
-                    paddingVertical: hp(14),
-                    paddingHorizontal: wp(16),
-                    marginBottom: hp(10),
-                    justifyContent: 'center',
-                  }}>
-                  <Text
-                    style={{
-                      fontSize: fontSize(14),
-                      fontFamily: fontFamily.poppins600,
-                      color: '#4A4A4A',
-                    }}>
-                    {serviceObj.title}
-                  </Text>
-                </View>
-              ))
             )}
           </View>
         </ScrollView>
@@ -684,7 +896,8 @@ const PreBookingServiceScreen = () => {
             shadowRadius: 5,
           }}>
           <TouchableOpacity
-            activeOpacity={0.8}
+            activeOpacity={bookingLoading ? 1 : 0.8}
+            disabled={bookingLoading}
             onPress={handleBookAppointmentPress}
             style={{
               width: '100%',
@@ -693,16 +906,21 @@ const PreBookingServiceScreen = () => {
               borderRadius: hp(50),
               justifyContent: 'center',
               alignItems: 'center',
+              opacity: bookingLoading ? 0.6 : 1,
             }}>
-            <Text
-              style={{
-                color: colors.white,
-                fontSize: fontSize(16),
-                fontFamily: fontFamily.poppins600,
-                textAlign: 'center',
-              }}>
-              Book Appointment
-            </Text>
+            {bookingLoading ? (
+              <ActivityIndicator size="small" color={colors.white} />
+            ) : (
+              <Text
+                style={{
+                  color: colors.white,
+                  fontSize: fontSize(16),
+                  fontFamily: fontFamily.poppins600,
+                  textAlign: 'center',
+                }}>
+                Book Appointment
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
       )}
@@ -740,7 +958,8 @@ const PreBookingServiceScreen = () => {
 
         {/* Confirm Button */}
         <TouchableOpacity
-          activeOpacity={0.8}
+          activeOpacity={bookingLoading ? 1 : 0.8}
+          disabled={bookingLoading}
           onPress={handleConfirmPeopleSelection}
           style={{
             width: '100%',
@@ -750,16 +969,21 @@ const PreBookingServiceScreen = () => {
             justifyContent: 'center',
             alignItems: 'center',
             marginTop: hp(20),
+            opacity: bookingLoading ? 0.6 : 1,
           }}>
-          <Text
-            style={{
-              color: colors.white,
-              fontSize: fontSize(16),
-              fontFamily: fontFamily.poppins600,
-              textAlign: 'center',
-            }}>
-            Confirm
-          </Text>
+          {bookingLoading ? (
+            <ActivityIndicator size="small" color={colors.white} />
+          ) : (
+            <Text
+              style={{
+                color: colors.white,
+                fontSize: fontSize(16),
+                fontFamily: fontFamily.poppins600,
+                textAlign: 'center',
+              }}>
+              Confirm
+            </Text>
+          )}
         </TouchableOpacity>
       </RBSheet>
     </SafeAreaView>

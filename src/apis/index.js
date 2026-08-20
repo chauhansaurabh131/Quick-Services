@@ -15,11 +15,47 @@ export const customerAuth = {
   updateUser: (payload, token) =>
     api.put('/customer/auth/update-user', payload, {
       headers: {
-        Authorization: token.startsWith('Bearer ') ? token : `Bearer ${token}`,
+        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
       },
     }),
   updateUserLocation: (userId, payload, token) =>
     api.put(`/customer/user/${userId}`, payload, {
+      headers: {
+        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
+      },
+    }),
+  saveCustomerAddress: (payload, token) =>
+    api.post('/customer/address', payload, {
+      headers: {
+        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
+      },
+    }),
+  updateCustomerAddress: (addressId, payload, token) =>
+    api.put(`/customer/address/${addressId}`, payload, {
+      headers: {
+        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
+      },
+    }),
+  getCustomerAddressesByUserId: (userId, token) =>
+    api.get(`/customer/address/user/${userId}`, {
+      headers: {
+        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
+      },
+    }),
+  deleteCustomerAddress: (addressId, token) =>
+    api.delete(`/customer/address/${addressId}`, {
+      headers: {
+        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
+      },
+    }),
+  createBooking: (payload, token) =>
+    api.post('/customer/bookings', payload, {
+      headers: {
+        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
+      },
+    }),
+  getBookingDetailsById: (bookingId, token) =>
+    api.get(`/customer/bookings/${bookingId}`, {
       headers: {
         Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
       },
@@ -60,11 +96,13 @@ export const customerAuth = {
         Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
       },
     }),
-  getVendorServicesByCategory: (categoryId, longitude, latitude, token) =>
+  getVendorServicesByCategory: (categoryId, longitude, latitude, token, page = 1, limit = 10) =>
     api.get(`/customer/vendorUser/category/${categoryId}`, {
       params: {
         latitude: latitude,
         longitude: longitude,
+        page: page,
+        limit: limit,
       },
       headers: {
         Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
@@ -104,6 +142,18 @@ export const customerAuth = {
         }
         : {},
     ),
+  getMyAvailability: token =>
+    api.get('/vendor/vendorAvailability/my-availability', {
+      headers: {
+        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
+      },
+    }),
+  updateMyAvailability: (payload, token) =>
+    api.put('/vendor/vendorAvailability/my-availability', payload, {
+      headers: {
+        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
+      },
+    }),
 };
 
 export const s3Api = {

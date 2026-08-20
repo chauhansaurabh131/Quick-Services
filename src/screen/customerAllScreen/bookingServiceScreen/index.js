@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
   FlatList,
   Image,
@@ -10,14 +10,24 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import {useDispatch, useSelector} from 'react-redux';
+import RBSheet from 'react-native-raw-bottom-sheet';
 import {fontFamily, fontSize, hp, wp} from '../../../utils/helpers';
 import {icons} from '../../../assets';
 import {colors} from '../../../utils/colors';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {getVendorServicesByCategory} from '../../../actions/customerAuthActions';
 
+const filterOptions = [
+  'Instant Booking',
+  'Schedule Booking',
+  'Popular',
+  'Within 1 km',
+];
+
 const BookingServiceScreen = ({route}) => {
   const dispatch = useDispatch();
+  const refRBSheet = useRef();
+
   const {
     place,
     fullAddress,
@@ -26,9 +36,17 @@ const BookingServiceScreen = ({route}) => {
   } = useSelector(state => state.location);
   const {loading: sagaLoading, vendorServices: reduxVendorServices} =
     useSelector(state => state.auth || {});
+
   const [search, setSearch] = useState('');
   const [vendorServicesList, setVendorServicesList] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  // Filter BottomSheet State
+  const [selectedFilter, setSelectedFilter] = useState('Instant Booking');
+  const [appliedFilter, setAppliedFilter] = useState(null);
 
   const navigation = useNavigation();
 
@@ -46,13 +64,15 @@ const BookingServiceScreen = ({route}) => {
 
   useEffect(() => {
     setLoading(true);
+    setPage(1);
     console.log(
       '==================================================',
-      '\n[BookingServiceScreen Dispatching Redux Saga Action]',
+      '\n[BookingServiceScreen Dispatching Redux Saga Action (Page 1)]',
       '\nAction: GET_VENDOR_SERVICES_BY_CATEGORY',
       `\nCategory ID: ${categoryId}`,
       `\nLongitude: ${lon}`,
       `\nLatitude: ${lat}`,
+      '\nPage: 1',
       '\n==================================================',
     );
 
@@ -95,22 +115,141 @@ const BookingServiceScreen = ({route}) => {
               (Array.isArray(responseData?.data) && responseData.data) ||
               (Array.isArray(responseData) ? responseData : []);
 
+            const totalP =
+              responseData?.data?.totalPages || responseData?.totalPages || 1;
+
             if (Array.isArray(fetchedList)) {
               setVendorServicesList(fetchedList);
             }
+            setTotalPages(totalP);
           }
         },
+        1,
+        10,
       ),
     );
   }, [categoryId, lon, lat, dispatch]);
 
-  useEffect(() => {
-    if (Array.isArray(reduxVendorServices)) {
-      setVendorServicesList(reduxVendorServices);
+  const handleLoadMore = () => {
+    if (loading || loadingMore || page >= totalPages) {
+      return;
     }
-  }, [reduxVendorServices]);
 
-  const dataToDisplay = vendorServicesList.map((item, idx) => ({
+    const nextPage = page + 1;
+    setLoadingMore(true);
+    console.log(
+      '==================================================',
+      '\n[BookingServiceScreen Loading More Data]',
+      `\nFetching Page: ${nextPage} of ${totalPages}`,
+      '\n==================================================',
+    );
+
+    dispatch(
+      getVendorServicesByCategory(
+        categoryId,
+        lon,
+        lat,
+        (error, responseData) => {
+          setLoadingMore(false);
+          if (error) {
+            console.log('[BookingServiceScreen LoadMore Error]:', error);
+          } else {
+            const newDocs =
+              (Array.isArray(responseData?.data?.docs) &&
+                responseData.data.docs) ||
+              (Array.isArray(responseData?.docs) && responseData.docs) ||
+              (Array.isArray(responseData?.data?.services) &&
+                responseData.data.services) ||
+              (Array.isArray(responseData?.data?.vendorServices) &&
+                responseData.data.vendorServices) ||
+              (Array.isArray(responseData?.services) &&
+                responseData.services) ||
+              (Array.isArray(responseData?.data) && responseData.data) ||
+              (Array.isArray(responseData) ? responseData : []);
+
+            const totalP =
+              responseData?.data?.totalPages ||
+              responseData?.totalPages ||
+              totalPages;
+
+            setTotalPages(totalP);
+            setPage(nextPage);
+
+            if (Array.isArray(newDocs) && newDocs.length > 0) {
+              setVendorServicesList(prevList => {
+                const existingIds = new Set(
+                  prevList.map(item => item._id || item.id || item.userId),
+                );
+                const filteredNew = newDocs.filter(
+                  item => !existingIds.has(item._id || item.id || item.userId),
+                );
+                return [...prevList, ...filteredNew];
+              });
+            }
+          }
+        },
+        nextPage,
+        10,
+      ),
+    );
+  };
+
+  // Filter vendor list by search text and applied filter option
+  const filteredList = vendorServicesList.filter(item => {
+    if (search && search.trim() !== '') {
+      const q = search.toLowerCase().trim();
+      const bName = (
+        item.businessName ||
+        item.business_name ||
+        item.name ||
+        ''
+      ).toLowerCase();
+      const sTitle = (
+        item.categoryTitle ||
+        item.category_title ||
+        item.serviceName ||
+        ''
+      ).toLowerCase();
+      if (!bName.includes(q) && !sTitle.includes(q)) {
+        return false;
+      }
+    }
+
+    if (appliedFilter === 'Instant Booking') {
+      const avail = item.vendorAvailability || {};
+      const isInstant =
+        avail.bookingOption === 'instant' ||
+        avail.statusBadge === 'instant' ||
+        avail.isOnline === true;
+      if (!isInstant) {
+        return false;
+      }
+    } else if (appliedFilter === 'Schedule Booking') {
+      const avail = item.vendorAvailability || {};
+      const isSchedule =
+        avail.bookingOption === 'schedule' || avail.statusBadge === 'schedule';
+      if (!isSchedule) {
+        return false;
+      }
+    } else if (appliedFilter === 'Popular') {
+      const ratingVal = Number(item.rating || 4.8);
+      if (ratingVal < 4.5) {
+        return false;
+      }
+    } else if (appliedFilter === 'Within 1 km') {
+      const distVal =
+        item.distance !== null && item.distance !== undefined
+          ? Number(item.distance)
+          : null;
+      if (distVal !== null && !isNaN(distVal) && distVal > 1) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  const dataToDisplay = filteredList.map((item, idx) => ({
     id: item._id || item.id || idx.toString(),
     name:
       item.businessName ||
@@ -168,6 +307,11 @@ const BookingServiceScreen = ({route}) => {
         : '8.6 Km Away',
     _id: item._id || item.id || item.userId || item.vendorUserId,
     rawItem: item,
+    vendorAvailability:
+      item.vendorAvailability ||
+      item.vendor?.vendorAvailability ||
+      item.vendorId?.vendorAvailability ||
+      {},
     image:
       (typeof item.profilePic === 'string' &&
         item.profilePic.trim() !== '' &&
@@ -207,6 +351,22 @@ const BookingServiceScreen = ({route}) => {
       nameStr.includes('beauty') ||
       nameStr.includes('barber');
 
+    const availabilityObj =
+      item.vendorAvailability ||
+      item.rawItem?.vendorAvailability ||
+      item.vendor?.vendorAvailability ||
+      item.vendorId?.vendorAvailability ||
+      {};
+
+    const isVendorOnline = Boolean(
+      availabilityObj &&
+        Object.keys(availabilityObj).length > 0 &&
+        availabilityObj.isAvailable !== false &&
+        availabilityObj.isOnline !== false &&
+        availabilityObj.storeStatus !== 'offline' &&
+        availabilityObj.statusBadge !== 'offline',
+    );
+
     if (isSalonCategory) {
       const startingPrice = item.price
         ? item.price.startsWith('Rs.')
@@ -225,7 +385,7 @@ const BookingServiceScreen = ({route}) => {
             overflow: 'hidden',
           }}>
           {/* Image Container */}
-          <View>
+          <View style={{position: 'relative'}}>
             <Image
               source={{uri: item.image}}
               style={{
@@ -266,6 +426,34 @@ const BookingServiceScreen = ({route}) => {
                 {item.rating}
               </Text>
             </View>
+
+            {/* Status Pill (Offline Only) */}
+            {!isVendorOnline && (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: hp(12),
+                  right: wp(12),
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: hp(50),
+                  paddingHorizontal: wp(14),
+                  paddingVertical: hp(5),
+                  elevation: 3,
+                  shadowColor: '#000',
+                  shadowOffset: {width: 0, height: 1},
+                  shadowOpacity: 0.15,
+                  shadowRadius: 2,
+                }}>
+                <Text
+                  style={{
+                    color: colors.pureBlack,
+                    fontSize: fontSize(12),
+                    fontFamily: fontFamily.poppins500,
+                  }}>
+                  Offline
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Card Body */}
@@ -378,7 +566,7 @@ const BookingServiceScreen = ({route}) => {
           overflow: 'hidden',
         }}>
         {/* Image */}
-        <View>
+        <View style={{position: 'relative'}}>
           <Image
             source={{uri: item.image}}
             style={{
@@ -408,7 +596,6 @@ const BookingServiceScreen = ({route}) => {
                 height: hp(14),
                 resizeMode: 'contain',
                 marginRight: wp(8),
-                top: -2,
               }}
             />
 
@@ -417,11 +604,38 @@ const BookingServiceScreen = ({route}) => {
                 color: colors.white,
                 fontSize: fontSize(11),
                 fontFamily: fontFamily.poppins600,
-                top: 2,
               }}>
               {item.rating}
             </Text>
           </View>
+
+          {/* Status Pill (Offline Only) */}
+          {!isVendorOnline && (
+            <View
+              style={{
+                position: 'absolute',
+                top: hp(10),
+                right: wp(12),
+                backgroundColor: '#FFFFFF',
+                borderRadius: hp(50),
+                paddingHorizontal: wp(14),
+                paddingVertical: hp(5),
+                elevation: 3,
+                shadowColor: '#000',
+                shadowOffset: {width: 0, height: 1},
+                shadowOpacity: 0.15,
+                shadowRadius: 2,
+              }}>
+              <Text
+                style={{
+                  color: colors.pureBlack,
+                  fontSize: fontSize(12),
+                  fontFamily: fontFamily.poppins500,
+                }}>
+                Offline
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Content */}
@@ -457,20 +671,13 @@ const BookingServiceScreen = ({route}) => {
             }}>
             <Text
               style={{
-                fontFamily: fontFamily.poppins500,
-                fontSize: fontSize(13),
-                color: '#979797',
-                marginTop: hp(3),
-              }}
-            />
-
-            <Text
-              style={{
                 fontSize: fontSize(13),
                 fontFamily: fontFamily.poppins600,
                 color: colors.pureBlack,
+                marginTop: hp(3),
               }}>
-              Visiting Charge Rs. {item.price}
+              Visiting Charge{' '}
+              {item.price?.startsWith('Rs.') ? item.price : `Rs. ${item.price}`}
             </Text>
           </View>
 
@@ -505,40 +712,35 @@ const BookingServiceScreen = ({route}) => {
                   fontSize: fontSize(14),
                   fontFamily: fontFamily.poppins500,
                   color: '#757575',
-                  marginLeft: wp(11),
-                  top: 1.5,
+                  marginLeft: wp(6),
                 }}>
-                {item.distance || item.time}
+                {item.distance}
               </Text>
             </View>
 
-            <View
+            <TouchableOpacity
+              activeOpacity={0.6}
+              onPress={() =>
+                navigation.navigate('PreBookingServiceScreen', {
+                  vendorUserId:
+                    item._id || item.rawItem?._id || item.id || item.userId,
+                  item: item.rawItem || item,
+                  vendor: item.rawItem || item,
+                })
+              }
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                alignSelf: 'center',
               }}>
-              <TouchableOpacity
-                activeOpacity={0.6}
-                onPress={() =>
-                  navigation.navigate('PreBookingServiceScreen', {
-                    vendorUserId:
-                      item._id || item.rawItem?._id || item.id || item.userId,
-                    item: item.rawItem || item,
-                    vendor: item.rawItem || item,
-                  })
-                }>
-                <Text
-                  style={{
-                    color: '#731EE2',
-                    fontFamily: fontFamily.poppins600,
-                    fontSize: fontSize(14),
-                    marginRight: wp(7),
-                    top: 1,
-                  }}>
-                  Book Appointment
-                </Text>
-              </TouchableOpacity>
+              <Text
+                style={{
+                  color: '#731EE2',
+                  fontFamily: fontFamily.poppins600,
+                  fontSize: fontSize(14),
+                  marginRight: wp(6),
+                }}>
+                Book Appointment
+              </Text>
 
               <Image
                 source={icons.back_Arrow_Icon}
@@ -550,7 +752,7 @@ const BookingServiceScreen = ({route}) => {
                   tintColor: '#731EE2',
                 }}
               />
-            </View>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -559,7 +761,8 @@ const BookingServiceScreen = ({route}) => {
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: colors.white}}>
-      <View style={{padding: wp(18)}}>
+      {/* LOCATION & SEARCH */}
+      <View style={{marginHorizontal: wp(18), marginTop: hp(10)}}>
         <TouchableOpacity
           activeOpacity={0.6}
           style={{flexDirection: 'row', alignItems: 'center'}}>
@@ -605,13 +808,14 @@ const BookingServiceScreen = ({route}) => {
         </TouchableOpacity>
       </View>
 
+      {/* SEARCH BAR & FILTER BUTTON */}
       <View
         style={{
           flexDirection: 'row',
           marginHorizontal: wp(18),
-          // backgroundColor: 'orange',
           justifyContent: 'space-between',
           marginBottom: hp(10),
+          marginTop: hp(10),
         }}>
         <View
           style={{
@@ -624,8 +828,6 @@ const BookingServiceScreen = ({route}) => {
             paddingHorizontal: wp(14),
             backgroundColor: '#F9FAFB',
             width: '85%',
-
-            // marginTop: hp(20),
           }}>
           <Image
             source={icons.search_Icon}
@@ -654,21 +856,28 @@ const BookingServiceScreen = ({route}) => {
           />
         </View>
 
+        {/* FILTER BUTTON */}
         <TouchableOpacity
           activeOpacity={0.6}
+          onPress={() => refRBSheet.current?.open()}
           style={{
             width: hp(40),
             height: hp(40),
             borderWidth: 1,
             borderRadius: hp(50),
-            borderColor: '#E1E1E1',
-            backgroundColor: '#F9FAFB',
+            borderColor: appliedFilter ? '#731EE2' : '#E1E1E1',
+            backgroundColor: appliedFilter ? '#FCFAFF' : '#F9FAFB',
             justifyContent: 'center',
             alignItems: 'center',
           }}>
           <Image
             source={icons.filter_Icon}
-            style={{width: hp(16), height: hp(16), resizeMode: 'contain'}}
+            style={{
+              width: hp(16),
+              height: hp(16),
+              resizeMode: 'contain',
+              tintColor: appliedFilter ? '#731EE2' : undefined,
+            }}
           />
         </TouchableOpacity>
       </View>
@@ -685,6 +894,29 @@ const BookingServiceScreen = ({route}) => {
           keyExtractor={(item, index) => item.id || index.toString()}
           renderItem={renderItem}
           showsVerticalScrollIndicator={false}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            loadingMore ? (
+              <View
+                style={{
+                  paddingVertical: hp(16),
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                <ActivityIndicator size="small" color={colors.pureBlack} />
+                <Text
+                  style={{
+                    fontSize: fontSize(12),
+                    fontFamily: fontFamily.poppins400,
+                    color: '#8E8E93',
+                    marginTop: hp(4),
+                  }}>
+                  Loading more services...
+                </Text>
+              </View>
+            ) : null
+          }
           ListEmptyComponent={
             <View
               style={{
@@ -718,6 +950,127 @@ const BookingServiceScreen = ({route}) => {
           }}
         />
       )}
+
+      {/* SELECT FILTER RBSHEET BOTTOM SHEET */}
+      <RBSheet
+        ref={refRBSheet}
+        height={hp(380)}
+        openDuration={250}
+        customStyles={{
+          container: {
+            borderTopLeftRadius: hp(24),
+            borderTopRightRadius: hp(24),
+            paddingHorizontal: wp(20),
+            paddingTop: hp(20),
+            paddingBottom: hp(24),
+            backgroundColor: colors.white,
+          },
+        }}>
+        {/* Title */}
+        <Text
+          style={{
+            fontSize: fontSize(16),
+            fontFamily: fontFamily.poppins500,
+            color: colors.pureBlack,
+            marginBottom: hp(16),
+          }}>
+          Select Filter
+        </Text>
+
+        {/* Filter Option Items */}
+        {filterOptions.map(opt => {
+          const isSelected = selectedFilter === opt;
+          return (
+            <TouchableOpacity
+              key={opt}
+              activeOpacity={0.8}
+              onPress={() => setSelectedFilter(isSelected ? null : opt)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                backgroundColor: isSelected ? '#731EE20A' : '#F6F6F6',
+                borderWidth: isSelected ? hp(1) : 0,
+                borderColor: isSelected ? '#731EE259' : 'transparent',
+                borderRadius: hp(50),
+                paddingVertical: hp(10),
+                paddingHorizontal: wp(18),
+                marginBottom: hp(12),
+              }}>
+              <Text
+                style={{
+                  fontSize: fontSize(16),
+                  fontFamily: fontFamily.poppins400,
+                  color: isSelected ? '#6A40A0' : colors.pureBlack,
+                }}>
+                {opt}
+              </Text>
+
+              {/* Action Checkmark / Plus Icon */}
+              <View
+                style={{
+                  width: hp(24),
+                  height: hp(24),
+                  borderRadius: hp(12),
+                  backgroundColor: isSelected ? '#7A51AF' : 'transparent',
+                  borderWidth: isSelected ? 0 : 1.5,
+                  borderColor: isSelected ? 'transparent' : '#4A4A4A',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                {isSelected ? (
+                  <Text
+                    style={{
+                      color: '#FFFFFF',
+                      fontSize: fontSize(13),
+                      fontWeight: '700',
+                      top: -1,
+                    }}>
+                    ✓
+                  </Text>
+                ) : (
+                  <Text
+                    style={{
+                      color: '#4A4A4A',
+                      fontSize: fontSize(15),
+                      fontWeight: '600',
+                      top: -1,
+                    }}>
+                    +
+                  </Text>
+                )}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+
+        {/* Apply Button */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => {
+            setAppliedFilter(selectedFilter);
+            refRBSheet.current?.close();
+          }}
+          style={{
+            width: '100%',
+            height: hp(52),
+            backgroundColor: '#731EE2',
+            borderRadius: hp(50),
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginTop: hp(12),
+          }}>
+          <Text
+            style={{
+              color: colors.white,
+              fontSize: fontSize(16),
+              fontFamily: fontFamily.poppins600,
+              textAlign: 'center',
+            }}>
+            Apply
+          </Text>
+        </TouchableOpacity>
+      </RBSheet>
     </SafeAreaView>
   );
 };

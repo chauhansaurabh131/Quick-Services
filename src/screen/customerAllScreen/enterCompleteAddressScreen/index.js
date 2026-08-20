@@ -1,5 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   Image,
   SafeAreaView,
   ScrollView,
@@ -19,12 +21,27 @@ import BorderShowLabelTextInputComponent from '../../../components/borderShowLab
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useTranslation} from 'react-i18next';
 
+import {useDispatch} from 'react-redux';
+import {
+  saveCustomerAddress,
+  updateCustomerAddress,
+} from '../../../actions/customerAuthActions';
+
+const EnumLocationTypeOfAddress = {
+  HOME: 'home',
+  WORK: 'work',
+  HOTEL: 'hotel',
+  OTHER: 'other',
+};
+
 const EnterCompleteAddressScreen = () => {
+  const dispatch = useDispatch();
   const route = useRoute();
   const editData = route.params?.editData;
   const navigation = useNavigation();
   const {t} = useTranslation();
 
+  const [loading, setLoading] = useState(false);
   const [selectedType, setSelectedType] = useState('Home');
   const [address, setAddress] = useState('');
   const [floor, setFloor] = useState('');
@@ -42,12 +59,16 @@ const EnterCompleteAddressScreen = () => {
 
   useEffect(() => {
     if (editData) {
-      setSelectedType(editData.type);
-      setAddress(editData.address);
-      setFloor(editData.floor);
-      setLandmark(editData.landmark);
-      setName(editData.name);
-      setMobile(editData.mobile);
+      setSelectedType(editData.type || editData.locationType || 'Home');
+      setAddress(editData.address || '');
+      setFloor(editData.floor || '');
+      setLandmark(editData.landmark || '');
+      setName(editData.name || editData.receiverName || '');
+      setMobile(
+        editData.mobile || editData.receiverMobile
+          ? String(editData.mobile || editData.receiverMobile)
+          : '',
+      );
     }
   }, [editData]);
 
@@ -70,49 +91,189 @@ const EnterCompleteAddressScreen = () => {
     address.trim() !== '' && name.trim() !== '' && mobile.trim().length === 10;
 
   const handleSaveAddress = async () => {
-    try {
-      const existing = await AsyncStorage.getItem('ADDRESSES');
-      let addressList = existing ? JSON.parse(existing) : [];
-
-      if (editData) {
-        // 🔥 UPDATE MODE
-        const updatedList = addressList.map(item =>
-          item.id === editData.id
-            ? {
-                ...item,
-                type: selectedType,
-                address,
-                floor,
-                landmark,
-                name,
-                mobile,
-              }
-            : item,
-        );
-
-        await AsyncStorage.setItem('ADDRESSES', JSON.stringify(updatedList));
-      } else {
-        // 🔥 CREATE MODE
-        const newAddress = {
-          id: Date.now(),
-          type: selectedType,
-          address,
-          floor,
-          landmark,
-          name,
-          mobile,
-          isDefault: false,
-        };
-
-        addressList.push(newAddress);
-
-        await AsyncStorage.setItem('ADDRESSES', JSON.stringify(addressList));
-      }
-
-      navigation.goBack();
-    } catch (e) {
-      console.log('Error:', e);
+    if (!isFormValid || loading) {
+      return;
     }
+
+    setLoading(true);
+
+    const locKey = selectedType.toUpperCase();
+    const locationTypeVal =
+      EnumLocationTypeOfAddress[locKey] || selectedType.toLowerCase();
+    const numericMobile = Number(mobile.replace(/\D/g, ''));
+
+    const isEditMode = Boolean(editData && (editData.id || editData._id));
+    const addressId = editData?.id || editData?._id;
+
+    const payload = {
+      locationType: locationTypeVal,
+      address: address.trim(),
+      receiverName: name.trim(),
+      receiverMobile: isNaN(numericMobile) ? mobile : numericMobile,
+    };
+
+    if (floor.trim() !== '') {
+      payload.floor = floor.trim();
+    }
+
+    if (landmark.trim() !== '') {
+      payload.landmark = landmark.trim();
+    }
+
+    if (!isEditMode) {
+      payload.isDefault = true;
+    }
+
+    console.log(
+      '==================================================',
+      '\n[EnterCompleteAddressScreen Dispatching Redux Saga Action]',
+      `\nMode: ${isEditMode ? 'UPDATE (PUT)' : 'CREATE (POST)'}`,
+      `\nEndpoint: ${
+        isEditMode
+          ? `PUT /customer/address/${addressId}`
+          : 'POST /customer/address'
+      }`,
+      '\nPayload:',
+      JSON.stringify(payload, null, 2),
+      '\n==================================================',
+    );
+
+    const actionToDispatch = isEditMode
+      ? updateCustomerAddress(
+          addressId,
+          payload,
+          async (error, responseData) => {
+            setLoading(false);
+            if (
+              error ||
+              responseData?.status === 'Failure' ||
+              responseData?.code >= 400
+            ) {
+              const errMsgs =
+                error?.message ||
+                responseData?.message ||
+                'Failed to update address';
+              console.log(
+                '==================================================',
+                '\n[EnterCompleteAddressScreen Error Callback]',
+                '\nError:',
+                JSON.stringify(error || responseData, null, 2),
+                '\n==================================================',
+              );
+              Alert.alert(
+                'Error',
+                typeof errMsgs === 'string' ? errMsgs : JSON.stringify(errMsgs),
+              );
+              return;
+            }
+
+            console.log(
+              '==================================================',
+              '\n[EnterCompleteAddressScreen Success Callback]',
+              '\nData:',
+              JSON.stringify(responseData, null, 2),
+              '\n==================================================',
+            );
+
+            try {
+              const existing = await AsyncStorage.getItem('ADDRESSES');
+              let addressList = existing ? JSON.parse(existing) : [];
+
+              const updatedList = addressList.map(item =>
+                item.id === addressId || item._id === addressId
+                  ? {
+                      ...item,
+                      type: selectedType,
+                      locationType: locationTypeVal,
+                      address,
+                      floor,
+                      landmark,
+                      name,
+                      mobile,
+                    }
+                  : item,
+              );
+
+              await AsyncStorage.setItem(
+                'ADDRESSES',
+                JSON.stringify(updatedList),
+              );
+            } catch (storageErr) {
+              console.log(
+                '[EnterCompleteAddressScreen] Local Storage Error:',
+                storageErr,
+              );
+            }
+
+            navigation.goBack();
+          },
+        )
+      : saveCustomerAddress(payload, async (error, responseData) => {
+          setLoading(false);
+          if (
+            error ||
+            responseData?.status === 'Failure' ||
+            responseData?.code >= 400
+          ) {
+            const errMsgs =
+              error?.message ||
+              responseData?.message ||
+              'Failed to save address';
+            console.log(
+              '==================================================',
+              '\n[EnterCompleteAddressScreen Error Callback]',
+              '\nError:',
+              JSON.stringify(error || responseData, null, 2),
+              '\n==================================================',
+            );
+            Alert.alert(
+              'Error',
+              typeof errMsgs === 'string' ? errMsgs : JSON.stringify(errMsgs),
+            );
+            return;
+          }
+
+          console.log(
+            '==================================================',
+            '\n[EnterCompleteAddressScreen Success Callback]',
+            '\nData:',
+            JSON.stringify(responseData, null, 2),
+            '\n==================================================',
+          );
+
+          try {
+            const existing = await AsyncStorage.getItem('ADDRESSES');
+            let addressList = existing ? JSON.parse(existing) : [];
+
+            const savedAddressData = responseData?.data || responseData || {};
+            const newAddress = {
+              id: savedAddressData?.id || savedAddressData?._id || Date.now(),
+              type: selectedType,
+              locationType: locationTypeVal,
+              address,
+              floor,
+              landmark,
+              name,
+              mobile,
+              isDefault: true,
+            };
+
+            addressList.push(newAddress);
+            await AsyncStorage.setItem(
+              'ADDRESSES',
+              JSON.stringify(addressList),
+            );
+          } catch (storageErr) {
+            console.log(
+              '[EnterCompleteAddressScreen] Local Storage Error:',
+              storageErr,
+            );
+          }
+
+          navigation.goBack();
+        });
+
+    dispatch(actionToDispatch);
   };
 
   return (
@@ -297,25 +458,29 @@ const EnterCompleteAddressScreen = () => {
               right: wp(16),
             }}>
             <TouchableOpacity
-              activeOpacity={isFormValid ? 0.6 : 1}
-              disabled={!isFormValid}
+              activeOpacity={isFormValid && !loading ? 0.6 : 1}
+              disabled={!isFormValid || loading}
               onPress={handleSaveAddress}
               style={{
                 height: hp(50),
                 borderRadius: hp(25),
                 justifyContent: 'center',
                 alignItems: 'center',
-                backgroundColor: colors.primaryColor, // ✅ ALWAYS SAME
-                opacity: isFormValid ? 1 : 0.5, // 👈 only fade effect
+                backgroundColor: colors.primaryColor,
+                opacity: isFormValid && !loading ? 1 : 0.5,
               }}>
-              <Text
-                style={{
-                  color: colors.white,
-                  fontSize: fontSize(15),
-                  fontFamily: fontFamily.poppins400,
-                }}>
-                {editData ? t('update_address') : t('save_address')}
-              </Text>
+              {loading ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <Text
+                  style={{
+                    color: colors.white,
+                    fontSize: fontSize(15),
+                    fontFamily: fontFamily.poppins400,
+                  }}>
+                  {editData ? t('update_address') : t('save_address')}
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
         )}

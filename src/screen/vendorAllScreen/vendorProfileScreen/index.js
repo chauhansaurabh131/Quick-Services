@@ -16,6 +16,7 @@ import {useDispatch, useSelector} from 'react-redux';
 import {launchImageLibrary} from 'react-native-image-picker';
 import {s3Api} from '../../../apis';
 import {
+  getMyAvailability,
   getVendorUserDetails,
   logoutUser,
   updateVendorProfile,
@@ -59,45 +60,23 @@ const VendorProfileScreen = () => {
   const [confirmLoading, setConfirmLoading] = useState(false);
   const initialIndex = useRef(0);
 
+  // Preload vendor user details & myAvailability in Redux for fast screen rendering
   useFocusEffect(
     useCallback(() => {
       if (vendorUserId) {
         dispatch(getVendorUserDetails(vendorUserId));
       }
+      dispatch(getMyAvailability());
     }, [vendorUserId, dispatch]),
   );
 
   const serviceRadius =
-    user?.vendorUser?.serviceRadius ??
-    user?.user?.vendorUser?.serviceRadius ??
-    user?.user?.serviceRadius ??
-    user?.data?.vendorUser?.serviceRadius ??
-    user?.data?.user?.serviceRadius ??
-    user?.data?.serviceRadius ??
-    user?.serviceRadius ??
-    reduxUser?.vendorUser?.serviceRadius ??
     reduxUser?.serviceRadius ??
-    vendorUserDetails?.vendorUser?.serviceRadius ??
+    user?.serviceRadius ??
     vendorUserDetails?.serviceRadius ??
-    vendorUserDetails?.data?.vendorUser?.serviceRadius ??
     vendorUserDetails?.data?.serviceRadius;
 
-  const matchedOption = rangeOptions.find(
-    item => item.radius === Number(serviceRadius),
-  );
-
-  const bookingAreaText = matchedOption
-    ? `${matchedOption.distance} km`
-    : serviceRadius
-    ? `1–${serviceRadius} km`
-    : '1–5 km';
-
-  console.log(
-    '[VendorProfileScreen] serviceRadius:',
-    serviceRadius,
-    '| bookingAreaText:',
-    bookingAreaText,
-  );
+  const bookingAreaText = serviceRadius ? `1–${serviceRadius} km` : '1–5 km';
 
   useEffect(() => {
     if (serviceRadius) {

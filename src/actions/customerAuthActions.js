@@ -169,9 +169,16 @@ export const getServicesByCategoryFailed = error => ({
   error,
 });
 
-export const getVendorServicesByCategory = (categoryId, longitude, latitude, callback) => ({
+export const getVendorServicesByCategory = (
+  categoryId,
+  longitude,
+  latitude,
+  callback,
+  page = 1,
+  limit = 10,
+) => ({
   type: TYPES.GET_VENDOR_SERVICES_BY_CATEGORY,
-  data: {categoryId, longitude, latitude, callback},
+  data: {categoryId, longitude, latitude, callback, page, limit},
 });
 
 export const getVendorServicesByCategorySuccess = (data, categoryId) => ({
@@ -246,7 +253,143 @@ export const loginVendorFailed = error => ({
   error,
 });
 
+export const getMyAvailability = callback => ({
+  type: TYPES.GET_MY_AVAILABILITY,
+  data: {callback},
+});
+
+export const getMyAvailabilitySuccess = data => ({
+  type: TYPES.GET_MY_AVAILABILITY_SUCCESS,
+  data,
+});
+
+export const getMyAvailabilityFailed = error => ({
+  type: TYPES.GET_MY_AVAILABILITY_FAILED,
+  error,
+});
+
+export const updateMyAvailability = (payload, callback) => ({
+  type: TYPES.UPDATE_MY_AVAILABILITY,
+  data: {payload, callback},
+});
+
+export const updateMyAvailabilitySuccess = (data, payload) => ({
+  type: TYPES.UPDATE_MY_AVAILABILITY_SUCCESS,
+  data,
+  payload,
+});
+
+export const updateMyAvailabilityFailed = error => ({
+  type: TYPES.UPDATE_MY_AVAILABILITY_FAILED,
+  error,
+});
+
 export const logoutUser = () => ({
   type: TYPES.LOGOUT,
 });
 
+export const updateUserLocation = (userId, payload, callback) => ({
+  type: TYPES.UPDATE_USER_LOCATION,
+  data: {userId, payload, callback},
+});
+
+export const updateUserLocationSuccess = data => ({
+  type: TYPES.UPDATE_USER_LOCATION_SUCCESS,
+  data,
+});
+
+export const updateUserLocationFailed = error => ({
+  type: TYPES.UPDATE_USER_LOCATION_FAILED,
+  error,
+});
+
+export const saveCustomerAddress = (payload, callback) => ({
+  type: TYPES.SAVE_CUSTOMER_ADDRESS,
+  data: {payload, callback},
+});
+
+export const saveCustomerAddressSuccess = data => ({
+  type: TYPES.SAVE_CUSTOMER_ADDRESS_SUCCESS,
+  data,
+});
+
+export const saveCustomerAddressFailed = error => ({
+  type: TYPES.SAVE_CUSTOMER_ADDRESS_FAILED,
+  error,
+});
+
+export const updateCustomerAddress = (addressId, payload, callback) => ({
+  type: TYPES.UPDATE_CUSTOMER_ADDRESS,
+  data: {addressId, payload, callback},
+});
+
+export const updateCustomerAddressSuccess = data => ({
+  type: TYPES.UPDATE_CUSTOMER_ADDRESS_SUCCESS,
+  data,
+});
+
+export const updateCustomerAddressFailed = error => ({
+  type: TYPES.UPDATE_CUSTOMER_ADDRESS_FAILED,
+  error,
+});
+
+export const getCustomerAddresses = (userId, callback) => ({
+  type: TYPES.GET_CUSTOMER_ADDRESSES,
+  data: {userId, callback},
+});
+
+export const getCustomerAddressesSuccess = data => ({
+  type: TYPES.GET_CUSTOMER_ADDRESSES_SUCCESS,
+  data,
+});
+
+export const getCustomerAddressesFailed = error => ({
+  type: TYPES.GET_CUSTOMER_ADDRESSES_FAILED,
+  error,
+});
+
+export const deleteCustomerAddress = (addressId, callback) => ({
+  type: TYPES.DELETE_CUSTOMER_ADDRESS,
+  data: {addressId, callback},
+});
+
+export const deleteCustomerAddressSuccess = (data, addressId) => ({
+  type: TYPES.DELETE_CUSTOMER_ADDRESS_SUCCESS,
+  data,
+  addressId,
+});
+
+export const deleteCustomerAddressFailed = error => ({
+  type: TYPES.DELETE_CUSTOMER_ADDRESS_FAILED,
+  error,
+});
+
+export const createBooking = (payload, callback) => ({
+  type: TYPES.CREATE_BOOKING,
+  data: {payload, callback},
+});
+
+export const createBookingSuccess = data => ({
+  type: TYPES.CREATE_BOOKING_SUCCESS,
+  data,
+});
+
+export const createBookingFailed = error => ({
+  type: TYPES.CREATE_BOOKING_FAILED,
+  error,
+});
+
+export const getBookingById = (bookingId, callback) => ({
+  type: TYPES.GET_BOOKING_BY_ID,
+  data: {bookingId, callback},
+});
+
+export const getBookingByIdSuccess = data => ({
+  type: TYPES.GET_BOOKING_BY_ID_SUCCESS,
+  data,
+});
+
+export const getBookingByIdFailed = error => ({
+  type: TYPES.GET_BOOKING_BY_ID_FAILED,
+  error,
+});

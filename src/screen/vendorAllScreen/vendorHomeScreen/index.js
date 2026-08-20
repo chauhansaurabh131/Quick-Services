@@ -1,37 +1,41 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, {useState, useCallback, useRef, useEffect} from 'react';
 import {
   ActivityIndicator,
   BackHandler,
   Image,
   Modal,
   PanResponder,
+  PermissionsAndroid,
+  Platform,
   SafeAreaView,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import { useDispatch, useSelector } from 'react-redux';
-import { colors } from '../../../utils/colors';
-import { fontFamily, fontSize, hp, wp } from '../../../utils/helpers';
-import { icons } from '../../../assets';
+import {useFocusEffect} from '@react-navigation/native';
+import {useDispatch, useSelector} from 'react-redux';
+import Geolocation from 'react-native-geolocation-service';
+import {colors} from '../../../utils/colors';
+import {fontFamily, fontSize, hp, wp} from '../../../utils/helpers';
+import {icons} from '../../../assets';
 import SwitchButton from '../../../components/switchButton';
 import VendorHomeBookingComponent from '../../../components/vendorHomeBookingComponent';
 import {
   getVendorUserDetails,
   updateVendorProfile,
+  updateUserLocation,
 } from '../../../actions/customerAuthActions';
 
 const rangeOptions = [
-  { distance: '1–5', fee: '100.00', percentage: 25, radius: 5 },
-  { distance: '1–10', fee: '150.00', percentage: 62.5, radius: 10 },
-  { distance: '1–15', fee: '200.00', percentage: 100, radius: 15 },
+  {distance: '1–5', fee: '100.00', percentage: 25, radius: 5},
+  {distance: '1–10', fee: '150.00', percentage: 62.5, radius: 10},
+  {distance: '1–15', fee: '200.00', percentage: 100, radius: 15},
 ];
 
 const VendorHomeScreen = () => {
   const dispatch = useDispatch();
 
-  const { user, vendorUserDetails } = useSelector(state => state.auth || {});
+  const {user, vendorUserDetails} = useSelector(state => state.auth || {});
 
   const reduxUser =
     user?.user || user?.data?.user || user?.vendorUser || user || {};
@@ -46,11 +50,106 @@ const VendorHomeScreen = () => {
     user?.user?.id ||
     user?.userId;
 
-  // Sync fresh vendor details from API on home screen load
+  // Sync fresh vendor details and start periodic (35 sec) location updates via Redux Saga
   useEffect(() => {
-    if (vendorUserId) {
-      dispatch(getVendorUserDetails(vendorUserId));
+    if (!vendorUserId) {
+      return;
     }
+
+    dispatch(getVendorUserDetails(vendorUserId));
+
+    const sendLocationUpdate = (longitude, latitude) => {
+      const locationPayload = {
+        location: {
+          type: 'Point',
+          coordinates: [longitude, latitude],
+        },
+      };
+
+      console.log('==================================================');
+      console.log(
+        '[VendorHomeScreen Periodic Location Update via Redux & Saga]',
+      );
+      console.log('VendorUserId:', vendorUserId);
+      console.log(
+        'Coordinates Payload:',
+        JSON.stringify(locationPayload, null, 2),
+      );
+      console.log(
+        `PUT https://service.mntech.website/v1/customer/user/${vendorUserId}`,
+      );
+      console.log('==================================================');
+
+      dispatch(
+        updateUserLocation(vendorUserId, locationPayload, (err, res) => {
+          if (err) {
+            console.log(
+              '[VendorHomeScreen] Error updating location via Redux Saga:',
+              err,
+            );
+          } else {
+            console.log(
+              '[VendorHomeScreen] Location updated via Redux Saga successfully:',
+              res,
+            );
+          }
+        }),
+      );
+    };
+
+    const requestPermissionAndFetchLocation = async () => {
+      let hasPermission = true;
+      if (Platform.OS === 'android') {
+        try {
+          const granted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          );
+          hasPermission = granted === PermissionsAndroid.RESULTS.GRANTED;
+        } catch (e) {
+          console.log('[VendorHomeScreen] Permission request error:', e);
+        }
+      }
+
+      if (hasPermission) {
+        Geolocation.getCurrentPosition(
+          position => {
+            const {longitude, latitude} = position.coords;
+            sendLocationUpdate(longitude, latitude);
+          },
+          error => {
+            console.log(
+              '[VendorHomeScreen] Geolocation error, using fallback coordinates [72.5714, 23.0225]:',
+              error,
+            );
+            sendLocationUpdate(72.5714, 23.0225);
+          },
+          {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000},
+        );
+      } else {
+        console.log(
+          '[VendorHomeScreen] Location permission denied, using default coordinates [72.5714, 23.0225]',
+        );
+        sendLocationUpdate(72.5714, 23.0225);
+      }
+    };
+
+    // Initial immediate location update call
+    requestPermissionAndFetchLocation();
+
+    // Repeat location update every 35 seconds for accurate tracking
+    const locationIntervalId = setInterval(() => {
+      console.log(
+        '[VendorHomeScreen] 35-second periodic location update triggered',
+      );
+      requestPermissionAndFetchLocation();
+    }, 35000);
+
+    return () => {
+      console.log(
+        '[VendorHomeScreen] Clearing periodic location update interval',
+      );
+      clearInterval(locationIntervalId);
+    };
   }, [vendorUserId, dispatch]);
 
   const currentRadius =
@@ -134,13 +233,15 @@ const VendorHomeScreen = () => {
 
     console.log('==================================================');
     console.log('[VendorHomeScreen] Dispatching updateVendorProfile');
-    console.log('Payload:', { serviceRadius });
-    console.log('PUT https://service.mntech.website/v1/vendor/vendorUser/update-profile');
+    console.log('Payload:', {serviceRadius});
+    console.log(
+      'PUT https://service.mntech.website/v1/vendor/vendorUser/update-profile',
+    );
     console.log('==================================================');
 
     setConfirmLoading(true);
     dispatch(
-      updateVendorProfile({ serviceRadius }, (error, response) => {
+      updateVendorProfile({serviceRadius}, (error, response) => {
         setConfirmLoading(false);
         if (error) {
           console.log('Error updating vendor profile serviceRadius:', error);
@@ -197,7 +298,7 @@ const VendorHomeScreen = () => {
   ).current;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.white }}>
+    <SafeAreaView style={{flex: 1, backgroundColor: colors.white}}>
       {/* HEADER */}
       <View
         style={{
@@ -209,23 +310,23 @@ const VendorHomeScreen = () => {
         }}>
         <Image
           source={icons.doormigo_Icon}
-          style={{ width: wp(62), height: hp(18), resizeMode: 'contain' }}
+          style={{width: wp(62), height: hp(18), resizeMode: 'contain'}}
         />
 
         <TouchableOpacity>
           <Image
             source={icons.notification_Bell_Icon}
-            style={{ width: hp(13), height: hp(16), resizeMode: 'contain' }}
+            style={{width: hp(13), height: hp(16), resizeMode: 'contain'}}
           />
         </TouchableOpacity>
       </View>
 
       <View
-        style={{ width: '100%', height: hp(1), backgroundColor: '#EEEEEE' }}
+        style={{width: '100%', height: hp(1), backgroundColor: '#EEEEEE'}}
       />
 
       {/* ONLINE/OFFLINE STATUS BOX */}
-      <View style={{ marginHorizontal: wp(18), marginTop: hp(14) }}>
+      <View style={{marginHorizontal: wp(18), marginTop: hp(14)}}>
         <View
           style={{
             width: '100%',
@@ -261,14 +362,14 @@ const VendorHomeScreen = () => {
               </Text>
             </View>
 
-            <View style={{ top: 10 }}>
+            <View style={{top: 10}}>
               <SwitchButton value={online} onChange={v => setOnline(v)} />
             </View>
           </View>
         </View>
       </View>
 
-      <View style={{ flex: 1 }}>
+      <View style={{flex: 1}}>
         <VendorHomeBookingComponent />
       </View>
 
@@ -359,14 +460,14 @@ const VendorHomeScreen = () => {
                   style={{
                     position: 'absolute',
                     left: `${rangeOptions[selectedRangeIndex].percentage}%`,
-                    transform: [{ translateX: -hp(14) }],
+                    transform: [{translateX: -hp(14)}],
                     width: hp(28),
                     height: hp(28),
                     borderRadius: hp(14),
                     backgroundColor: '#731EE2',
                     elevation: 4,
                     shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 2 },
+                    shadowOffset: {width: 0, height: 2},
                     shadowOpacity: 0.25,
                     shadowRadius: 3,
                   }}
@@ -403,7 +504,7 @@ const VendorHomeScreen = () => {
                 </View>
 
                 {/* Visit Fee */}
-                <View style={{ alignItems: 'flex-end' }}>
+                <View style={{alignItems: 'flex-end'}}>
                   <Text
                     style={{
                       fontSize: fontSize(22),
@@ -464,7 +565,8 @@ const VendorHomeScreen = () => {
                 paddingHorizontal: wp(6),
                 lineHeight: hp(18),
               }}>
-              By confirming, you'll receive enquiries within your selected service radius, along with your configured site visit charges.
+              By confirming, you'll receive enquiries within your selected
+              service radius, along with your configured site visit charges.
             </Text>
           </View>
         </View>
