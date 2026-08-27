@@ -24,11 +24,41 @@ const VendorWorkingScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
 
-  const {vendorAvailability, loading} = useSelector(state => state.auth || {});
+  const {vendorAvailability, loading, user, vendorUser, vendorProfile} =
+    useSelector(state => state.auth || {});
+
+  const categoryName = (
+    vendorUser?.categoryId?.title ||
+    vendorUser?.categoryId?.name ||
+    user?.vendorUser?.categoryId?.title ||
+    user?.vendorUser?.categoryId?.name ||
+    user?.categoryName ||
+    user?.category_name ||
+    user?.categoryTitle ||
+    user?.category_title ||
+    user?.category?.name ||
+    user?.category?.title ||
+    user?.categoryId?.name ||
+    user?.categoryId?.title ||
+    user?.category ||
+    vendorProfile?.categoryName ||
+    vendorProfile?.category?.name ||
+    vendorProfile?.categoryId?.name ||
+    vendorAvailability?.categoryTitle ||
+    vendorAvailability?.data?.categoryTitle ||
+    vendorAvailability?.category ||
+    ''
+  ).toLowerCase();
+
+  const isSalonCategory =
+    categoryName.includes('salon') ||
+    categoryName.includes('saloon') ||
+    categoryName.includes('beauty') ||
+    categoryName.includes('barber');
 
   const [online, setOnline] = useState(false);
-  const [instantVisit, setInstantVisit] = useState(true);
-  const [visitBySchedule, setVisitBySchedule] = useState(false);
+  const [instantVisit, setInstantVisit] = useState(!isSalonCategory);
+  const [visitBySchedule, setVisitBySchedule] = useState(true);
   const [saveLoading, setSaveLoading] = useState(false);
 
   const [schedule, setSchedule] = useState([
@@ -41,48 +71,46 @@ const VendorWorkingScreen = () => {
     {day: 'Sunday', enabled: true},
   ]);
 
-  const syncStateFromData = useCallback(data => {
-    if (!data) {
-      return;
-    }
+  const syncStateFromData = useCallback(
+    data => {
+      if (!data) {
+        return;
+      }
 
-    // 1. Store Status / Online status
-    if (data.storeStatus) {
-      setOnline(data.storeStatus.toLowerCase() === 'online');
-    } else if (data.isOnline !== undefined) {
-      setOnline(Boolean(data.isOnline));
-    }
+      // 1. Store Status / Online status
+      if (data.storeStatus) {
+        setOnline(data.storeStatus.toLowerCase() === 'online');
+      } else if (data.isOnline !== undefined) {
+        setOnline(Boolean(data.isOnline));
+      }
 
-    // 2. Booking Option ("instant" vs "schedule")
-    if (data.bookingOption) {
-      const opt = String(data.bookingOption).toLowerCase();
-      if (opt === 'instant') {
-        setInstantVisit(true);
-        setVisitBySchedule(false);
-      } else if (opt === 'schedule') {
+      // 2. Booking Option ("instant" vs "schedule")
+      if (isSalonCategory) {
         setInstantVisit(false);
         setVisitBySchedule(true);
-      } else if (opt === 'both') {
-        setInstantVisit(true);
-        setVisitBySchedule(true);
+      } else if (data.bookingOption) {
+        const opt = String(data.bookingOption).toLowerCase();
+        if (opt === 'instant') {
+          setInstantVisit(true);
+          setVisitBySchedule(false);
+        } else if (opt === 'schedule') {
+          setInstantVisit(false);
+          setVisitBySchedule(true);
+        } else if (opt === 'both') {
+          setInstantVisit(true);
+          setVisitBySchedule(true);
+        }
       }
-    }
+    },
+    [isSalonCategory],
+  );
 
-    // 3. Weekly Schedule
-    if (Array.isArray(data.weeklySchedule)) {
-      setSchedule(prev =>
-        prev.map(item => {
-          const foundDay = data.weeklySchedule.find(
-            d => d.day?.toLowerCase() === item.day.toLowerCase(),
-          );
-          return {
-            ...item,
-            enabled: foundDay ? Boolean(foundDay.isOpen) : item.enabled,
-          };
-        }),
-      );
+  useEffect(() => {
+    if (isSalonCategory) {
+      setInstantVisit(false);
+      setVisitBySchedule(true);
     }
-  }, []);
+  }, [isSalonCategory]);
 
   // Hydrate INSTANTLY if data is already in Redux
   useEffect(() => {
@@ -126,6 +154,11 @@ const VendorWorkingScreen = () => {
   };
 
   const handleToggleInstant = value => {
+    if (isSalonCategory) {
+      setInstantVisit(false);
+      setVisitBySchedule(true);
+      return;
+    }
     if (value) {
       setInstantVisit(true);
       setVisitBySchedule(false);
@@ -136,6 +169,11 @@ const VendorWorkingScreen = () => {
   };
 
   const handleToggleSchedule = value => {
+    if (isSalonCategory) {
+      setVisitBySchedule(true);
+      setInstantVisit(false);
+      return;
+    }
     if (value) {
       setVisitBySchedule(true);
       setInstantVisit(false);
@@ -153,7 +191,11 @@ const VendorWorkingScreen = () => {
 
   const handleSaveChanges = () => {
     setSaveLoading(true);
-    const bookingOption = instantVisit ? 'instant' : 'schedule';
+    const bookingOption = isSalonCategory
+      ? 'schedule'
+      : instantVisit
+      ? 'instant'
+      : 'schedule';
     const payload = {
       isOnline: online,
       bookingOption: bookingOption,
@@ -299,15 +341,17 @@ const VendorWorkingScreen = () => {
 
         {/* Instant Visit Card */}
         <View
+          pointerEvents={isSalonCategory ? 'none' : 'auto'}
           style={{
             width: '100%',
-            backgroundColor: colors.white,
+            backgroundColor: isSalonCategory ? '#FAFAFA' : colors.white,
             borderWidth: 1,
-            borderColor: '#EAEAEA',
+            borderColor: isSalonCategory ? '#E5E5E5' : '#EAEAEA',
             borderRadius: hp(18),
             paddingVertical: hp(14),
             paddingHorizontal: wp(18),
             marginBottom: hp(12),
+            opacity: isSalonCategory ? 0.5 : 1,
           }}>
           <View
             style={{
@@ -364,7 +408,11 @@ const VendorWorkingScreen = () => {
               </View>
             </View>
 
-            <SwitchButton value={instantVisit} onChange={handleToggleInstant} />
+            <SwitchButton
+              value={isSalonCategory ? false : instantVisit}
+              disabled={isSalonCategory}
+              onChange={handleToggleInstant}
+            />
           </View>
         </View>
 
@@ -436,7 +484,8 @@ const VendorWorkingScreen = () => {
             </View>
 
             <SwitchButton
-              value={visitBySchedule}
+              value={isSalonCategory ? true : visitBySchedule}
+              disabled={isSalonCategory}
               onChange={handleToggleSchedule}
             />
           </View>

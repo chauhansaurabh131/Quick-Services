@@ -29,6 +29,8 @@ allprojects {
             force "androidx.camera:camera-video:1.4.1"
             force "androidx.camera:camera-view:1.4.1"
             force "androidx.camera:camera-extensions:1.4.1"
+            force "com.google.android.gms:play-services-location:21.0.1"
+            force "com.google.android.gms:play-services-base:18.2.0"
         }
     }
 }

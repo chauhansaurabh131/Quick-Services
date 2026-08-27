@@ -1,5 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {
+  Alert,
   FlatList,
   Image,
   SafeAreaView,
@@ -356,16 +357,21 @@ const BookingServiceScreen = ({route}) => {
       item.rawItem?.vendorAvailability ||
       item.vendor?.vendorAvailability ||
       item.vendorId?.vendorAvailability ||
-      {};
+      item.rawItem ||
+      item;
 
-    const isVendorOnline = Boolean(
-      availabilityObj &&
-        Object.keys(availabilityObj).length > 0 &&
-        availabilityObj.isAvailable !== false &&
-        availabilityObj.isOnline !== false &&
-        availabilityObj.storeStatus !== 'offline' &&
-        availabilityObj.statusBadge !== 'offline',
-    );
+    const isAvailable =
+      availabilityObj?.isAvailable !== undefined
+        ? Boolean(availabilityObj.isAvailable)
+        : item.rawItem?.isAvailable !== undefined
+        ? Boolean(item.rawItem.isAvailable)
+        : item.isAvailable !== undefined
+        ? Boolean(item.isAvailable)
+        : Boolean(
+            availabilityObj?.isOnline !== false &&
+              availabilityObj?.storeStatus !== 'offline' &&
+              availabilityObj?.statusBadge !== 'offline',
+          );
 
     if (isSalonCategory) {
       const startingPrice = item.price
@@ -427,30 +433,25 @@ const BookingServiceScreen = ({route}) => {
               </Text>
             </View>
 
-            {/* Status Pill (Offline Only) */}
-            {!isVendorOnline && (
+            {/* Status Pill (Offline Only when isAvailable is false) */}
+            {!isAvailable && (
               <View
                 style={{
                   position: 'absolute',
                   top: hp(12),
                   right: wp(12),
-                  backgroundColor: '#FFFFFF',
+                  backgroundColor: '#FEE2E2',
                   borderRadius: hp(50),
                   paddingHorizontal: wp(14),
                   paddingVertical: hp(5),
-                  elevation: 3,
-                  shadowColor: '#000',
-                  shadowOffset: {width: 0, height: 1},
-                  shadowOpacity: 0.15,
-                  shadowRadius: 2,
                 }}>
                 <Text
                   style={{
-                    color: colors.pureBlack,
+                    color: '#DC2626',
                     fontSize: fontSize(12),
-                    fontFamily: fontFamily.poppins500,
+                    fontFamily: fontFamily.poppins600,
                   }}>
-                  Offline
+                  Vendor is offline
                 </Text>
               </View>
             )}
@@ -461,7 +462,7 @@ const BookingServiceScreen = ({route}) => {
             style={{
               paddingHorizontal: wp(16),
               paddingTop: hp(14),
-              paddingBottom: hp(12),
+              paddingBottom: hp(14),
             }}>
             {/* Business Title & Verified Badge */}
             <View
@@ -496,7 +497,14 @@ const BookingServiceScreen = ({route}) => {
                 color: '#4A4A4A',
                 marginTop: hp(4),
               }}>
-              Starting from {startingPrice}
+              Starting from{' '}
+              <Text
+                style={{
+                  fontFamily: fontFamily.poppins600,
+                  color: '#731EE2',
+                }}>
+                {startingPrice}
+              </Text>
             </Text>
 
             {/* Divider Line */}
@@ -510,46 +518,115 @@ const BookingServiceScreen = ({route}) => {
               }}
             />
 
-            {/* Centered Book Now with Right Arrow */}
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() =>
-                navigation.navigate('PreBookingServiceScreen', {
-                  vendorUserId:
-                    item._id || item.rawItem?._id || item.id || item.userId,
-                  item: item.rawItem || item,
-                  vendor: item.rawItem || item,
-                })
-              }
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                paddingVertical: hp(2),
-              }}>
-              <Text
-                style={{
-                  color: '#731EE2',
-                  fontFamily: fontFamily.poppins600,
-                  fontSize: fontSize(15),
-                  textAlign: 'center',
-                }}>
-                Book Now
-              </Text>
+            {!isAvailable ? (
+              <>
+                {/* Distance Row */}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginBottom: hp(14),
+                  }}>
+                  <Image
+                    source={icons.clock_Icon || icons.location_Icon}
+                    style={{
+                      width: hp(14),
+                      height: hp(14),
+                      tintColor: '#6B7280',
+                      resizeMode: 'contain',
+                      marginRight: wp(6),
+                    }}
+                  />
+                  <Text
+                    style={{
+                      fontSize: fontSize(13),
+                      fontFamily: fontFamily.poppins500,
+                      color: '#6B7280',
+                    }}>
+                    {item.distance || '1.2km Away'}
+                  </Text>
+                </View>
 
-              <Image
-                source={icons.back_Arrow_Icon}
+                {/* Notify Me Button */}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() =>
+                    Alert.alert(
+                      'Notification Set',
+                      `We will notify you when ${item.name} becomes available.`,
+                    )
+                  }
+                  style={{
+                    width: '100%',
+                    height: hp(44),
+                    backgroundColor: '#FAF5FF',
+                    borderRadius: hp(50),
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                  <Image
+                    source={icons.notification_Bell_Icon}
+                    style={{
+                      width: hp(16),
+                      height: hp(16),
+                      tintColor: '#731EE2',
+                      resizeMode: 'contain',
+                      marginRight: wp(8),
+                    }}
+                  />
+                  <Text
+                    style={{
+                      color: '#731EE2',
+                      fontFamily: fontFamily.poppins600,
+                      fontSize: fontSize(14),
+                    }}>
+                    Notify Me When Available
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              /* Centered Book Now with Right Arrow */
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() =>
+                  navigation.navigate('PreBookingServiceScreen', {
+                    vendorUserId:
+                      item._id || item.rawItem?._id || item.id || item.userId,
+                    item: item.rawItem || item,
+                    vendor: item.rawItem || item,
+                  })
+                }
                 style={{
-                  position: 'absolute',
-                  right: 0,
-                  width: hp(14),
-                  height: hp(14),
-                  resizeMode: 'contain',
-                  transform: [{rotate: '180deg'}],
-                  tintColor: '#731EE2',
-                }}
-              />
-            </TouchableOpacity>
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  paddingVertical: hp(2),
+                }}>
+                <Text
+                  style={{
+                    color: '#731EE2',
+                    fontFamily: fontFamily.poppins600,
+                    fontSize: fontSize(15),
+                    textAlign: 'center',
+                  }}>
+                  Book Now
+                </Text>
+
+                <Image
+                  source={icons.back_Arrow_Icon}
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    width: hp(14),
+                    height: hp(14),
+                    resizeMode: 'contain',
+                    transform: [{rotate: '180deg'}],
+                    tintColor: '#731EE2',
+                  }}
+                />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       );
@@ -571,7 +648,7 @@ const BookingServiceScreen = ({route}) => {
             source={{uri: item.image}}
             style={{
               width: '100%',
-              height: hp(120),
+              height: hp(140),
               resizeMode: 'cover',
             }}
           />
@@ -582,7 +659,7 @@ const BookingServiceScreen = ({route}) => {
               position: 'absolute',
               top: hp(10),
               left: wp(12),
-              backgroundColor: '#1C1C1C',
+              backgroundColor: 'rgba(28, 28, 28, 0.85)',
               borderRadius: hp(50),
               flexDirection: 'row',
               alignItems: 'center',
@@ -609,37 +686,32 @@ const BookingServiceScreen = ({route}) => {
             </Text>
           </View>
 
-          {/* Status Pill (Offline Only) */}
-          {!isVendorOnline && (
+          {/* Status Pill (Offline Only when isAvailable is false) */}
+          {!isAvailable && (
             <View
               style={{
                 position: 'absolute',
                 top: hp(10),
                 right: wp(12),
-                backgroundColor: '#FFFFFF',
+                backgroundColor: '#FEE2E2',
                 borderRadius: hp(50),
                 paddingHorizontal: wp(14),
                 paddingVertical: hp(5),
-                elevation: 3,
-                shadowColor: '#000',
-                shadowOffset: {width: 0, height: 1},
-                shadowOpacity: 0.15,
-                shadowRadius: 2,
               }}>
               <Text
                 style={{
-                  color: colors.pureBlack,
+                  color: '#DC2626',
                   fontSize: fontSize(12),
-                  fontFamily: fontFamily.poppins500,
+                  fontFamily: fontFamily.poppins600,
                 }}>
-                Offline
+                Vendor is offline
               </Text>
             </View>
           )}
         </View>
 
         {/* Content */}
-        <View style={{padding: wp(14)}}>
+        <View style={{padding: wp(16)}}>
           <View
             style={{
               flexDirection: 'row',
@@ -648,7 +720,7 @@ const BookingServiceScreen = ({route}) => {
             <Text
               style={{
                 fontFamily: fontFamily.poppins600,
-                fontSize: fontSize(19),
+                fontSize: fontSize(18),
                 color: colors.pureBlack,
               }}>
               {item.name}
@@ -657,8 +729,8 @@ const BookingServiceScreen = ({route}) => {
             <Image
               source={icons.verified_Icon}
               style={{
-                width: hp(15),
-                height: hp(15),
+                width: hp(16),
+                height: hp(16),
                 resizeMode: 'contain',
                 marginLeft: wp(8),
               }}
@@ -668,16 +740,24 @@ const BookingServiceScreen = ({route}) => {
           <View
             style={{
               flexDirection: 'row',
+              marginTop: hp(4),
             }}>
             <Text
               style={{
-                fontSize: fontSize(13),
-                fontFamily: fontFamily.poppins600,
-                color: colors.pureBlack,
-                marginTop: hp(3),
+                fontSize: fontSize(14),
+                fontFamily: fontFamily.poppins400,
+                color: '#4A4A4A',
               }}>
               Visiting Charge{' '}
-              {item.price?.startsWith('Rs.') ? item.price : `Rs. ${item.price}`}
+              <Text
+                style={{
+                  fontFamily: fontFamily.poppins600,
+                  color: '#731EE2',
+                }}>
+                {item.price?.startsWith('Rs.')
+                  ? item.price
+                  : `Rs. ${item.price}`}
+              </Text>
             </Text>
           </View>
 
@@ -686,74 +766,141 @@ const BookingServiceScreen = ({route}) => {
               width: '100%',
               height: hp(1),
               backgroundColor: '#E6E6E6',
-              marginTop: hp(13),
+              marginTop: hp(14),
+              marginBottom: hp(12),
             }}
           />
 
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginTop: hp(10),
-            }}>
+          {!isAvailable ? (
+            <>
+              {/* Distance Row */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  marginBottom: hp(14),
+                }}>
+                <Image
+                  source={icons.clock_Icon || icons.location_Icon}
+                  style={{
+                    width: hp(14),
+                    height: hp(14),
+                    tintColor: '#6B7280',
+                    resizeMode: 'contain',
+                    marginRight: wp(6),
+                  }}
+                />
+                <Text
+                  style={{
+                    fontSize: fontSize(13),
+                    fontFamily: fontFamily.poppins500,
+                    color: '#6B7280',
+                  }}>
+                  {item.distance || '1.2km Away'}
+                </Text>
+              </View>
+
+              {/* Notify Me Button */}
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() =>
+                  Alert.alert(
+                    'Notification Set',
+                    `We will notify you when ${item.name} becomes available.`,
+                  )
+                }
+                style={{
+                  width: '100%',
+                  height: hp(44),
+                  backgroundColor: '#FAF5FF',
+                  borderRadius: hp(50),
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                <Image
+                  source={icons.notification_Bell_Icon}
+                  style={{
+                    width: hp(16),
+                    height: hp(16),
+                    tintColor: '#731EE2',
+                    resizeMode: 'contain',
+                    marginRight: wp(8),
+                  }}
+                />
+                <Text
+                  style={{
+                    color: '#731EE2',
+                    fontFamily: fontFamily.poppins600,
+                    fontSize: fontSize(14),
+                  }}>
+                  Notify Me When Available
+                </Text>
+              </TouchableOpacity>
+            </>
+          ) : (
             <View
               style={{
                 flexDirection: 'row',
+                justifyContent: 'space-between',
                 alignItems: 'center',
-                alignSelf: 'center',
               }}>
-              <Image
-                source={icons.location_Icon}
-                style={{width: hp(11), height: hp(13), resizeMode: 'contain'}}
-              />
-              <Text
+              <View
                 style={{
-                  fontSize: fontSize(14),
-                  fontFamily: fontFamily.poppins500,
-                  color: '#757575',
-                  marginLeft: wp(6),
+                  flexDirection: 'row',
+                  alignItems: 'center',
                 }}>
-                {item.distance}
-              </Text>
+                <Image
+                  source={icons.location_Icon}
+                  style={{width: hp(11), height: hp(13), resizeMode: 'contain'}}
+                />
+                <Text
+                  style={{
+                    fontSize: fontSize(14),
+                    fontFamily: fontFamily.poppins500,
+                    color: '#757575',
+                    marginLeft: wp(6),
+                  }}>
+                  {item.distance}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                activeOpacity={0.6}
+                onPress={() =>
+                  navigation.navigate('PreBookingServiceScreen', {
+                    vendorUserId:
+                      item._id || item.rawItem?._id || item.id || item.userId,
+                    item: item.rawItem || item,
+                    vendor: item.rawItem || item,
+                  })
+                }
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                }}>
+                <Text
+                  style={{
+                    color: '#731EE2',
+                    fontFamily: fontFamily.poppins600,
+                    fontSize: fontSize(14),
+                    marginRight: wp(6),
+                  }}>
+                  Book Appointment
+                </Text>
+                <Image
+                  source={icons.back_Arrow_Icon}
+                  style={{
+                    width: hp(12),
+                    height: hp(12),
+                    resizeMode: 'contain',
+                    transform: [{rotate: '180deg'}],
+                    tintColor: '#731EE2',
+                  }}
+                />
+              </TouchableOpacity>
             </View>
-
-            <TouchableOpacity
-              activeOpacity={0.6}
-              onPress={() =>
-                navigation.navigate('PreBookingServiceScreen', {
-                  vendorUserId:
-                    item._id || item.rawItem?._id || item.id || item.userId,
-                  item: item.rawItem || item,
-                  vendor: item.rawItem || item,
-                })
-              }
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-              }}>
-              <Text
-                style={{
-                  color: '#731EE2',
-                  fontFamily: fontFamily.poppins600,
-                  fontSize: fontSize(14),
-                  marginRight: wp(6),
-                }}>
-                Book Appointment
-              </Text>
-
-              <Image
-                source={icons.back_Arrow_Icon}
-                style={{
-                  width: hp(13),
-                  height: hp(13),
-                  resizeMode: 'contain',
-                  transform: [{rotate: '180deg'}],
-                  tintColor: '#731EE2',
-                }}
-              />
-            </TouchableOpacity>
-          </View>
+          )}
         </View>
       </View>
     );

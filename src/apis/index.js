@@ -9,55 +9,99 @@ const api = axios.create({
 
 export const customerAuth = {
   register: payload => api.post('/customer/auth/register-customer', payload),
-  registerVendor: payload => api.post('/customer/auth/register-vendor', payload),
+  registerVendor: payload =>
+    api.post('/customer/auth/register-vendor', payload),
   verifyOtp: payload => api.post('/customer/auth/verify-otp-customer', payload),
-  verifyOtpVendor: payload => api.post('/customer/auth/verify-otp-vendor', payload),
+  verifyOtpVendor: payload =>
+    api.post('/customer/auth/verify-otp-vendor', payload),
   updateUser: (payload, token) =>
     api.put('/customer/auth/update-user', payload, {
       headers: {
-        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
       },
     }),
   updateUserLocation: (userId, payload, token) =>
     api.put(`/customer/user/${userId}`, payload, {
       headers: {
-        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
       },
     }),
   saveCustomerAddress: (payload, token) =>
     api.post('/customer/address', payload, {
       headers: {
-        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
       },
     }),
   updateCustomerAddress: (addressId, payload, token) =>
     api.put(`/customer/address/${addressId}`, payload, {
       headers: {
-        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
       },
     }),
   getCustomerAddressesByUserId: (userId, token) =>
     api.get(`/customer/address/user/${userId}`, {
       headers: {
-        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
       },
     }),
   deleteCustomerAddress: (addressId, token) =>
     api.delete(`/customer/address/${addressId}`, {
       headers: {
-        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
       },
     }),
   createBooking: (payload, token) =>
     api.post('/customer/bookings', payload, {
       headers: {
-        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
       },
     }),
   getBookingDetailsById: (bookingId, token) =>
     api.get(`/customer/bookings/${bookingId}`, {
       headers: {
-        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
+      },
+    }),
+  updateBookingAddress: (bookingId, payload, token) =>
+    api.put(`/customer/bookings/${bookingId}`, payload, {
+      headers: {
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
       },
     }),
   verifyUpdateOtp: (payload, token) =>
@@ -87,16 +131,31 @@ export const customerAuth = {
   getCategories: token =>
     api.get('/customer/categories', {
       headers: {
-        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
       },
     }),
   getCategoryById: (categoryId, token) =>
     api.get(`/vendor/categories/${categoryId}`, {
       headers: {
-        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
       },
     }),
-  getVendorServicesByCategory: (categoryId, longitude, latitude, token, page = 1, limit = 10) =>
+  getVendorServicesByCategory: (
+    categoryId,
+    longitude,
+    latitude,
+    token,
+    page = 1,
+    limit = 10,
+  ) =>
     api.get(`/customer/vendorUser/category/${categoryId}`, {
       params: {
         latitude: latitude,
@@ -105,13 +164,21 @@ export const customerAuth = {
         limit: limit,
       },
       headers: {
-        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
       },
     }),
   getVendorUserDetails: (vendorUserId, token) =>
     api.get(`/customer/vendorUser/${vendorUserId}`, {
       headers: {
-        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
       },
     }),
   getServicesByCategory: (categoryId, token) =>
@@ -134,24 +201,32 @@ export const customerAuth = {
       payload,
       token
         ? {
-          headers: {
-            Authorization: token.startsWith('Bearer ')
-              ? token
-              : `Bearer ${token}`,
-          },
-        }
+            headers: {
+              Authorization: token.startsWith('Bearer ')
+                ? token
+                : `Bearer ${token}`,
+            },
+          }
         : {},
     ),
   getMyAvailability: token =>
     api.get('/vendor/vendorAvailability/my-availability', {
       headers: {
-        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
       },
     }),
   updateMyAvailability: (payload, token) =>
     api.put('/vendor/vendorAvailability/my-availability', payload, {
       headers: {
-        Authorization: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '',
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
       },
     }),
 };
@@ -160,8 +235,7 @@ export const s3Api = {
   getProfilePicUploadUrl: async (payload, token) => {
     let cleanToken = token;
     if (typeof cleanToken === 'object' && cleanToken !== null) {
-      cleanToken =
-        cleanToken.token || cleanToken.accessToken || cleanToken.jwt;
+      cleanToken = cleanToken.token || cleanToken.accessToken || cleanToken.jwt;
     }
     const authHeader = cleanToken
       ? cleanToken.startsWith('Bearer ')
@@ -180,7 +254,7 @@ export const s3Api = {
 
     try {
       console.log('Attempting S3 upload request on service.mntech.website...');
-      return await api.post('/s3/profilepic', payload, { headers });
+      return await api.post('/s3/profilepic', payload, {headers});
     } catch (err) {
       console.log(
         'service.mntech.website S3 request error status:',
@@ -192,11 +266,10 @@ export const s3Api = {
       return await axios.post(
         'https://mntrendigo.mntech.website/api/v1/s3/profilepic',
         payload,
-        { headers },
+        {headers},
       );
     }
   },
 };
 
 export default api;
-

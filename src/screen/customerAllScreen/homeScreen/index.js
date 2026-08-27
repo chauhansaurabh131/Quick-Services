@@ -26,6 +26,7 @@ import HomeScreenQuickBookComponent from '../../../components/homeScreenQuickBoo
 import {useTranslation} from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {customerAuth} from '../../../apis';
+import {useNavigation} from '@react-navigation/native';
 
 const HomeScreen = () => {
   const dispatch = useDispatch();
@@ -39,6 +40,8 @@ const HomeScreen = () => {
 
   const [search, setSearch] = useState('');
   const {t} = useTranslation();
+
+  const navigation = useNavigation();
 
   const locationRef = useRef({latitude: savedLat, longitude: savedLon});
 
@@ -145,6 +148,7 @@ const HomeScreen = () => {
         'Latitude:',
         savedLat,
       );
+      handleNewCoordinates(savedLon, savedLat);
     }
   }, [savedLon, savedLat]);
 
@@ -165,6 +169,9 @@ const HomeScreen = () => {
     if (
       prevLon &&
       prevLat &&
+      fullAddress &&
+      fullAddress.length > 25 &&
+      !fullAddress.includes('Bardoli, Surat, Gujarat') &&
       Math.abs(prevLon - longitude) < 0.0001 &&
       Math.abs(prevLat - latitude) < 0.0001
     ) {
@@ -199,13 +206,6 @@ const HomeScreen = () => {
           'Location API Update Success:',
           JSON.stringify(apiRes?.data, null, 2),
         );
-      } else {
-        console.log(
-          'Location API Update skipped (Missing User ID or Token). User ID:',
-          userId,
-          '| Token present:',
-          !!token,
-        );
       }
     } catch (apiErr) {
       console.log(
@@ -215,41 +215,135 @@ const HomeScreen = () => {
     }
 
     try {
-      const addressRes = await axios.get(
-        'https://nominatim.openstreetmap.org/reverse',
-        {
-          params: {
-            lat: latitude,
-            lon: longitude,
-            format: 'json',
-          },
-          headers: {
-            'User-Agent': 'doormigo-app',
-          },
-        },
-      );
+      const GOOGLE_MAPS_API_KEY = 'AIzaSyBaqU_1hOFIhVLm8su_caJheEChJCNBTyY';
+      let city = '';
+      let district = '';
+      let state = '';
+      let newFullAddress = '';
 
-      const addr = addressRes.data.address || {};
+      // 1. Try Google Places Nearby Search API (returns exact POI, society, building, and road vicinity)
+      if (
+        GOOGLE_MAPS_API_KEY &&
+        GOOGLE_MAPS_API_KEY !== 'YOUR_GOOGLE_MAPS_API_KEY'
+      ) {
+        try {
+          const nearbyUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=250&key=${GOOGLE_MAPS_API_KEY}`;
+          const nRes = await axios.get(nearbyUrl);
+          if (nRes.data?.status === 'OK' && nRes.data?.results?.length > 0) {
+            const getDist = p => {
+              const pLat = p.geometry?.location?.lat || latitude;
+              const pLng = p.geometry?.location?.lng || longitude;
+              return (
+                Math.pow(pLat - latitude, 2) + Math.pow(pLng - longitude, 2)
+              );
+            };
 
-      const city =
-        addr.city ||
-        addr.town ||
-        addr.village ||
-        addr.hamlet ||
-        addr.county ||
-        '';
+            const sortedResults = [...nRes.data.results].sort(
+              (a, b) => getDist(a) - getDist(b),
+            );
 
-      const district = addr.state_district || '';
-      const state = addr.state || '';
+            const detailedPlace =
+              sortedResults.find(
+                p =>
+                  p.vicinity &&
+                  p.vicinity.toLowerCase() !== 'bardoli' &&
+                  !p.types?.includes('locality') &&
+                  !p.types?.includes('political'),
+              ) || sortedResults[0];
 
-      const newFullAddress = `${city}, ${district}, ${state}`;
+            const placeVicinity =
+              detailedPlace.vicinity || detailedPlace.name || '';
+            const placeName = detailedPlace.name || '';
+
+            const combined = [placeName, placeVicinity]
+              .filter(Boolean)
+              .filter((v, i, a) => a.indexOf(v) === i)
+              .join(', ');
+
+            newFullAddress =
+              combined.includes('Gujarat') || combined.includes('Bardoli')
+                ? `${combined}, Gujarat, India`
+                : `${combined}, Bardoli, Gujarat, India`;
+
+            city = 'Bardoli';
+            state = 'Gujarat';
+          }
+        } catch (nErr) {
+          console.log(
+            '[HomeScreen Location] Google Nearby Error:',
+            nErr?.message,
+          );
+        }
+      }
+
+      // 2. OpenStreetMap Detailed Reverse Geocoding Fallback
+      if (!newFullAddress) {
+        try {
+          const addressRes = await axios.get(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
+            {
+              headers: {'User-Agent': 'QuickServiceApp'},
+            },
+          );
+
+          if (addressRes.data) {
+            const addr = addressRes.data.address || {};
+            const localArea =
+              addr.suburb ||
+              addr.neighbourhood ||
+              addr.residential ||
+              addr.quarter ||
+              addr.industrial ||
+              addr.commercial ||
+              '';
+            const roadName = addr.road || addr.pedestrian || addr.street || '';
+            const townName =
+              addr.town ||
+              addr.city ||
+              addr.village ||
+              addr.hamlet ||
+              addr.county ||
+              'Bardoli';
+            const districtName = addr.state_district || addr.county || 'Surat';
+            const stateNameVal = addr.state || 'Gujarat';
+
+            const parts = [
+              localArea,
+              roadName,
+              townName,
+              districtName !== townName ? districtName : '',
+              stateNameVal,
+              'India',
+            ].filter(Boolean);
+
+            newFullAddress =
+              parts.length > 0
+                ? Array.from(new Set(parts)).join(', ')
+                : addressRes.data.display_name || '';
+
+            city = townName;
+            district = districtName;
+            state = stateNameVal;
+          }
+        } catch (osmErr) {
+          console.log(
+            '[HomeScreen Location] OSM Reverse Error:',
+            osmErr?.message,
+          );
+        }
+      }
+
+      console.log('\n==================================================');
+      console.log('🏠 HOMESCREEN LIVE FULL ADDRESS:', newFullAddress);
+      console.log('🏠 CITY:', city || 'Bardoli');
+      console.log('==================================================\n');
 
       dispatch(
         setLocation({
           latitude,
           longitude,
-          place: city,
-          fullAddress: newFullAddress,
+          place: city || 'Bardoli',
+          fullAddress: newFullAddress || 'Bardoli, Gujarat, India',
         }),
       );
     } catch (error) {
@@ -336,50 +430,70 @@ const HomeScreen = () => {
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <>
-              {/* LOCATION */}
-              <View style={{marginHorizontal: wp(18), marginTop: hp(6)}}>
+              {/* LOCATION HEADER CARD - TOUCHABLE LOCATION PICKER */}
+              <View style={{marginHorizontal: wp(18), marginTop: hp(10)}}>
                 <TouchableOpacity
-                  activeOpacity={0.6}
+                  activeOpacity={0.7}
+                  onPress={() =>
+                    navigation.navigate('EnterCompleteAddressScreen')
+                  }
                   style={{flexDirection: 'row', alignItems: 'center'}}>
+                  {/* Round Light Circle Pin Container */}
                   <View
                     style={{
-                      width: hp(32),
-                      height: hp(32),
-                      backgroundColor: '#F6F6F6',
-                      borderRadius: hp(50),
+                      width: hp(38),
+                      height: hp(38),
+                      backgroundColor: '#F3F4F6',
+                      borderRadius: hp(19),
                       justifyContent: 'center',
                       alignItems: 'center',
                     }}>
                     <Image
                       source={icons.location_Icon}
                       style={{
-                        width: wp(9),
-                        height: hp(13),
+                        width: wp(12),
+                        height: hp(16),
                         resizeMode: 'contain',
+                        tintColor: '#000000',
                       }}
                     />
                   </View>
 
-                  <View style={{marginLeft: wp(7), flex: 1}}>
+                  {/* Location Title & Full Address */}
+                  <View
+                    style={{marginLeft: wp(10), flex: 1, marginRight: wp(8)}}>
                     <Text
                       style={{
                         color: colors.pureBlack,
-                        fontSize: fontSize(10),
+                        fontSize: fontSize(13),
                         fontFamily: fontFamily.poppins600,
+                        fontWeight: '700',
                       }}>
-                      {place}
+                      {place || 'Current Location'}
                     </Text>
 
                     <Text
                       numberOfLines={1}
                       style={{
-                        color: colors.black,
-                        fontSize: fontSize(8),
+                        color: '#8E8E93',
+                        fontSize: fontSize(10),
                         fontFamily: fontFamily.poppins400,
+                        marginTop: hp(1),
                       }}>
-                      {fullAddress}
+                      {fullAddress || 'Locating address...'}
                     </Text>
                   </View>
+
+                  {/* Dropdown Chevron Arrow Icon */}
+                  <Image
+                    source={icons.bottom_Arrow_Icon}
+                    style={{
+                      width: wp(12),
+                      height: hp(12),
+                      resizeMode: 'contain',
+                      tintColor: '#000000',
+                    }}
+                  />
                 </TouchableOpacity>
               </View>
 

@@ -393,3 +393,18 @@ export const getBookingByIdFailed = error => ({
   type: TYPES.GET_BOOKING_BY_ID_FAILED,
   error,
 });
+
+export const updateBookingAddress = (bookingId, payload, callback) => ({
+  type: TYPES.UPDATE_BOOKING_ADDRESS,
+  data: {bookingId, payload, callback},
+});
+
+export const updateBookingAddressSuccess = data => ({
+  type: TYPES.UPDATE_BOOKING_ADDRESS_SUCCESS,
+  data,
+});
+
+export const updateBookingAddressFailed = error => ({
+  type: TYPES.UPDATE_BOOKING_ADDRESS_FAILED,
+  error,
+});

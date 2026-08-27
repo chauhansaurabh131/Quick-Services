@@ -24,19 +24,14 @@ const PreBookingServiceScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const dispatch = useDispatch();
-  const refRBSheet = useRef();
+  const refAddressSheet = useRef();
 
   const [bookingLoading, setBookingLoading] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [fetchingDetails, setFetchingDetails] = useState(true);
   const [apiVendorDetails, setApiVendorDetails] = useState(null);
   const [selectedServices, setSelectedServices] = useState([0]);
-
-  // People Selection State (Saloon Category)
-  const [menCount, setMenCount] = useState(1);
-  const [womenCount, setWomenCount] = useState(0);
-  const [childBoyCount, setChildBoyCount] = useState(0);
-  const [childGirlCount, setChildGirlCount] = useState(0);
+  const [savedAddressesList, setSavedAddressesList] = useState([]);
 
   const {item, vendor, vendorUserId: paramVendorUserId} = route?.params || {};
   const routeVendorData = item || vendor || {};
@@ -49,8 +44,12 @@ const PreBookingServiceScreen = () => {
     routeVendorData.vendorId ||
     '6a7320cb3577104793b1929b';
 
-  const {loading: sagaLoading, vendorUserDetails: reduxVendorDetails} =
-    useSelector(state => state.auth || {});
+  const {
+    loading: sagaLoading,
+    vendorUserDetails: reduxVendorDetails,
+    user,
+  } = useSelector(state => state.auth || {});
+  const locationState = useSelector(state => state.location || {});
 
   useEffect(() => {
     if (vendorUserId) {
@@ -285,176 +284,203 @@ const PreBookingServiceScreen = () => {
   };
 
   const checkAuthAndAddressAndProceed = async onSuccess => {
-    let token = await AsyncStorage.getItem('token');
-    if (typeof token === 'object' && token !== null) {
-      token = token.token || token.accessToken;
-    }
-
-    const reduxUserObj =
-      reduxVendorDetails?.user || apiVendorDetails?.user || {};
-    const userAddresses =
-      reduxUserObj?.addresses || reduxVendorDetails?.addresses || [];
-
-    let storageAddresses = [];
-    try {
-      const rawAddresses = await AsyncStorage.getItem('ADDRESSES');
-      if (rawAddresses) {
-        storageAddresses = JSON.parse(rawAddresses);
-      }
-    } catch (e) {
-      console.log('[PreBookingServiceScreen] Address check error:', e);
-    }
-
-    const allAddresses = [
-      ...(Array.isArray(userAddresses) ? userAddresses : []),
-      ...(Array.isArray(storageAddresses) ? storageAddresses : []),
-    ];
-
-    const hasAddress = allAddresses.length > 0;
-
-    console.log(
-      '==================================================',
-      '\n[PreBookingServiceScreen Address Check]',
-      `\nToken Present: ${Boolean(token)}`,
-      `\nUser Profile Addresses Count: ${
-        Array.isArray(userAddresses) ? userAddresses.length : 0
-      }`,
-      `\nStorage Addresses Count: ${storageAddresses.length}`,
-      `\nHas Address: ${hasAddress}`,
-      '\n==================================================',
-    );
-
-    if (!hasAddress) {
-      console.log(
-        '[PreBookingServiceScreen] No address found ("addresses": []), navigating to ManageAddressesScreen',
-      );
-      navigation.navigate('ManageAddressesScreen');
-      return;
-    }
-
-    // Extract default address where isDefault === true, or fallback to first address
-    const defaultAddress =
-      allAddresses.find(a => a?.isDefault === true) || allAddresses[0] || {};
-
-    const addressId =
-      defaultAddress?.id || defaultAddress?._id || '6a8583463a773ce4c6b435c9';
-
-    const isValidObjectId = val =>
-      typeof val === 'string' && /^[0-9a-fA-F]{24}$/.test(val.trim());
-
-    const validServiceIds = selectedServices
-      .map(idx => {
-        const sObj = offeredServices[idx];
-        const candidateId =
-          sObj?.masterServiceId ||
-          (typeof sObj?.rawObj?.serviceId === 'object'
-            ? sObj?.rawObj?.serviceId?._id || sObj?.rawObj?.serviceId?.id
-            : typeof sObj?.rawObj?.serviceId === 'string'
-            ? sObj?.rawObj?.serviceId
-            : null) ||
-          sObj?.id ||
-          sObj?._id;
-
-        return isValidObjectId(candidateId) ? String(candidateId).trim() : null;
-      })
-      .filter(Boolean);
-
-    const serviceIdsToPass =
-      validServiceIds.length > 0
-        ? validServiceIds
-        : ['6a7320cb3577104793b19291', '6a7320cb3577104793b19292'];
-
-    const firstSelectedObj =
-      offeredServices[selectedServices[0]] || offeredServices[0] || {};
-
-    const candidateVendorServiceId =
-      firstSelectedObj?.vendorServiceId ||
-      apiData?.vendorServiceId ||
-      apiData?.vendorService?._id ||
-      apiData?.vendorService?.id ||
-      apiData?._id ||
-      apiData?.id;
-
-    const vendorServiceIdToPass = isValidObjectId(candidateVendorServiceId)
-      ? String(candidateVendorServiceId).trim()
-      : '6a7d723d5162b7a0889cb0a4';
-
-    const selectedNotes =
-      offeredServices
-        .filter((_, idx) => selectedServices.includes(idx))
-        .map(s => s.title)
-        .join(' and ') || 'Standard Haircut and Grooming';
-
-    const bookingPayload = {
-      vendorId: vendorUserId || '6a7320cb3577104793b1929b',
-      vendorServiceId: vendorServiceIdToPass,
-      serviceIds: serviceIdsToPass,
-      addressId: addressId,
-      latitude: defaultAddress.latitude
-        ? Number(defaultAddress.latitude)
-        : 21.1255104,
-      longitude: defaultAddress.longitude
-        ? Number(defaultAddress.longitude)
-        : 73.1155177,
-      notes: selectedNotes,
-    };
-
-    console.log(
-      '==================================================',
-      '\n[PreBookingServiceScreen Dispatching CREATE_BOOKING]',
-      `\nExtracted Default Address ID (isDefault: true): ${addressId}`,
-      '\nBooking Payload:',
-      JSON.stringify(bookingPayload, null, 2),
-      '\n==================================================',
-    );
-
     setBookingLoading(true);
+    try {
+      const isValidObjectId = val =>
+        typeof val === 'string' && /^[0-9a-fA-F]{24}$/.test(val.trim());
 
-    dispatch(
-      createBooking(bookingPayload, (error, responseData) => {
-        setBookingLoading(false);
-        let extractedBookingId = null;
+      const validServiceIds = selectedServices
+        .map(idx => {
+          const sObj = offeredServices[idx];
+          const candidateId =
+            sObj?.masterServiceId ||
+            (typeof sObj?.rawObj?.serviceId === 'object'
+              ? sObj?.rawObj?.serviceId?._id || sObj?.rawObj?.serviceId?.id
+              : typeof sObj?.rawObj?.serviceId === 'string'
+              ? sObj?.rawObj?.serviceId
+              : null) ||
+            sObj?.id ||
+            sObj?._id;
 
-        if (error) {
-          console.log(
-            '==================================================',
-            '\n[PreBookingServiceScreen Create Booking Error]',
-            '\nError:',
-            JSON.stringify(error, null, 2),
-            '\n==================================================',
-          );
-        } else {
-          extractedBookingId =
-            responseData?.data?.bookingId ||
-            responseData?.bookingId ||
-            responseData?.data?.id ||
-            responseData?.data?._id ||
-            responseData?.id ||
-            responseData?._id ||
-            '9F8A2D3C';
+          return isValidObjectId(candidateId)
+            ? String(candidateId).trim()
+            : null;
+        })
+        .filter(Boolean);
 
-          console.log(
-            '==================================================',
-            '\n[PreBookingServiceScreen Create Booking Success]',
-            `\nExtracted Booking ID: ${extractedBookingId}`,
-            '\nResponse:',
-            JSON.stringify(responseData, null, 2),
-            '\n==================================================',
-          );
+      const serviceIdsToPass =
+        validServiceIds.length > 0
+          ? validServiceIds
+          : ['6a7320cb3577104793b19291', '6a7320cb3577104793b19292'];
+
+      const firstSelectedObj =
+        offeredServices[selectedServices[0]] || offeredServices[0] || {};
+
+      const candidateVendorServiceId =
+        firstSelectedObj?.vendorServiceId ||
+        apiData?.vendorServiceId ||
+        apiData?.vendorService?._id ||
+        apiData?.vendorService?.id ||
+        apiData?._id ||
+        apiData?.id;
+
+      const vendorServiceIdToPass = isValidObjectId(candidateVendorServiceId)
+        ? String(candidateVendorServiceId).trim()
+        : '6a7d723d5162b7a0889cb0a4';
+
+      const selectedNotes =
+        offeredServices
+          .filter((_, idx) => selectedServices.includes(idx))
+          .map(s => s.title)
+          .join(' and ') || 'Instant service';
+
+      const bookingPayload = {
+        vendorId: vendorUserId || '6a7320cb3577104793b1929b',
+        vendorServiceId: vendorServiceIdToPass,
+        serviceIds: serviceIdsToPass,
+        notes: selectedNotes,
+      };
+
+      console.log(
+        '==================================================',
+        '\n[PreBookingServiceScreen Dispatching CREATE_BOOKING]',
+        '\nBooking Payload:',
+        JSON.stringify(bookingPayload, null, 2),
+        '\n==================================================',
+      );
+
+      dispatch(
+        createBooking(bookingPayload, (error, responseData) => {
+          setBookingLoading(false);
+          let extractedBookingId = null;
+
+          if (error) {
+            console.log(
+              '==================================================',
+              '\n[PreBookingServiceScreen Create Booking Error]',
+              '\nError:',
+              JSON.stringify(error, null, 2),
+              '\n==================================================',
+            );
+          } else {
+            const mongoIdCandidate =
+              responseData?.data?._id ||
+              responseData?._id ||
+              responseData?.data?.id ||
+              responseData?.id ||
+              responseData?.data?.bookingId ||
+              responseData?.bookingId;
+
+            extractedBookingId = isValidObjectId(mongoIdCandidate)
+              ? String(mongoIdCandidate).trim()
+              : mongoIdCandidate || '665b1234567890abcdef1234';
+
+            console.log(
+              '==================================================',
+              '\n[PreBookingServiceScreen Create Booking Success]',
+              `\nExtracted Booking ID: ${extractedBookingId}`,
+              '\nResponse:',
+              JSON.stringify(responseData, null, 2),
+              '\n==================================================',
+            );
+          }
+
+          if (onSuccess) {
+            onSuccess(bookingPayload, responseData, extractedBookingId);
+          }
+        }),
+      );
+    } catch (err) {
+      setBookingLoading(false);
+      console.log(
+        '[PreBookingServiceScreen] checkAuthAndAddressAndProceed Error:',
+        err,
+      );
+    }
+  };
+
+  const loadSavedAddresses = async () => {
+    try {
+      const reduxUserObj =
+        user?.customerUser || user?.user || user?.data?.user || user || {};
+      let userAddresses =
+        reduxUserObj?.addresses ||
+        user?.addresses ||
+        reduxVendorDetails?.user?.addresses ||
+        [];
+
+      let storageAddresses = [];
+      try {
+        const rawAddresses = await AsyncStorage.getItem('ADDRESSES');
+        if (rawAddresses) {
+          storageAddresses = JSON.parse(rawAddresses);
         }
+      } catch (e) {
+        console.log(
+          '[PreBookingServiceScreen] Storage address parse error:',
+          e,
+        );
+      }
 
-        if (onSuccess) {
-          onSuccess(bookingPayload, responseData, extractedBookingId);
+      const allAddresses = [
+        ...(Array.isArray(userAddresses) ? userAddresses : []),
+        ...(Array.isArray(storageAddresses) ? storageAddresses : []),
+      ].filter(Boolean);
+
+      const map = new Map();
+      allAddresses.forEach(item => {
+        const key = item._id || item.id || item.address;
+        if (key && !map.has(key)) {
+          map.set(String(key), item);
         }
-      }),
-    );
+      });
+
+      let savedList = Array.from(map.values());
+
+      const activeHomeScreenAddress =
+        locationState?.fullAddress ||
+        locationState?.address ||
+        '8, Rameshwar Nagar, J P Nagar Society, Bardoli, Gujarat, India';
+
+      const activeMobile =
+        user?.mobile ||
+        user?.mobileNumber ||
+        user?.phoneNumber ||
+        user?.user?.mobile ||
+        user?.customerUser?.mobile ||
+        '7405665654';
+
+      const formattedMobile = String(activeMobile).startsWith('+')
+        ? String(activeMobile)
+        : `+91-${activeMobile}`;
+
+      const currentLocationCard = {
+        id: 'current_location_card_top',
+        locationType: 'unlabeled',
+        type: 'Current Location',
+        address: activeHomeScreenAddress,
+        displayAddress: activeHomeScreenAddress,
+        mobile: formattedMobile,
+        latitude: locationState?.latitude || 21.1255,
+        longitude: locationState?.longitude || 73.1155,
+      };
+
+      const filteredSavedList = savedList.filter(item => {
+        const addrStr = item?.address || item?.displayAddress || '';
+        return !addrStr.includes('412, amazing star');
+      });
+
+      const finalCombinedList = [currentLocationCard, ...filteredSavedList];
+
+      setSavedAddressesList(finalCombinedList);
+    } catch (err) {
+      console.log('[PreBookingServiceScreen] loadSavedAddresses Error:', err);
+    }
   };
 
   const handleBookAppointmentPress = () => {
-    checkAuthAndAddressAndProceed((payload, responseData, bookingId) => {
-      if (isSalonCategory) {
-        refRBSheet.current?.open();
-      } else {
+    if (isSalonCategory) {
+      checkAuthAndAddressAndProceed((payload, responseData, bookingId) => {
         navigation.navigate('BookingSummaryScreen', {
           bookingId: bookingId || '9F8A2D3C',
           item: apiData,
@@ -462,12 +488,15 @@ const PreBookingServiceScreen = () => {
           selectedServices,
           bookingData: responseData,
         });
-      }
-    });
+      });
+    } else {
+      loadSavedAddresses();
+      refAddressSheet.current?.open();
+    }
   };
 
-  const handleConfirmPeopleSelection = () => {
-    refRBSheet.current?.close();
+  const handleSelectAddressAndProceed = selectedAddr => {
+    refAddressSheet.current?.close();
     checkAuthAndAddressAndProceed((payload, responseData, bookingId) => {
       navigation.navigate('BookingSummaryScreen', {
         bookingId: bookingId || '9F8A2D3C',
@@ -475,103 +504,9 @@ const PreBookingServiceScreen = () => {
         vendor: apiData,
         selectedServices,
         bookingData: responseData,
-        persons: {
-          men: menCount,
-          women: womenCount,
-          childBoy: childBoyCount,
-          childGirl: childGirlCount,
-        },
+        selectedAddress: selectedAddr,
       });
     });
-  };
-
-  const renderCounterRow = (label, count, setCount) => {
-    return (
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginVertical: hp(8),
-        }}>
-        <Text
-          style={{
-            fontSize: fontSize(15),
-            fontFamily: fontFamily.poppins600,
-            color: colors.pureBlack,
-          }}>
-          {label}
-        </Text>
-
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-          }}>
-          {/* MINUS BUTTON */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            disabled={count <= 0}
-            onPress={() => setCount(Math.max(0, count - 1))}
-            style={{
-              width: hp(32),
-              height: hp(32),
-              borderRadius: hp(16),
-              borderWidth: 1.5,
-              borderColor: count > 0 ? '#3A3A3A' : '#D5D5D5',
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}>
-            <Text
-              style={{
-                fontSize: fontSize(18),
-                color: count > 0 ? '#3A3A3A' : '#D5D5D5',
-                top: 1,
-                fontFamily: fontFamily.poppins600,
-              }}>
-              -
-            </Text>
-          </TouchableOpacity>
-
-          {/* COUNT DISPLAY */}
-          <Text
-            style={{
-              fontSize: fontSize(16),
-              fontFamily: fontFamily.poppins600,
-              color: colors.pureBlack,
-              marginHorizontal: wp(20),
-              minWidth: wp(16),
-              textAlign: 'center',
-            }}>
-            {count}
-          </Text>
-
-          {/* PLUS BUTTON */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => setCount(count + 1)}
-            style={{
-              width: hp(32),
-              height: hp(32),
-              borderRadius: hp(16),
-              borderWidth: 1.5,
-              borderColor: '#3A3A3A',
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}>
-            <Text
-              style={{
-                fontSize: fontSize(18),
-                color: '#3A3A3A',
-                top: 1,
-                fontFamily: fontFamily.poppins600,
-              }}>
-              +
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
   };
 
   return (
@@ -925,66 +860,267 @@ const PreBookingServiceScreen = () => {
         </View>
       )}
 
-      {/* SELECT PERSONS RAW BOTTOM SHEET (SALOON CATEGORY) */}
+      {/* SELECT AN ADDRESS RAW BOTTOM SHEET */}
       <RBSheet
-        ref={refRBSheet}
-        height={hp(340)}
+        ref={refAddressSheet}
+        height={hp(520)}
         openDuration={250}
         customStyles={{
           container: {
             borderTopLeftRadius: hp(24),
             borderTopRightRadius: hp(24),
-            paddingHorizontal: wp(24),
+            paddingHorizontal: wp(20),
             paddingTop: hp(20),
-            paddingBottom: hp(30),
+            paddingBottom: hp(20),
+            backgroundColor: '#F8FAFC',
           },
         }}>
-        {/* Subtitle / Header */}
+        {/* Title */}
         <Text
           style={{
-            fontSize: fontSize(14),
-            fontFamily: fontFamily.poppins400,
-            color: '#A0A0A0',
-            marginBottom: hp(10),
+            fontSize: fontSize(18),
+            fontFamily: fontFamily.poppins700,
+            color: '#1A1D26',
+            marginBottom: hp(16),
           }}>
-          Select
+          Select an address
         </Text>
 
-        {/* Counter Rows */}
-        {renderCounterRow('Men', menCount, setMenCount)}
-        {renderCounterRow('Women', womenCount, setWomenCount)}
-        {renderCounterRow('Child (Boy)', childBoyCount, setChildBoyCount)}
-        {renderCounterRow('Child (Girl)', childGirlCount, setChildGirlCount)}
-
-        {/* Confirm Button */}
+        {/* + Add Address Card */}
         <TouchableOpacity
-          activeOpacity={bookingLoading ? 1 : 0.8}
-          disabled={bookingLoading}
-          onPress={handleConfirmPeopleSelection}
+          activeOpacity={0.7}
+          onPress={() => {
+            refAddressSheet.current?.close();
+            navigation.navigate('EnterCompleteAddressScreen');
+          }}
           style={{
             width: '100%',
-            height: hp(52),
-            backgroundColor: '#731EE2',
-            borderRadius: hp(50),
-            justifyContent: 'center',
+            backgroundColor: colors.white,
+            borderRadius: hp(16),
+            borderWidth: 1,
+            borderColor: '#E8ECF2',
+            paddingVertical: hp(14),
+            paddingHorizontal: wp(16),
+            flexDirection: 'row',
             alignItems: 'center',
-            marginTop: hp(20),
-            opacity: bookingLoading ? 0.6 : 1,
+            justifyContent: 'space-between',
+            marginBottom: hp(20),
           }}>
-          {bookingLoading ? (
-            <ActivityIndicator size="small" color={colors.white} />
-          ) : (
+          <View style={{flexDirection: 'row', alignItems: 'center'}}>
             <Text
               style={{
-                color: colors.white,
-                fontSize: fontSize(16),
+                fontSize: fontSize(20),
+                color: '#00875A',
                 fontFamily: fontFamily.poppins600,
-                textAlign: 'center',
+                marginRight: wp(12),
+                lineHeight: hp(22),
               }}>
-              Confirm
+              +
             </Text>
-          )}
+            <Text
+              style={{
+                fontSize: fontSize(15),
+                fontFamily: fontFamily.poppins600,
+                color: '#00875A',
+              }}>
+              Add Address
+            </Text>
+          </View>
+
+          <Image
+            source={icons.bottom_Arrow_Icon}
+            style={{
+              width: hp(10),
+              height: hp(12),
+              tintColor: '#6B7280',
+              transform: [{rotate: '-90deg'}],
+            }}
+          />
         </TouchableOpacity>
+
+        {/* ADDRESS CARDS LIST */}
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {(() => {
+            const currentLocationItem = savedAddressesList.find(
+              a =>
+                a?.id === 'current_location_card_top' ||
+                a?.locationType === 'current' ||
+                a?.locationType === 'unlabeled',
+            );
+
+            const otherSavedAddresses = savedAddressesList.filter(
+              a =>
+                a?.id !== 'current_location_card_top' &&
+                a?.locationType !== 'current' &&
+                a?.locationType !== 'unlabeled',
+            );
+
+            const renderAddressCard = (addrItem, cardIndex) => {
+              const isCurrentLoc =
+                addrItem?.id === 'current_location_card_top' ||
+                addrItem?.locationType === 'current' ||
+                addrItem?.locationType === 'unlabeled';
+
+              const displayTitle = isCurrentLoc
+                ? 'Current Location'
+                : addrItem?.type || addrItem?.locationType || 'Saved Address';
+
+              const fullText =
+                addrItem?.displayAddress ||
+                addrItem?.address ||
+                locationState?.fullAddress ||
+                '8, Rameshwar Nagar, J P Nagar Society, Bardoli, Gujarat, India';
+
+              const rawUserPhone =
+                addrItem?.mobile ||
+                addrItem?.receiverMobile ||
+                user?.mobile ||
+                user?.mobileNumber ||
+                user?.phoneNumber ||
+                '7405665654';
+
+              const userPhone = String(rawUserPhone).startsWith('+')
+                ? String(rawUserPhone)
+                : `+91-${rawUserPhone}`;
+
+              return (
+                <TouchableOpacity
+                  key={cardIndex}
+                  activeOpacity={0.8}
+                  onPress={() => handleSelectAddressAndProceed(addrItem)}
+                  style={{
+                    width: '100%',
+                    backgroundColor: colors.white,
+                    borderRadius: hp(20),
+                    borderWidth: 1,
+                    borderColor: '#F1F5F9',
+                    padding: wp(18),
+                    marginBottom: hp(14),
+                    shadowColor: '#000',
+                    shadowOffset: {width: 0, height: 4},
+                    shadowOpacity: 0.04,
+                    shadowRadius: 8,
+                    elevation: 3,
+                  }}>
+                  {/* DELIVERS TO BADGE */}
+                  <Text
+                    style={{
+                      fontSize: fontSize(11),
+                      fontFamily: fontFamily.poppins700,
+                      color: '#3B82F6',
+                      letterSpacing: 0.6,
+                      marginBottom: hp(12),
+                      textTransform: 'uppercase',
+                    }}>
+                    DELIVERS TO
+                  </Text>
+
+                  {/* MAIN CONTENT ROW */}
+                  <View
+                    style={{flexDirection: 'row', alignItems: 'flex-start'}}>
+                    {/* LEFT COLUMN: ICON */}
+                    <View
+                      style={{
+                        alignItems: 'center',
+                        marginRight: wp(16),
+                        width: wp(28),
+                      }}>
+                      <Image
+                        source={
+                          isCurrentLoc
+                            ? icons.location_Icon
+                            : String(displayTitle)
+                                .toLowerCase()
+                                .includes('work')
+                            ? icons.work_Icon || icons.home_Icon
+                            : icons.home_Icon
+                        }
+                        style={{
+                          width: hp(24),
+                          height: hp(24),
+                          tintColor: isCurrentLoc
+                            ? colors.primaryColor || '#731EE2'
+                            : '#475569',
+                          resizeMode: 'contain',
+                        }}
+                      />
+                    </View>
+
+                    {/* RIGHT COLUMN: TITLE, ADDRESS, PHONE */}
+                    <View style={{flex: 1}}>
+                      <Text
+                        style={{
+                          fontSize: fontSize(16),
+                          fontFamily: fontFamily.poppins700,
+                          color: '#1E293B',
+                          marginBottom: hp(4),
+                        }}>
+                        {displayTitle}
+                      </Text>
+
+                      <Text
+                        style={{
+                          fontSize: fontSize(13),
+                          fontFamily: fontFamily.poppins400,
+                          color: '#475569',
+                          lineHeight: hp(20),
+                          marginBottom: hp(6),
+                        }}
+                        numberOfLines={3}>
+                        {fullText}
+                      </Text>
+
+                      <Text
+                        style={{
+                          fontSize: fontSize(12),
+                          fontFamily: fontFamily.poppins500,
+                          color: '#64748B',
+                        }}>
+                        Phone number:{' '}
+                        <Text
+                          style={{
+                            fontFamily: fontFamily.poppins600,
+                            color: '#1E293B',
+                          }}>
+                          {userPhone}
+                        </Text>
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            };
+
+            return (
+              <>
+                {/* 1. CURRENT LOCATION CARD */}
+                {currentLocationItem &&
+                  renderAddressCard(currentLocationItem, 'top_current')}
+
+                {/* 2. SAVED ADDRESSES HEADER */}
+                {otherSavedAddresses.length > 0 && (
+                  <Text
+                    style={{
+                      fontSize: fontSize(12),
+                      fontFamily: fontFamily.poppins600,
+                      color: '#8D93A1',
+                      letterSpacing: 0.8,
+                      marginTop: hp(10),
+                      marginBottom: hp(12),
+                      textTransform: 'uppercase',
+                    }}>
+                    SAVED ADDRESSES
+                  </Text>
+                )}
+
+                {/* 3. OTHER SAVED ADDRESS CARDS */}
+                {otherSavedAddresses.map((addrItem, idx) =>
+                  renderAddressCard(addrItem, `saved_${idx}`),
+                )}
+              </>
+            );
+          })()}
+        </ScrollView>
       </RBSheet>
     </SafeAreaView>
   );

@@ -1610,6 +1610,62 @@ function* getBookingByIdSaga(action) {
   }
 }
 
+function* updateBookingAddressSaga(action) {
+  try {
+    const {bookingId, payload, callback} = action.data || {};
+    let token = yield call(AsyncStorage.getItem, 'token');
+
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+
+    console.log('\n==================================================');
+    console.log('[Redux Saga: UPDATE_BOOKING_ADDRESS Request]');
+    console.log(
+      `Endpoint: PUT https://service.mntech.website/v1/customer/bookings/${bookingId}`,
+    );
+    console.log(`Booking ID: ${bookingId}`);
+    console.log('Payload:', JSON.stringify(payload, null, 2));
+    console.log(`Token Present: ${Boolean(token)}`);
+    console.log('==================================================\n');
+
+    const response = yield call(
+      customerAuth.updateBookingAddress,
+      bookingId,
+      payload,
+      token || '',
+    );
+
+    console.log('\n==================================================');
+    console.log('[Redux Saga: UPDATE_BOOKING_ADDRESS Success]');
+    console.log('Response Data:', JSON.stringify(response.data, null, 2));
+    console.log('==================================================\n');
+
+    yield put(
+      actions.updateBookingAddressSuccess(response.data?.data || response.data),
+    );
+
+    if (callback) {
+      callback(null, response.data);
+    }
+  } catch (error) {
+    const errorData = error?.response?.data || {
+      message: error?.message || 'Failed to update booking address',
+    };
+
+    console.log('\n==================================================');
+    console.log('[Redux Saga: UPDATE_BOOKING_ADDRESS Error]');
+    console.log('Error Details:', JSON.stringify(errorData, null, 2));
+    console.log('==================================================\n');
+
+    yield put(actions.updateBookingAddressFailed(errorData));
+
+    if (action?.data?.callback) {
+      action.data.callback(errorData, null);
+    }
+  }
+}
+
 export default function* customerAuthSaga() {
   yield takeLatest(TYPES.LOGIN_CUSTOMER, registerCustomer);
   yield takeLatest(TYPES.REGISTER_VENDOR, registerVendor);
@@ -1639,4 +1695,5 @@ export default function* customerAuthSaga() {
   yield takeLatest(TYPES.DELETE_CUSTOMER_ADDRESS, deleteCustomerAddressSaga);
   yield takeLatest(TYPES.CREATE_BOOKING, createBookingSaga);
   yield takeLatest(TYPES.GET_BOOKING_BY_ID, getBookingByIdSaga);
+  yield takeLatest(TYPES.UPDATE_BOOKING_ADDRESS, updateBookingAddressSaga);
 }

@@ -3,6 +3,7 @@ import {
   Alert,
   Image,
   SafeAreaView,
+  ScrollView,
   Text,
   TouchableOpacity,
   View,
@@ -23,7 +24,15 @@ import {
 } from '../../../actions/customerAuthActions';
 
 const normalizeAddressItem = item => {
-  if (!item || typeof item !== 'object') {
+  if (
+    !item ||
+    typeof item !== 'object' ||
+    item.id === 'current_location_card_top' ||
+    item.id === 'current_home_addr' ||
+    item.locationType === 'current' ||
+    item.locationType === 'unlabeled' ||
+    item.type === 'unlabeled'
+  ) {
     return null;
   }
 
@@ -201,9 +210,32 @@ const ManageAddressesScreen = () => {
           );
 
           if (Array.isArray(rawList)) {
-            const normalizedList = rawList
-              .map(normalizeAddressItem)
-              .filter(Boolean);
+            const deduplicatedMap = new Map();
+
+            rawList.forEach(rawItem => {
+              const norm = normalizeAddressItem(rawItem);
+              if (!norm) {
+                return;
+              }
+
+              const cleanAddrKey = (norm.address || '')
+                .toLowerCase()
+                .trim()
+                .replace(/\s+/g, ' ');
+
+              const key = cleanAddrKey || norm.id;
+
+              if (!deduplicatedMap.has(key)) {
+                deduplicatedMap.set(key, norm);
+              } else if (
+                norm.isDefault &&
+                !deduplicatedMap.get(key).isDefault
+              ) {
+                deduplicatedMap.set(key, norm);
+              }
+            });
+
+            const normalizedList = Array.from(deduplicatedMap.values());
             setAddresses(normalizedList);
             try {
               await AsyncStorage.setItem(
@@ -304,7 +336,13 @@ const ManageAddressesScreen = () => {
         }}
       />
 
-      <View style={{paddingHorizontal: wp(16), marginTop: hp(13)}}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingHorizontal: wp(16),
+          paddingTop: hp(13),
+          paddingBottom: hp(90),
+        }}>
         {addresses.length === 0 && (
           <Text
             style={{textAlign: 'center', marginTop: hp(50), color: 'black'}}>
@@ -434,7 +472,7 @@ const ManageAddressesScreen = () => {
             </View>
           </View>
         ))}
-      </View>
+      </ScrollView>
 
       <RBSheet
         ref={refRBSheet}
