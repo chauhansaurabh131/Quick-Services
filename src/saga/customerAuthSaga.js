@@ -1666,6 +1666,446 @@ function* updateBookingAddressSaga(action) {
   }
 }
 
+function* getVendorBookingsSaga(action) {
+  try {
+    const {vendorId, status, callback} = action.data;
+    let token = yield call(AsyncStorage.getItem, 'token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+    if (!token || token === '[object Object]') {
+      const authState = yield select(state => state.auth);
+      let rawToken =
+        authState?.user?.token ||
+        authState?.user?.accessToken ||
+        authState?.user?.data?.token ||
+        authState?.user?.data?.accessToken ||
+        authState?.user?.tokens?.access?.token ||
+        authState?.user?.tokens?.access ||
+        authState?.user?.data?.tokens?.access?.token ||
+        authState?.user?.data?.tokens?.access ||
+        authState?.user?.user?.token ||
+        authState?.user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: GET_VENDOR_BOOKINGS Request]',
+      `\nEndpoint: GET /v1/vendor/bookings/vendor/${vendorId}?status=${status}`,
+      `\nToken Preview: ${token ? `${token.substring(0, 25)}...` : 'NONE'}`,
+      '\n==================================================',
+    );
+
+    const response = yield call(
+      customerAuth.getVendorBookingsByStatus,
+      vendorId,
+      status,
+      token || '',
+    );
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: GET_VENDOR_BOOKINGS Response]',
+      `\nStatus: ${response?.status}`,
+      '\nData:',
+      JSON.stringify(response?.data, null, 2),
+      '\n==================================================',
+    );
+
+    const responseData = response?.data?.data || response?.data;
+
+    yield put(actions.getVendorBookingsSuccess(responseData, status));
+
+    if (callback) {
+      callback(null, response.data);
+    }
+  } catch (error) {
+    const errorData = error?.response?.data || error.message;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: GET_VENDOR_BOOKINGS Error]',
+      '\nError:',
+      JSON.stringify(errorData, null, 2),
+      '\n==================================================',
+    );
+    yield put(actions.getVendorBookingsFailed(errorData));
+    if (action?.data?.callback) {
+      action.data.callback(errorData, null);
+    }
+  }
+}
+
+function* acceptVendorBookingSaga(action) {
+  try {
+    const {bookingId, callback} = action.data;
+    let token = yield call(AsyncStorage.getItem, 'token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+    if (!token || token === '[object Object]') {
+      const authState = yield select(state => state.auth);
+      let rawToken =
+        authState?.user?.token ||
+        authState?.user?.accessToken ||
+        authState?.user?.data?.token ||
+        authState?.user?.data?.accessToken ||
+        authState?.user?.tokens?.access?.token ||
+        authState?.user?.tokens?.access ||
+        authState?.user?.data?.tokens?.access?.token ||
+        authState?.user?.data?.tokens?.access ||
+        authState?.user?.user?.token ||
+        authState?.user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: ACCEPT_VENDOR_BOOKING Request]',
+      `\nEndpoint: PUT /v1/vendor/bookings/${bookingId}/accept`,
+      `\nToken Preview: ${token ? `${token.substring(0, 25)}...` : 'NONE'}`,
+      '\n==================================================',
+    );
+
+    const response = yield call(
+      customerAuth.acceptVendorBookingById,
+      bookingId,
+      token || '',
+    );
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: ACCEPT_VENDOR_BOOKING Response]',
+      `\nStatus: ${response?.status}`,
+      '\nData:',
+      JSON.stringify(response?.data, null, 2),
+      '\n==================================================',
+    );
+
+    const responseData = response?.data?.data || response?.data;
+
+    yield put(actions.acceptVendorBookingSuccess(responseData));
+
+    if (callback) {
+      callback(null, response.data);
+    }
+  } catch (error) {
+    const errorData = error?.response?.data || error.message;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: ACCEPT_VENDOR_BOOKING Error]',
+      '\nError:',
+      JSON.stringify(errorData, null, 2),
+      '\n==================================================',
+    );
+    yield put(actions.acceptVendorBookingFailed(errorData));
+    if (action?.data?.callback) {
+      action.data.callback(errorData, null);
+    }
+  }
+}
+
+function* cancelVendorBookingSaga(action) {
+  try {
+    const {bookingId, cancelReason, callback} = action.data;
+    let token = yield call(AsyncStorage.getItem, 'token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+    if (!token || token === '[object Object]') {
+      const authState = yield select(state => state.auth);
+      let rawToken =
+        authState?.user?.token ||
+        authState?.user?.accessToken ||
+        authState?.user?.data?.token ||
+        authState?.user?.data?.accessToken ||
+        authState?.user?.tokens?.access?.token ||
+        authState?.user?.tokens?.access ||
+        authState?.user?.data?.tokens?.access?.token ||
+        authState?.user?.data?.tokens?.access ||
+        authState?.user?.user?.token ||
+        authState?.user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    const payload = {cancelReason};
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: CANCEL_VENDOR_BOOKING Request]',
+      `\nEndpoint: PUT /v1/vendor/bookings/${bookingId}/cancel`,
+      '\nPayload:',
+      JSON.stringify(payload, null, 2),
+      `\nToken Preview: ${token ? `${token.substring(0, 25)}...` : 'NONE'}`,
+      '\n==================================================',
+    );
+
+    const response = yield call(
+      customerAuth.cancelVendorBookingById,
+      bookingId,
+      payload,
+      token || '',
+    );
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: CANCEL_VENDOR_BOOKING Response]',
+      `\nStatus: ${response?.status}`,
+      '\nData:',
+      JSON.stringify(response?.data, null, 2),
+      '\n==================================================',
+    );
+
+    const responseData = response?.data?.data || response?.data;
+
+    yield put(actions.cancelVendorBookingSuccess(responseData));
+
+    if (callback) {
+      callback(null, response.data);
+    }
+  } catch (error) {
+    const errorData = error?.response?.data || error.message;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: CANCEL_VENDOR_BOOKING Error]',
+      '\nError:',
+      JSON.stringify(errorData, null, 2),
+      '\n==================================================',
+    );
+    yield put(actions.cancelVendorBookingFailed(errorData));
+    if (action?.data?.callback) {
+      action.data.callback(errorData, null);
+    }
+  }
+}
+
+function* vendorSendOtpSaga(action) {
+  try {
+    const {bookingId, callback} = action.data;
+    let token = yield call(AsyncStorage.getItem, 'token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+    if (!token || token === '[object Object]') {
+      const authState = yield select(state => state.auth);
+      let rawToken =
+        authState?.user?.token ||
+        authState?.user?.accessToken ||
+        authState?.user?.data?.token ||
+        authState?.user?.data?.accessToken ||
+        authState?.user?.tokens?.access?.token ||
+        authState?.user?.tokens?.access ||
+        authState?.user?.data?.tokens?.access?.token ||
+        authState?.user?.data?.tokens?.access ||
+        authState?.user?.user?.token ||
+        authState?.user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: VENDOR_SEND_OTP Request]',
+      `\nEndpoint: POST /v1/vendor/bookings/${bookingId}/complete/send-otp`,
+      `\nToken Preview: ${token ? `${token.substring(0, 25)}...` : 'NONE'}`,
+      '\n==================================================',
+    );
+
+    const response = yield call(
+      customerAuth.vendorSendOtpApi,
+      bookingId,
+      token || '',
+    );
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: VENDOR_SEND_OTP Response]',
+      `\nStatus: ${response?.status}`,
+      '\nData:',
+      JSON.stringify(response?.data, null, 2),
+      '\n==================================================',
+    );
+
+    yield put(actions.vendorSendOtpSuccess(response?.data));
+    if (callback) {
+      callback(null, response?.data);
+    }
+  } catch (error) {
+    const errorData = error?.response?.data || error.message;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: VENDOR_SEND_OTP Error]',
+      '\nError:',
+      JSON.stringify(errorData, null, 2),
+      '\n==================================================',
+    );
+    yield put(actions.vendorSendOtpFailed(errorData));
+    if (action?.data?.callback) {
+      action.data.callback(errorData, null);
+    }
+  }
+}
+
+function* vendorResendOtpSaga(action) {
+  try {
+    const {bookingId, callback} = action.data;
+    let token = yield call(AsyncStorage.getItem, 'token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+    if (!token || token === '[object Object]') {
+      const authState = yield select(state => state.auth);
+      let rawToken =
+        authState?.user?.token ||
+        authState?.user?.accessToken ||
+        authState?.user?.data?.token ||
+        authState?.user?.data?.accessToken ||
+        authState?.user?.tokens?.access?.token ||
+        authState?.user?.tokens?.access ||
+        authState?.user?.data?.tokens?.access?.token ||
+        authState?.user?.data?.tokens?.access ||
+        authState?.user?.user?.token ||
+        authState?.user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: VENDOR_RESEND_OTP Request]',
+      `\nEndpoint: POST /v1/vendor/bookings/${bookingId}/complete/resend-otp`,
+      `\nToken Preview: ${token ? `${token.substring(0, 25)}...` : 'NONE'}`,
+      '\n==================================================',
+    );
+
+    const response = yield call(
+      customerAuth.vendorResendOtpApi,
+      bookingId,
+      token || '',
+    );
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: VENDOR_RESEND_OTP Response]',
+      `\nStatus: ${response?.status}`,
+      '\nData:',
+      JSON.stringify(response?.data, null, 2),
+      '\n==================================================',
+    );
+
+    yield put(actions.vendorResendOtpSuccess(response?.data));
+    if (callback) {
+      callback(null, response?.data);
+    }
+  } catch (error) {
+    const errorData = error?.response?.data || error.message;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: VENDOR_RESEND_OTP Error]',
+      '\nError:',
+      JSON.stringify(errorData, null, 2),
+      '\n==================================================',
+    );
+    yield put(actions.vendorResendOtpFailed(errorData));
+    if (action?.data?.callback) {
+      action.data.callback(errorData, null);
+    }
+  }
+}
+
+function* vendorVerifyOtpSaga(action) {
+  try {
+    const {bookingId, otp, callback} = action.data;
+    let token = yield call(AsyncStorage.getItem, 'token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+    if (!token || token === '[object Object]') {
+      const authState = yield select(state => state.auth);
+      let rawToken =
+        authState?.user?.token ||
+        authState?.user?.accessToken ||
+        authState?.user?.data?.token ||
+        authState?.user?.data?.accessToken ||
+        authState?.user?.tokens?.access?.token ||
+        authState?.user?.tokens?.access ||
+        authState?.user?.data?.tokens?.access?.token ||
+        authState?.user?.data?.tokens?.access ||
+        authState?.user?.user?.token ||
+        authState?.user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    const payload = {otp};
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: VENDOR_VERIFY_OTP Request]',
+      `\nEndpoint: POST /v1/vendor/bookings/${bookingId}/complete/verify-otp`,
+      '\nPayload:',
+      JSON.stringify(payload, null, 2),
+      `\nToken Preview: ${token ? `${token.substring(0, 25)}...` : 'NONE'}`,
+      '\n==================================================',
+    );
+
+    const response = yield call(
+      customerAuth.vendorVerifyOtpApi,
+      bookingId,
+      payload,
+      token || '',
+    );
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: VENDOR_VERIFY_OTP Response]',
+      `\nStatus: ${response?.status}`,
+      '\nData:',
+      JSON.stringify(response?.data, null, 2),
+      '\n==================================================',
+    );
+
+    yield put(actions.vendorVerifyOtpSuccess(response?.data));
+    if (callback) {
+      callback(null, response?.data);
+    }
+  } catch (error) {
+    const errorData = error?.response?.data || error.message;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: VENDOR_VERIFY_OTP Error]',
+      '\nError:',
+      JSON.stringify(errorData, null, 2),
+      '\n==================================================',
+    );
+    yield put(actions.vendorVerifyOtpFailed(errorData));
+    if (action?.data?.callback) {
+      action.data.callback(errorData, null);
+    }
+  }
+}
+
 export default function* customerAuthSaga() {
   yield takeLatest(TYPES.LOGIN_CUSTOMER, registerCustomer);
   yield takeLatest(TYPES.REGISTER_VENDOR, registerVendor);
@@ -1696,4 +2136,10 @@ export default function* customerAuthSaga() {
   yield takeLatest(TYPES.CREATE_BOOKING, createBookingSaga);
   yield takeLatest(TYPES.GET_BOOKING_BY_ID, getBookingByIdSaga);
   yield takeLatest(TYPES.UPDATE_BOOKING_ADDRESS, updateBookingAddressSaga);
+  yield takeLatest(TYPES.GET_VENDOR_BOOKINGS, getVendorBookingsSaga);
+  yield takeLatest(TYPES.ACCEPT_VENDOR_BOOKING, acceptVendorBookingSaga);
+  yield takeLatest(TYPES.CANCEL_VENDOR_BOOKING, cancelVendorBookingSaga);
+  yield takeLatest(TYPES.VENDOR_SEND_OTP, vendorSendOtpSaga);
+  yield takeLatest(TYPES.VENDOR_RESEND_OTP, vendorResendOtpSaga);
+  yield takeLatest(TYPES.VENDOR_VERIFY_OTP, vendorVerifyOtpSaga);
 }

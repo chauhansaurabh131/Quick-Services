@@ -24,6 +24,8 @@ import {
   getVendorUserDetails,
   updateVendorProfile,
   updateUserLocation,
+  getMyAvailability,
+  updateMyAvailability,
 } from '../../../actions/customerAuthActions';
 
 const rangeOptions = [
@@ -35,7 +37,9 @@ const rangeOptions = [
 const VendorHomeScreen = () => {
   const dispatch = useDispatch();
 
-  const {user, vendorUserDetails} = useSelector(state => state.auth || {});
+  const {user, vendorUserDetails, vendorAvailability} = useSelector(
+    state => state.auth || {},
+  );
 
   const reduxUser =
     user?.user || user?.data?.user || user?.vendorUser || user || {};
@@ -49,6 +53,69 @@ const VendorHomeScreen = () => {
     user?.user?._id ||
     user?.user?.id ||
     user?.userId;
+
+  const [online, setOnline] = useState(false);
+
+  // Sync state from vendorAvailability data
+  const syncOnlineState = useCallback(data => {
+    if (!data) {
+      return;
+    }
+    if (data.storeStatus) {
+      setOnline(data.storeStatus.toLowerCase() === 'online');
+    } else if (data.isOnline !== undefined) {
+      setOnline(Boolean(data.isOnline));
+    }
+  }, []);
+
+  // Fetch online/offline status on screen focus & mount via getMyAvailability API
+  useFocusEffect(
+    useCallback(() => {
+      dispatch(
+        getMyAvailability((error, response) => {
+          if (!error && response) {
+            const resData = response?.data || response;
+            const data = resData?.data || resData;
+            syncOnlineState(data);
+          }
+        }),
+      );
+    }, [dispatch, syncOnlineState]),
+  );
+
+  useEffect(() => {
+    if (vendorAvailability) {
+      const data = vendorAvailability?.data || vendorAvailability;
+      syncOnlineState(data);
+    }
+  }, [vendorAvailability, syncOnlineState]);
+
+  const handleToggleOnline = value => {
+    setOnline(value);
+    console.log('==================================================');
+    console.log(
+      '[VendorHomeScreen] Toggling Online Status via API: updateMyAvailability',
+    );
+    console.log('Payload:', {isOnline: value});
+    console.log('==================================================');
+
+    dispatch(
+      updateMyAvailability({isOnline: value}, (err, res) => {
+        if (err) {
+          console.log('[VendorHomeScreen] Error updating online status:', err);
+          // Revert toggle if API call failed
+          setOnline(!value);
+        } else {
+          console.log(
+            '[VendorHomeScreen] Online status updated successfully:',
+            res,
+          );
+          // Refresh Redux availability data
+          dispatch(getMyAvailability());
+        }
+      }),
+    );
+  };
 
   // Sync fresh vendor details and start periodic (35 sec) location updates via Redux Saga
   useEffect(() => {
@@ -170,7 +237,6 @@ const VendorHomeScreen = () => {
       Number(currentRadius) > 0,
   );
 
-  const [online, setOnline] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedRangeIndex, setSelectedRangeIndex] = useState(0);
   const [trackWidth, setTrackWidth] = useState(0);
@@ -363,7 +429,7 @@ const VendorHomeScreen = () => {
             </View>
 
             <View style={{top: 10}}>
-              <SwitchButton value={online} onChange={v => setOnline(v)} />
+              <SwitchButton value={online} onChange={handleToggleOnline} />
             </View>
           </View>
         </View>

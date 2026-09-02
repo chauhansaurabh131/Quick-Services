@@ -408,3 +408,93 @@ export const updateBookingAddressFailed = error => ({
   type: TYPES.UPDATE_BOOKING_ADDRESS_FAILED,
   error,
 });
+
+export const getVendorBookings = (vendorId, status, callback) => ({
+  type: TYPES.GET_VENDOR_BOOKINGS,
+  data: {vendorId, status, callback},
+});
+
+export const getVendorBookingsSuccess = (data, status) => ({
+  type: TYPES.GET_VENDOR_BOOKINGS_SUCCESS,
+  payload: {data, status},
+});
+
+export const getVendorBookingsFailed = error => ({
+  type: TYPES.GET_VENDOR_BOOKINGS_FAILED,
+  error,
+});
+
+export const acceptVendorBooking = (bookingId, callback) => ({
+  type: TYPES.ACCEPT_VENDOR_BOOKING,
+  data: {bookingId, callback},
+});
+
+export const acceptVendorBookingSuccess = data => ({
+  type: TYPES.ACCEPT_VENDOR_BOOKING_SUCCESS,
+  data,
+});
+
+export const acceptVendorBookingFailed = error => ({
+  type: TYPES.ACCEPT_VENDOR_BOOKING_FAILED,
+  error,
+});
+
+export const cancelVendorBooking = (bookingId, cancelReason, callback) => ({
+  type: TYPES.CANCEL_VENDOR_BOOKING,
+  data: {bookingId, cancelReason, callback},
+});
+
+export const cancelVendorBookingSuccess = data => ({
+  type: TYPES.CANCEL_VENDOR_BOOKING_SUCCESS,
+  data,
+});
+
+export const cancelVendorBookingFailed = error => ({
+  type: TYPES.CANCEL_VENDOR_BOOKING_FAILED,
+  error,
+});
+
+export const vendorSendOtp = (bookingId, callback) => ({
+  type: TYPES.VENDOR_SEND_OTP,
+  data: {bookingId, callback},
+});
+
+export const vendorSendOtpSuccess = data => ({
+  type: TYPES.VENDOR_SEND_OTP_SUCCESS,
+  data,
+});
+
+export const vendorSendOtpFailed = error => ({
+  type: TYPES.VENDOR_SEND_OTP_FAILED,
+  error,
+});
+
+export const vendorResendOtp = (bookingId, callback) => ({
+  type: TYPES.VENDOR_RESEND_OTP,
+  data: {bookingId, callback},
+});
+
+export const vendorResendOtpSuccess = data => ({
+  type: TYPES.VENDOR_RESEND_OTP_SUCCESS,
+  data,
+});
+
+export const vendorResendOtpFailed = error => ({
+  type: TYPES.VENDOR_RESEND_OTP_FAILED,
+  error,
+});
+
+export const vendorVerifyOtp = (bookingId, otp, callback) => ({
+  type: TYPES.VENDOR_VERIFY_OTP,
+  data: {bookingId, otp, callback},
+});
+
+export const vendorVerifyOtpSuccess = data => ({
+  type: TYPES.VENDOR_VERIFY_OTP_SUCCESS,
+  data,
+});
+
+export const vendorVerifyOtpFailed = error => ({
+  type: TYPES.VENDOR_VERIFY_OTP_FAILED,
+  error,
+});

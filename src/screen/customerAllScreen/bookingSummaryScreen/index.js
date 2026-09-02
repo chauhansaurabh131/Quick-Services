@@ -612,6 +612,24 @@ const BookingSummaryScreen = () => {
         .map(val => (isValidObjectId(val) ? String(val).trim() : null))
         .find(Boolean) || '665b1234567890abcdef1234';
 
+    const customerId = [
+      user?._id,
+      user?.id,
+      user?.user?._id,
+      user?.user?.id,
+      user?.customerUser?._id,
+      user?.customerUser?.id,
+      user?.data?.user?._id,
+      user?.data?.user?.id,
+      user?.data?._id,
+      user?.data?.id,
+      bookingObj?.customerId?._id,
+      bookingObj?.customerId?.id,
+      bookingObj?.customerId,
+    ]
+      .map(val => (isValidObjectId(val) ? String(val).trim() : null))
+      .find(Boolean);
+
     const proceedToUpdateBooking = targetAddressId => {
       const updateBookingPayload = {};
 
@@ -629,6 +647,10 @@ const BookingSummaryScreen = () => {
           return;
         }
         updateBookingPayload.addressId = String(targetAddressId).trim();
+      }
+
+      if (customerId && isValidObjectId(customerId)) {
+        updateBookingPayload.customerId = String(customerId).trim();
       }
 
       if (selectedDate && selectedTime) {

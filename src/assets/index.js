@@ -55,6 +55,7 @@ export const icons = {
   password_Show_Icon: require('./icons/password_Show_Icon.png'),
   password_Hide_Icon: require('./icons/password_Hide_Icon.png'),
   circle_Profile_Icon: require('./icons/circle_Profile_Icon.png'),
+  booking_Calendar_Icon: require('./icons/booking_Calendar_Icon.png'),
 };
 
 export const video = {

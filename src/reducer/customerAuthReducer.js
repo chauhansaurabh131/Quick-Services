@@ -333,6 +333,69 @@ const customerAuthReducer = (state = initialState, action) => {
         activeBookingDetails: action.data,
         error: null,
       };
+    case TYPES.GET_VENDOR_BOOKINGS_SUCCESS:
+      return {
+        ...state,
+        loading: false,
+        vendorBookings: {
+          ...(state.vendorBookings || {}),
+          [action.payload?.status || 'panding']: action.payload?.data,
+        },
+        error: null,
+      };
+    case TYPES.ACCEPT_VENDOR_BOOKING_SUCCESS: {
+      const acceptedId =
+        action.data?._id || action.data?.id || action.data?.bookingId;
+      const currentPanding = state.vendorBookings?.panding;
+      const updatedPanding = Array.isArray(currentPanding)
+        ? currentPanding.filter(
+            item => (item._id || item.id) !== acceptedId && item !== acceptedId,
+          )
+        : currentPanding;
+
+      return {
+        ...state,
+        loading: false,
+        acceptedBookingResult: action.data,
+        vendorBookings: {
+          ...(state.vendorBookings || {}),
+          panding: updatedPanding,
+        },
+        error: null,
+      };
+    }
+    case TYPES.CANCEL_VENDOR_BOOKING_SUCCESS: {
+      const cancelledId =
+        action.data?._id || action.data?.id || action.data?.bookingId;
+      const currentPanding = state.vendorBookings?.panding;
+      const currentAccepted = state.vendorBookings?.accepted;
+
+      const updatedPanding = Array.isArray(currentPanding)
+        ? currentPanding.filter(
+            item =>
+              (item._id || item.id) !== cancelledId && item !== cancelledId,
+          )
+        : currentPanding;
+
+      const updatedAccepted = Array.isArray(currentAccepted)
+        ? currentAccepted.filter(
+            item =>
+              (item._id || item.id) !== cancelledId && item !== cancelledId,
+          )
+        : currentAccepted;
+
+      return {
+        ...state,
+        loading: false,
+        cancelledBookingResult: action.data,
+        vendorBookings: {
+          ...(state.vendorBookings || {}),
+          panding: updatedPanding,
+          accepted: updatedAccepted,
+        },
+        error: null,
+      };
+    }
     case TYPES.RESEND_OTP_VENDOR_SUCCESS:
       return {
         ...state,
@@ -359,6 +422,8 @@ const customerAuthReducer = (state = initialState, action) => {
     case TYPES.DELETE_CUSTOMER_ADDRESS_FAILED:
     case TYPES.CREATE_BOOKING_FAILED:
     case TYPES.GET_BOOKING_BY_ID_FAILED:
+    case TYPES.GET_VENDOR_BOOKINGS_FAILED:
+    case TYPES.ACCEPT_VENDOR_BOOKING_FAILED:
     case TYPES.RESEND_OTP_VENDOR_FAILED:
       return {
         ...state,

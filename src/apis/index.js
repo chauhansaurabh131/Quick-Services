@@ -104,6 +104,78 @@ export const customerAuth = {
           : '',
       },
     }),
+  getVendorBookingsByStatus: (vendorId, status, token) =>
+    api.get(`/vendor/bookings/vendor/${vendorId}?status=${status}`, {
+      headers: {
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
+      },
+    }),
+  acceptVendorBookingById: (bookingId, token) =>
+    api.put(
+      `/vendor/bookings/${bookingId}/accept`,
+      {},
+      {
+        headers: {
+          Authorization: token
+            ? token.startsWith('Bearer ')
+              ? token
+              : `Bearer ${token}`
+            : '',
+        },
+      },
+    ),
+  cancelVendorBookingById: (bookingId, payload, token) =>
+    api.put(`/vendor/bookings/${bookingId}/cancel`, payload, {
+      headers: {
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
+      },
+    }),
+  vendorSendOtpApi: (bookingId, token) =>
+    api.post(
+      `/vendor/bookings/${bookingId}/complete/send-otp`,
+      {},
+      {
+        headers: {
+          Authorization: token
+            ? token.startsWith('Bearer ')
+              ? token
+              : `Bearer ${token}`
+            : '',
+        },
+      },
+    ),
+  vendorResendOtpApi: (bookingId, token) =>
+    api.post(
+      `/vendor/bookings/${bookingId}/complete/resend-otp`,
+      {},
+      {
+        headers: {
+          Authorization: token
+            ? token.startsWith('Bearer ')
+              ? token
+              : `Bearer ${token}`
+            : '',
+        },
+      },
+    ),
+  vendorVerifyOtpApi: (bookingId, payload, token) =>
+    api.post(`/vendor/bookings/${bookingId}/complete/verify-otp`, payload, {
+      headers: {
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
+      },
+    }),
   verifyUpdateOtp: (payload, token) =>
     api.post('/customer/auth/verify-update-otp', payload, {
       headers: {

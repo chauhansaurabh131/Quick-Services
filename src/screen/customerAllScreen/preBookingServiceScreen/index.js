@@ -334,11 +334,27 @@ const PreBookingServiceScreen = () => {
           .map(s => s.title)
           .join(' and ') || 'Instant service';
 
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const currentBookingDate = `${year}-${month}-${day}`;
+
+      const currentRealTimeSlot = now
+        .toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        })
+        .toLowerCase();
+
       const bookingPayload = {
         vendorId: vendorUserId || '6a7320cb3577104793b1929b',
         vendorServiceId: vendorServiceIdToPass,
         serviceIds: serviceIdsToPass,
         notes: selectedNotes,
+        bookingDate: currentBookingDate,
+        timeSlot: currentRealTimeSlot,
       };
 
       console.log(
