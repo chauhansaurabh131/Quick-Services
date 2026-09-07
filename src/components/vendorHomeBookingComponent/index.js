@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef} from 'react';
+import React, {useState, useEffect, useRef, useCallback} from 'react';
 import {
   Text,
   View,
@@ -9,6 +9,9 @@ import {
   ScrollView,
   TextInput,
   Alert,
+  DeviceEventEmitter,
+  Modal,
+  Vibration,
 } from 'react-native';
 import {useDispatch, useSelector} from 'react-redux';
 import RBSheet from 'react-native-raw-bottom-sheet';
@@ -23,6 +26,7 @@ import {
   vendorResendOtp,
   vendorVerifyOtp,
 } from '../../actions/customerAuthActions';
+import Video from 'react-native-video';
 
 const VendorHomeBookingComponent = ({
   bookingsList,
@@ -87,6 +91,12 @@ const VendorHomeBookingComponent = ({
   const [acceptingId, setAcceptingId] = useState(null);
   const [cancellingId, setCancellingId] = useState(null);
   const [removedBookingIds, setRemovedBookingIds] = useState([]);
+  const [incomingModalVisible, setIncomingModalVisible] = useState(false);
+  const [incomingBookingItem, setIncomingBookingItem] = useState(null);
+  const [dismissedBookingIds, setDismissedBookingIds] = useState([]);
+  const [hasShownInitialModal, setHasShownInitialModal] = useState(false);
+  const [countdownSeconds, setCountdownSeconds] = useState(30);
+  const ringbellPlayerRef = useRef(null);
   const selectedTab = activeTab || internalTab;
 
   const isValidObjectId = val =>
@@ -97,14 +107,14 @@ const VendorHomeBookingComponent = ({
       return null;
     }
     const candidates = [
-      item.id,
-      item._id,
-      item.bookingId,
-      item.mongoBookingId,
-      item.bookingId?._id,
-      item.bookingId?.id,
-      item.data?._id,
-      item.data?.id,
+      item?.id,
+      item?._id,
+      item?.bookingId,
+      item?.mongoBookingId,
+      item?.bookingId?._id,
+      item?.bookingId?.id,
+      item?.data?._id,
+      item?.data?.id,
     ];
 
     for (const cand of candidates) {
@@ -357,16 +367,184 @@ const VendorHomeBookingComponent = ({
 
   const currentStatusQuery = statusMap[selectedTab] || 'panding';
 
+  // 1. Fetch bookings when selected tab or vendorUserId updates
+  const fetchBookings = useCallback(
+    (statusToFetch = currentStatusQuery) => {
+      if (vendorUserId) {
+        setFetchingBookings(true);
+        dispatch(
+          getVendorBookings(vendorUserId, statusToFetch, (err, res) => {
+            setFetchingBookings(false);
+          }),
+        );
+      }
+    },
+    [dispatch, vendorUserId, currentStatusQuery],
+  );
+
   useEffect(() => {
-    if (vendorUserId) {
-      setFetchingBookings(true);
-      dispatch(
-        getVendorBookings(vendorUserId, currentStatusQuery, (err, res) => {
-          setFetchingBookings(false);
-        }),
-      );
+    fetchBookings(currentStatusQuery);
+  }, [fetchBookings, currentStatusQuery]);
+
+  const getLatestPendingItem = list => {
+    if (!Array.isArray(list) || list.length === 0) {
+      return null;
     }
-  }, [dispatch, vendorUserId, selectedTab, currentStatusQuery]);
+    const sorted = [...list].sort((a, b) => {
+      const timeA = new Date(a?.createdAt || a?.bookingDate || 0).getTime();
+      const timeB = new Date(b?.createdAt || b?.bookingDate || 0).getTime();
+      return timeB - timeA;
+    });
+    return sorted[0] || list[0];
+  };
+
+  const handleCloseIncomingModal = useCallback(() => {
+    Vibration.cancel();
+    const pandingRaw = vendorBookings?.panding || vendorBookings?.new || [];
+    const pandingList = Array.isArray(pandingRaw)
+      ? pandingRaw
+      : Array.isArray(pandingRaw?.bookings)
+      ? pandingRaw.bookings
+      : Array.isArray(pandingRaw?.data)
+      ? pandingRaw.data
+      : [];
+
+    const allPendingIds = pandingList
+      .map(item => getMongoBookingId(item) || item?._id || item?.id)
+      .filter(Boolean);
+
+    setDismissedBookingIds(prev => [...new Set([...prev, ...allPendingIds])]);
+    setIncomingModalVisible(false);
+  }, [vendorBookings]);
+
+  // 2. Listen to live Push Notifications -> Auto-refresh 'panding' & show ONLY the newest incoming booking modal
+  useEffect(() => {
+    const notificationListener = DeviceEventEmitter.addListener(
+      'FCM_BOOKING_NOTIFICATION_RECEIVED',
+      remoteMessage => {
+        console.log(
+          '\n==================================================',
+          '\n[VendorHomeBookingComponent] New Push Notification received!',
+          '\nFetching latest pending booking to display modal...',
+          '\n==================================================\n',
+        );
+        if (vendorUserId) {
+          dispatch(
+            getVendorBookings(vendorUserId, 'panding', (err, res) => {
+              const resData = res?.data || res;
+              const list = Array.isArray(resData)
+                ? resData
+                : Array.isArray(resData?.bookings)
+                ? resData.bookings
+                : Array.isArray(resData?.data)
+                ? resData.data
+                : [];
+              if (list.length > 0) {
+                const newestItem = getLatestPendingItem(list);
+                setIncomingBookingItem(newestItem);
+                setIncomingModalVisible(true);
+              }
+            }),
+          );
+        }
+      },
+    );
+
+    return () => notificationListener.remove();
+  }, [dispatch, vendorUserId]);
+
+  // 3. Periodic polling every 12 seconds to load fresh customer order requests live
+  useEffect(() => {
+    if (!vendorUserId) {
+      return;
+    }
+    const interval = setInterval(() => {
+      dispatch(getVendorBookings(vendorUserId, 'panding'));
+      if (currentStatusQuery !== 'panding') {
+        dispatch(getVendorBookings(vendorUserId, currentStatusQuery));
+      }
+    }, 12000);
+
+    return () => clearInterval(interval);
+  }, [dispatch, vendorUserId, currentStatusQuery]);
+
+  // 4. Auto-detect ONLY the single latest pending request when app opens/loads
+  useEffect(() => {
+    if (hasShownInitialModal) {
+      return;
+    }
+
+    const pandingRaw = vendorBookings?.panding || vendorBookings?.new || [];
+    const pandingList = Array.isArray(pandingRaw)
+      ? pandingRaw
+      : Array.isArray(pandingRaw?.bookings)
+      ? pandingRaw.bookings
+      : Array.isArray(pandingRaw?.data)
+      ? pandingRaw.data
+      : [];
+
+    if (pandingList.length === 0) {
+      return;
+    }
+
+    const latestItem = getLatestPendingItem(pandingList);
+    const bId =
+      getMongoBookingId(latestItem) || latestItem?._id || latestItem?.id;
+
+    if (
+      bId &&
+      !removedBookingIds.includes(bId) &&
+      !dismissedBookingIds.includes(bId)
+    ) {
+      setIncomingBookingItem(latestItem);
+      setIncomingModalVisible(true);
+      setHasShownInitialModal(true);
+    }
+  }, [
+    vendorBookings,
+    hasShownInitialModal,
+    removedBookingIds,
+    dismissedBookingIds,
+  ]);
+
+  // 5. Continuous 30-second vibration ringtone audio alert and countdown timer
+  useEffect(() => {
+    let timerId = null;
+
+    if (incomingModalVisible && incomingBookingItem) {
+      console.log(
+        '[VendorHomeBookingComponent] Incoming Modal Opened -> Starting 30s call ringtone sound & vibration alert...',
+      );
+
+      // Start continuous repeating vibration pattern
+      Vibration.vibrate([600, 1000, 600, 1000, 600, 1000], true);
+      setCountdownSeconds(30);
+
+      timerId = setInterval(() => {
+        setCountdownSeconds(prev => {
+          if (prev <= 1) {
+            clearInterval(timerId);
+            Vibration.cancel();
+            console.log(
+              '[VendorHomeBookingComponent] 30s timer expired -> Auto-closing incoming modal',
+            );
+            handleCloseIncomingModal();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      Vibration.cancel();
+    }
+
+    return () => {
+      Vibration.cancel();
+      if (timerId) {
+        clearInterval(timerId);
+      }
+    };
+  }, [incomingModalVisible, incomingBookingItem, handleCloseIncomingModal]);
 
   const handleTabChange = tab => {
     setInternalTab(tab);
@@ -508,17 +686,17 @@ const VendorHomeBookingComponent = ({
   };
 
   const getItemLocation = item =>
-    item.addressId?.displayAddress ||
-    item.addressId?.address ||
-    item.address ||
-    item.location ||
+    item?.addressId?.displayAddress ||
+    item?.addressId?.address ||
+    item?.address ||
+    item?.location ||
     'Dumas Rd, Magdalla,';
 
   const getItemCustomerName = item =>
-    item.customerId?.fullName ||
-    item.customerId?.name ||
-    item.customerName ||
-    item.name ||
+    item?.customerId?.fullName ||
+    item?.customerId?.name ||
+    item?.customerName ||
+    item?.name ||
     'Rakesh Shukla';
 
   const monthsShort = [
@@ -563,16 +741,19 @@ const VendorHomeBookingComponent = ({
   };
 
   const getItemDateTime = (item, index) => {
-    const rawDate = item.bookingDate || item.date || item.createdAt;
-    const slot = item.timeSlot || item.appointmentTime || item.slot || '';
+    if (!item) {
+      return index === 1 ? '2 Oct 2026 01:00 PM' : '12 Apr 26 10:00';
+    }
+    const rawDate = item?.bookingDate || item?.date || item?.createdAt;
+    const slot = item?.timeSlot || item?.appointmentTime || item?.slot || '';
 
     if (rawDate) {
       const formattedDate = formatDisplayDate(rawDate);
       return slot ? `${formattedDate} ${slot}` : formattedDate;
     }
 
-    if (item.dateTime) {
-      const parts = String(item.dateTime).split(' ');
+    if (item?.dateTime) {
+      const parts = String(item?.dateTime || '').split(' ');
       const datePart = parts[0];
       const timePart = parts.slice(1).join(' ');
       const formattedDate = formatDisplayDate(datePart);
@@ -584,19 +765,19 @@ const VendorHomeBookingComponent = ({
 
   const getItemPrice = item => {
     const rawVal =
-      item.totalPayable ??
-      item.totalAmount ??
-      item.price ??
-      item.subtotal ??
+      item?.totalPayable ??
+      item?.totalAmount ??
+      item?.price ??
+      item?.subtotal ??
       '120.00';
     const strVal = String(rawVal).replace(/^\$/, '₹');
     return strVal.startsWith('₹') ? strVal : `₹${strVal}`;
   };
 
   const getItemReason = item =>
-    item.cancellationReason ||
-    item.reason ||
-    item.cancelReason ||
+    item?.cancellationReason ||
+    item?.reason ||
+    item?.cancelReason ||
     'Customer unavailable';
 
   const renderItem = ({item, index}) => {
@@ -1214,6 +1395,269 @@ const VendorHomeBookingComponent = ({
           </TouchableOpacity>
         </View>
       </RBSheet>
+
+      {/* UBER / OLA STYLE INCOMING BOOKING REQUEST MODAL */}
+      <Modal
+        visible={incomingModalVisible && Boolean(incomingBookingItem)}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleCloseIncomingModal}>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0, 0, 0, 0.65)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            paddingHorizontal: wp(18),
+          }}>
+          <View
+            style={{
+              width: '100%',
+              backgroundColor: colors.white,
+              borderRadius: hp(24),
+              paddingHorizontal: wp(20),
+              paddingTop: hp(20),
+              paddingBottom: hp(24),
+              shadowColor: '#000',
+              shadowOffset: {width: 0, height: 4},
+              shadowOpacity: 0.3,
+              shadowRadius: 12,
+              elevation: 20,
+            }}>
+            {/* TOP BAR / BADGE */}
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: hp(15),
+              }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: '#F3E8FF',
+                  paddingHorizontal: wp(12),
+                  paddingVertical: hp(6),
+                  borderRadius: hp(20),
+                }}>
+                <View
+                  style={{
+                    width: hp(8),
+                    height: hp(8),
+                    borderRadius: hp(4),
+                    backgroundColor: colors.primaryColor || '#731EE2',
+                    marginRight: wp(6),
+                  }}
+                />
+                <Text
+                  style={{
+                    color: colors.primaryColor || '#731EE2',
+                    fontSize: fontSize(13),
+                    fontFamily: fontFamily.poppins600,
+                  }}>
+                  NEW REQUEST • {countdownSeconds}s
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                onPress={handleCloseIncomingModal}
+                hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+                <Text
+                  style={{
+                    fontSize: fontSize(18),
+                    fontFamily: fontFamily.poppins600,
+                    color: '#717171',
+                  }}>
+                  ✕
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* MAP HEADER PREVIEW */}
+            <View
+              style={{
+                height: hp(110),
+                borderRadius: hp(14),
+                overflow: 'hidden',
+                marginBottom: hp(15),
+                backgroundColor: '#EFEFEF',
+              }}>
+              <Image
+                source={images.map_Image || images.map}
+                style={{width: '100%', height: '100%', resizeMode: 'cover'}}
+              />
+            </View>
+
+            {/* SERVICE TITLE & PRICE */}
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                marginBottom: hp(12),
+              }}>
+              <Text
+                style={{
+                  fontSize: fontSize(18),
+                  fontFamily: fontFamily.poppins600,
+                  color: colors.pureBlack,
+                  flex: 1,
+                  marginRight: wp(10),
+                }}>
+                {getItemTitle(incomingBookingItem)}
+              </Text>
+              <Text
+                style={{
+                  fontSize: fontSize(18),
+                  fontFamily: fontFamily.poppins700,
+                  color: colors.pureBlack,
+                }}>
+                {getItemPrice(incomingBookingItem)}
+              </Text>
+            </View>
+
+            {/* LOCATION & CUSTOMER INFO */}
+            <View style={{marginBottom: hp(15)}}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  marginBottom: hp(6),
+                }}>
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    fontSize: fontSize(13),
+                    fontFamily: fontFamily.poppins400,
+                    color: '#717171',
+                    flex: 1,
+                  }}>
+                  📍 {getItemLocation(incomingBookingItem)}
+                </Text>
+              </View>
+
+              <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                <Text
+                  style={{
+                    fontSize: fontSize(13),
+                    fontFamily: fontFamily.poppins400,
+                    color: '#717171',
+                  }}>
+                  👤 {getItemCustomerName(incomingBookingItem)}
+                </Text>
+              </View>
+            </View>
+
+            {/* DATE & TIME SLOT */}
+            <View
+              style={{
+                backgroundColor: '#F8F8F8',
+                paddingVertical: hp(8),
+                paddingHorizontal: wp(12),
+                borderRadius: hp(8),
+                marginBottom: hp(20),
+              }}>
+              <Text
+                style={{
+                  fontSize: fontSize(13),
+                  fontFamily: fontFamily.poppins600,
+                  color: colors.primaryColor || '#731EE2',
+                }}>
+                📅 {getItemDateTime(incomingBookingItem, 0)}
+              </Text>
+            </View>
+
+            {/* ACTION BUTTONS (DECLINE / ACCEPT) */}
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+              }}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                disabled={
+                  cancellingId === getMongoBookingId(incomingBookingItem)
+                }
+                onPress={() => {
+                  handleCloseIncomingModal();
+                  handleDeclinePress(incomingBookingItem);
+                }}
+                style={{
+                  flex: 1,
+                  height: hp(48),
+                  borderRadius: hp(24),
+                  backgroundColor: '#F3F4F6',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: wp(10),
+                }}>
+                <Text
+                  style={{
+                    color: colors.pureBlack,
+                    fontSize: fontSize(15),
+                    fontFamily: fontFamily.poppins600,
+                  }}>
+                  Decline
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.7}
+                disabled={
+                  acceptingId === getMongoBookingId(incomingBookingItem)
+                }
+                onPress={() => {
+                  handleCloseIncomingModal();
+                  handleAcceptPress(incomingBookingItem);
+                }}
+                style={{
+                  flex: 1,
+                  height: hp(48),
+                  borderRadius: hp(24),
+                  backgroundColor: colors.primaryColor || '#731EE2',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                {acceptingId === getMongoBookingId(incomingBookingItem) ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text
+                    style={{
+                      color: colors.white,
+                      fontSize: fontSize(15),
+                      fontFamily: fontFamily.poppins600,
+                    }}>
+                    Accept
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      {/* CONTINUOUS INCOMING CALL RINGTONE AUDIO PLAYER */}
+      {incomingModalVisible && (
+        <Video
+          ref={ringbellPlayerRef}
+          source={require('../../assets/sounds/ringbell.mp3')}
+          paused={!incomingModalVisible}
+          repeat={true}
+          loop={true}
+          volume={1.0}
+          audioOnly={true}
+          playInBackground={false}
+          onEnd={() => {
+            console.log(
+              '[VendorHomeBookingComponent] ringbell 8s sound finished -> Auto-replaying from 0s',
+            );
+            if (ringbellPlayerRef.current) {
+              ringbellPlayerRef.current.seek(0);
+            }
+          }}
+          style={{width: 0, height: 0, position: 'absolute'}}
+        />
+      )}
     </View>
   );
 };

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "444625039246",
+    "project_id": "karyaah-c65c8",
+    "storage_bucket": "karyaah-c65c8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:444625039246:android:05c7d6dcde9ee37a107edf",
+        "android_client_info": {
+          "package_name": "com.Karyaah"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBdlJFpnpW-bX2l6eVGiiZCu2cntNnKmn4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

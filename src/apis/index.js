@@ -273,12 +273,12 @@ export const customerAuth = {
       payload,
       token
         ? {
-            headers: {
-              Authorization: token.startsWith('Bearer ')
-                ? token
-                : `Bearer ${token}`,
-            },
-          }
+          headers: {
+            Authorization: token.startsWith('Bearer ')
+              ? token
+              : `Bearer ${token}`,
+          },
+        }
         : {},
     ),
   getMyAvailability: token =>
@@ -293,6 +293,20 @@ export const customerAuth = {
     }),
   updateMyAvailability: (payload, token) =>
     api.put('/vendor/vendorAvailability/my-availability', payload, {
+      headers: {
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
+      },
+    }),
+  getCustomerBookingsByStatus: (status, token, page = 1) =>
+    api.get('/customer/bookings', {
+      params: {
+        status: status,
+        page: page,
+      },
       headers: {
         Authorization: token
           ? token.startsWith('Bearer ')
@@ -326,7 +340,7 @@ export const s3Api = {
 
     try {
       console.log('Attempting S3 upload request on service.mntech.website...');
-      return await api.post('/s3/profilepic', payload, {headers});
+      return await api.post('/s3/profilepic', payload, { headers });
     } catch (err) {
       console.log(
         'service.mntech.website S3 request error status:',
@@ -338,7 +352,7 @@ export const s3Api = {
       return await axios.post(
         'https://mntrendigo.mntech.website/api/v1/s3/profilepic',
         payload,
-        {headers},
+        { headers },
       );
     }
   },

@@ -418,10 +418,14 @@ const HomeScreen = () => {
             style={{width: wp(62), height: hp(18), resizeMode: 'contain'}}
           />
 
-          <Image
-            source={icons.notification_Bell_Icon}
-            style={{width: wp(13), height: hp(16), resizeMode: 'contain'}}
-          />
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('MyBookingScreen')}>
+            <Image
+              source={icons.notification_Bell_Icon}
+              style={{width: wp(16), height: hp(18), resizeMode: 'contain'}}
+            />
+          </TouchableOpacity>
         </View>
 
         <FlatList

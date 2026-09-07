@@ -2,10 +2,11 @@ import React from 'react';
 import {
   FlatList,
   Image,
-  SafeAreaView,
   Text,
   TouchableOpacity,
   View,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import {colors} from '../../../../utils/colors';
 import {icons, images} from '../../../../assets';
@@ -13,7 +14,7 @@ import {fontFamily, fontSize, hp, wp} from '../../../../utils/helpers';
 import {useTranslation} from 'react-i18next';
 import {useNavigation} from '@react-navigation/native';
 
-const bookings = [
+const defaultBookings = [
   {
     id: '1',
     service: 'Home Deep Cleaning',
@@ -46,12 +47,138 @@ const bookings = [
   },
 ];
 
-const CompleteBookings = () => {
+const CompleteBookings = ({bookingsList, fetching = false, onRefresh}) => {
   const {t} = useTranslation();
-
   const navigation = useNavigation();
 
+  const dataToDisplay =
+    Array.isArray(bookingsList) && bookingsList.length > 0
+      ? bookingsList
+      : bookingsList
+      ? []
+      : defaultBookings;
+
+  const monthsShort = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+
+  const getBookingTitle = item => {
+    let title =
+      item?.serviceName ||
+      item?.serviceTitle ||
+      item?.notes ||
+      (Array.isArray(item?.serviceIds) && item.serviceIds.length > 0
+        ? item.serviceIds[0]?.title ||
+          item.serviceIds[0]?.name ||
+          item.serviceIds[0]
+        : null) ||
+      item?.serviceId?.title ||
+      item?.serviceId?.name ||
+      item?.service ||
+      'Service';
+    if (typeof title === 'object' && title !== null) {
+      title = title.title || title.name || 'Service';
+    }
+    let str = String(title || 'Service').trim();
+    if (str.includes(',')) {
+      str = str.split(',')[0].trim();
+    }
+    return str || 'Service';
+  };
+
+  const getSalonName = item => {
+    return (
+      item?.businessName ||
+      item?.vendor?.businessName ||
+      item?.vendorId?.businessName ||
+      item?.vendorId?.name ||
+      item?.vendorName ||
+      item?.salon ||
+      'Service Provider'
+    );
+  };
+
+  const getVendorName = item => {
+    return (
+      item?.vendorName ||
+      item?.vendor?.name ||
+      item?.vendorId?.fullName ||
+      item?.vendorId?.name ||
+      item?.name ||
+      'Service Professional'
+    );
+  };
+
+  const getVendorImage = item => {
+    const pic =
+      item?.profilePic ||
+      item?.profileImage ||
+      item?.vendor?.profilePic ||
+      item?.vendor?.profileImage ||
+      item?.vendorId?.profilePic ||
+      item?.vendorId?.profile_pic ||
+      item?.image;
+    if (typeof pic === 'string' && pic.startsWith('http')) {
+      return {uri: pic};
+    }
+    if (typeof pic === 'object' && pic !== null && pic.uri) {
+      return pic;
+    }
+    return images.demo_User_Img;
+  };
+
+  const getBookingDate = item => {
+    const rawDate = item?.bookingDate || item?.date || item?.createdAt;
+    if (!rawDate) {
+      return item?.date || '05 Oct, 2026';
+    }
+    const str = String(rawDate).trim();
+    const match = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      const [, y, m, d] = match;
+      const monthName = monthsShort[parseInt(m, 10) - 1] || 'Oct';
+      return `${parseInt(d, 10)} ${monthName}, ${y}`;
+    }
+    return str;
+  };
+
+  const getBookingTime = item => {
+    return (
+      item?.timeSlot || item?.appointmentTime || item?.time || '9 AM to 11 AM'
+    );
+  };
+
+  const getBookingPrice = item => {
+    const val =
+      item?.totalAmount ?? item?.totalPayable ?? item?.price ?? '850.00';
+    const str = String(val)
+      .replace(/^Rs\.\s*/i, '')
+      .replace(/^₹\s*/, '');
+    const num = Number(str);
+    const formatted = !isNaN(num) ? num.toFixed(2) : str;
+    return `Rs. ${formatted}`;
+  };
+
   const renderItem = ({item}) => {
+    const title = getBookingTitle(item);
+    const salon = getSalonName(item);
+    const vendorName = getVendorName(item);
+    const vendorImg = getVendorImage(item);
+    const bookingDate = getBookingDate(item);
+    const bookingTime = getBookingTime(item);
+    const price = getBookingPrice(item);
+
     return (
       <View
         style={{
@@ -67,14 +194,18 @@ const CompleteBookings = () => {
           style={{
             flexDirection: 'row',
             justifyContent: 'space-between',
+            alignItems: 'center',
           }}>
           <Text
+            numberOfLines={1}
             style={{
+              flex: 1,
+              marginRight: wp(10),
               fontSize: fontSize(16),
               fontFamily: fontFamily.poppins600,
               color: colors.pureBlack,
             }}>
-            {item.service}
+            {title}
           </Text>
 
           <Text
@@ -93,9 +224,8 @@ const CompleteBookings = () => {
               fontSize: fontSize(12),
               fontFamily: fontFamily.poppins400,
               color: colors.black,
-              // marginTop: hp(3),
             }}>
-            {item.salon}
+            {salon}
           </Text>
           <Image
             source={icons.verified_Icon}
@@ -122,7 +252,7 @@ const CompleteBookings = () => {
         {/* Profile */}
         <View style={{flexDirection: 'row', alignItems: 'center'}}>
           <Image
-            source={{uri: item.image}}
+            source={vendorImg}
             style={{
               width: hp(44),
               height: hp(44),
@@ -138,7 +268,7 @@ const CompleteBookings = () => {
                 fontFamily: fontFamily.poppins600,
                 color: colors.pureBlack,
               }}>
-              {item.name}
+              {vendorName}
             </Text>
 
             <Text
@@ -174,7 +304,7 @@ const CompleteBookings = () => {
                 color: colors.pureBlack,
                 fontFamily: fontFamily.poppins600,
               }}>
-              {item.date}
+              {bookingDate}
             </Text>
           </View>
 
@@ -193,7 +323,7 @@ const CompleteBookings = () => {
                 color: colors.pureBlack,
                 fontFamily: fontFamily.poppins600,
               }}>
-              {item.time}
+              {bookingTime}
             </Text>
           </View>
 
@@ -212,7 +342,7 @@ const CompleteBookings = () => {
                 color: colors.pureBlack,
                 fontFamily: fontFamily.poppins600,
               }}>
-              {item.price}
+              {price}
             </Text>
           </View>
         </View>
@@ -230,10 +360,9 @@ const CompleteBookings = () => {
         {/* View Details */}
         <TouchableOpacity
           onPress={() => {
-            navigation.navigate('ServiceCompletedScreen');
+            navigation.navigate('ServiceCompletedScreen', {booking: item});
           }}
           style={{
-            // marginTop: hp(12),
             alignItems: 'center',
           }}>
           <Text
@@ -249,14 +378,56 @@ const CompleteBookings = () => {
     );
   };
 
+  if (fetching && dataToDisplay.length === 0) {
+    return (
+      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+        <ActivityIndicator size="large" color={colors.primaryColor || '#731EE2'} />
+      </View>
+    );
+  }
+
+  if (!fetching && dataToDisplay.length === 0) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          paddingHorizontal: wp(20),
+          marginTop: hp(60),
+        }}>
+        <Text
+          style={{
+            fontSize: fontSize(16),
+            fontFamily: fontFamily.poppins600,
+            color: colors.pureBlack,
+            textAlign: 'center',
+          }}>
+          No Completed Bookings
+        </Text>
+      </View>
+    );
+  }
+
   return (
-    <View style={{paddingHorizontal: wp(18)}}>
+    <View style={{flex: 1, paddingHorizontal: wp(18)}}>
       <FlatList
-        data={bookings}
-        keyExtractor={item => item.id}
+        data={dataToDisplay}
+        keyExtractor={(item, index) =>
+          item._id || item.id || item.bookingId || String(index)
+        }
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{paddingBottom: hp(30)}}
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl
+              refreshing={fetching}
+              onRefresh={onRefresh}
+              tintColor={colors.primaryColor}
+            />
+          ) : undefined
+        }
       />
     </View>
   );

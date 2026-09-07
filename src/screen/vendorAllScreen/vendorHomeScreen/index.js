@@ -11,6 +11,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  DeviceEventEmitter,
 } from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
 import {useDispatch, useSelector} from 'react-redux';
@@ -379,10 +380,15 @@ const VendorHomeScreen = () => {
           style={{width: wp(62), height: hp(18), resizeMode: 'contain'}}
         />
 
-        <TouchableOpacity>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => {
+            console.log('[VendorHomeScreen] Notification Bell Pressed -> Emitting FCM_BOOKING_NOTIFICATION_RECEIVED');
+            DeviceEventEmitter.emit('FCM_BOOKING_NOTIFICATION_RECEIVED', {});
+          }}>
           <Image
             source={icons.notification_Bell_Icon}
-            style={{width: hp(13), height: hp(16), resizeMode: 'contain'}}
+            style={{width: hp(18), height: hp(20), resizeMode: 'contain'}}
           />
         </TouchableOpacity>
       </View>

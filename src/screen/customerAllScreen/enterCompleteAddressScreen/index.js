@@ -434,7 +434,7 @@ const EnterCompleteAddressScreen = () => {
           {
             title: 'Location Permission',
             message:
-              'QuickService needs access to your location to pinpoint your address.',
+              'Karyaah needs access to your location to pinpoint your address.',
             buttonPositive: 'OK',
           },
         );

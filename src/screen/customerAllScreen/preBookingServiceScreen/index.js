@@ -283,136 +283,121 @@ const PreBookingServiceScreen = () => {
     }
   };
 
-  const checkAuthAndAddressAndProceed = async onSuccess => {
-    setBookingLoading(true);
-    try {
-      const isValidObjectId = val =>
-        typeof val === 'string' && /^[0-9a-fA-F]{24}$/.test(val.trim());
+  const isValidObjectId = val =>
+    typeof val === 'string' && /^[0-9a-fA-F]{24}$/.test(val.trim());
 
-      const validServiceIds = selectedServices
-        .map(idx => {
-          const sObj = offeredServices[idx];
-          const candidateId =
-            sObj?.masterServiceId ||
-            (typeof sObj?.rawObj?.serviceId === 'object'
-              ? sObj?.rawObj?.serviceId?._id || sObj?.rawObj?.serviceId?.id
-              : typeof sObj?.rawObj?.serviceId === 'string'
-              ? sObj?.rawObj?.serviceId
-              : null) ||
-            sObj?.id ||
-            sObj?._id;
+  const getPreparedBookingPayload = () => {
+    const validServiceIds = selectedServices
+      .map(idx => {
+        const sObj = offeredServices[idx] || {};
+        const raw = sObj?.rawObj || sObj;
 
-          return isValidObjectId(candidateId)
-            ? String(candidateId).trim()
-            : null;
-        })
-        .filter(Boolean);
+        const candidates = [
+          typeof raw?.serviceId === 'object'
+            ? raw?.serviceId?._id || raw?.serviceId?.id
+            : null,
+          typeof raw?.serviceId === 'string' ? raw?.serviceId : null,
+          sObj?.serviceId?._id,
+          sObj?.serviceId?.id,
+          typeof sObj?.serviceId === 'string' ? sObj?.serviceId : null,
+          sObj?.masterServiceId,
+          raw?.masterServiceId,
+          raw?._id,
+          raw?.id,
+          sObj?._id,
+          sObj?.id,
+        ];
 
-      const serviceIdsToPass =
-        validServiceIds.length > 0
-          ? validServiceIds
-          : ['6a7320cb3577104793b19291', '6a7320cb3577104793b19292'];
-
-      const firstSelectedObj =
-        offeredServices[selectedServices[0]] || offeredServices[0] || {};
-
-      const candidateVendorServiceId =
-        firstSelectedObj?.vendorServiceId ||
-        apiData?.vendorServiceId ||
-        apiData?.vendorService?._id ||
-        apiData?.vendorService?.id ||
-        apiData?._id ||
-        apiData?.id;
-
-      const vendorServiceIdToPass = isValidObjectId(candidateVendorServiceId)
-        ? String(candidateVendorServiceId).trim()
-        : '6a7d723d5162b7a0889cb0a4';
-
-      const selectedNotes =
-        offeredServices
-          .filter((_, idx) => selectedServices.includes(idx))
-          .map(s => s.title)
-          .join(' and ') || 'Instant service';
-
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const day = String(now.getDate()).padStart(2, '0');
-      const currentBookingDate = `${year}-${month}-${day}`;
-
-      const currentRealTimeSlot = now
-        .toLocaleTimeString('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          hour12: true,
-        })
-        .toLowerCase();
-
-      const bookingPayload = {
-        vendorId: vendorUserId || '6a7320cb3577104793b1929b',
-        vendorServiceId: vendorServiceIdToPass,
-        serviceIds: serviceIdsToPass,
-        notes: selectedNotes,
-        bookingDate: currentBookingDate,
-        timeSlot: currentRealTimeSlot,
-      };
-
-      console.log(
-        '==================================================',
-        '\n[PreBookingServiceScreen Dispatching CREATE_BOOKING]',
-        '\nBooking Payload:',
-        JSON.stringify(bookingPayload, null, 2),
-        '\n==================================================',
-      );
-
-      dispatch(
-        createBooking(bookingPayload, (error, responseData) => {
-          setBookingLoading(false);
-          let extractedBookingId = null;
-
-          if (error) {
-            console.log(
-              '==================================================',
-              '\n[PreBookingServiceScreen Create Booking Error]',
-              '\nError:',
-              JSON.stringify(error, null, 2),
-              '\n==================================================',
-            );
-          } else {
-            const mongoIdCandidate =
-              responseData?.data?._id ||
-              responseData?._id ||
-              responseData?.data?.id ||
-              responseData?.id ||
-              responseData?.data?.bookingId ||
-              responseData?.bookingId;
-
-            extractedBookingId = isValidObjectId(mongoIdCandidate)
-              ? String(mongoIdCandidate).trim()
-              : mongoIdCandidate || '665b1234567890abcdef1234';
-
-            console.log(
-              '==================================================',
-              '\n[PreBookingServiceScreen Create Booking Success]',
-              `\nExtracted Booking ID: ${extractedBookingId}`,
-              '\nResponse:',
-              JSON.stringify(responseData, null, 2),
-              '\n==================================================',
-            );
+        for (const cand of candidates) {
+          if (isValidObjectId(cand)) {
+            return String(cand).trim();
           }
+        }
+        return null;
+      })
+      .filter(Boolean);
 
-          if (onSuccess) {
-            onSuccess(bookingPayload, responseData, extractedBookingId);
-          }
-        }),
-      );
-    } catch (err) {
-      setBookingLoading(false);
-      console.log(
-        '[PreBookingServiceScreen] checkAuthAndAddressAndProceed Error:',
-        err,
-      );
+    const allApiServices = [
+      ...(Array.isArray(apiData?.services) ? apiData.services : []),
+      ...(Array.isArray(apiData?.vendorUser?.services)
+        ? apiData.vendorUser.services
+        : []),
+      ...(Array.isArray(routeVendorData?.services)
+        ? routeVendorData.services
+        : []),
+    ];
+
+    const fallbackServiceIds = allApiServices
+      .map(s => {
+        const cand =
+          typeof s?.serviceId === 'object'
+            ? s?.serviceId?._id || s?.serviceId?.id
+            : typeof s?.serviceId === 'string'
+            ? s?.serviceId
+            : s?._id || s?.id;
+        return isValidObjectId(cand) ? String(cand).trim() : null;
+      })
+      .filter(Boolean);
+
+    const finalServiceIdsToPass =
+      validServiceIds.length > 0
+        ? validServiceIds
+        : fallbackServiceIds;
+
+    const firstSelectedObj =
+      offeredServices[selectedServices[0]] || offeredServices[0] || {};
+
+    const candidateVendorServiceId = [
+      firstSelectedObj?.vendorServiceId,
+      firstSelectedObj?.rawObj?._id,
+      firstSelectedObj?.rawObj?.id,
+      apiData?.vendorServiceId,
+      apiData?.vendorService?._id,
+      apiData?.vendorService?.id,
+      apiData?._id,
+      apiData?.id,
+    ].find(val => isValidObjectId(val));
+
+    const vendorServiceIdToPass = candidateVendorServiceId
+      ? String(candidateVendorServiceId).trim()
+      : undefined;
+
+    const selectedNotes =
+      offeredServices
+        .filter((_, idx) => selectedServices.includes(idx))
+        .map(s => s.title)
+        .join(' and ') || 'Instant service';
+
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const currentBookingDate = `${year}-${month}-${day}`;
+
+    const currentRealTimeSlot = now
+      .toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      })
+      .toLowerCase();
+
+    const payload = {
+      vendorId: vendorUserId || '6a7320cb3577104793b1929b',
+      notes: selectedNotes,
+      bookingDate: currentBookingDate,
+      timeSlot: currentRealTimeSlot,
+    };
+
+    if (vendorServiceIdToPass) {
+      payload.vendorServiceId = vendorServiceIdToPass;
     }
+
+    if (finalServiceIdsToPass.length > 0) {
+      payload.serviceIds = finalServiceIdsToPass;
+    }
+
+    return payload;
   };
 
   const loadSavedAddresses = async () => {
@@ -495,15 +480,13 @@ const PreBookingServiceScreen = () => {
   };
 
   const handleBookAppointmentPress = () => {
+    const payload = getPreparedBookingPayload();
     if (isSalonCategory) {
-      checkAuthAndAddressAndProceed((payload, responseData, bookingId) => {
-        navigation.navigate('BookingSummaryScreen', {
-          bookingId: bookingId || '9F8A2D3C',
-          item: apiData,
-          vendor: apiData,
-          selectedServices,
-          bookingData: responseData,
-        });
+      navigation.navigate('BookingSummaryScreen', {
+        item: apiData,
+        vendor: apiData,
+        selectedServices,
+        bookingPayload: payload,
       });
     } else {
       loadSavedAddresses();
@@ -513,15 +496,13 @@ const PreBookingServiceScreen = () => {
 
   const handleSelectAddressAndProceed = selectedAddr => {
     refAddressSheet.current?.close();
-    checkAuthAndAddressAndProceed((payload, responseData, bookingId) => {
-      navigation.navigate('BookingSummaryScreen', {
-        bookingId: bookingId || '9F8A2D3C',
-        item: apiData,
-        vendor: apiData,
-        selectedServices,
-        bookingData: responseData,
-        selectedAddress: selectedAddr,
-      });
+    const payload = getPreparedBookingPayload();
+    navigation.navigate('BookingSummaryScreen', {
+      item: apiData,
+      vendor: apiData,
+      selectedServices,
+      selectedAddress: selectedAddr,
+      bookingPayload: payload,
     });
   };
 

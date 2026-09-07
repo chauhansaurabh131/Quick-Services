@@ -75,6 +75,7 @@ const customerAuthReducer = (state = initialState, action) => {
     case TYPES.GET_VENDOR_USER_DETAILS:
     case TYPES.GET_MY_AVAILABILITY:
     case TYPES.UPDATE_MY_AVAILABILITY:
+    case TYPES.GET_CUSTOMER_BOOKINGS:
       return {
         ...state,
         loading: true,
@@ -343,6 +344,16 @@ const customerAuthReducer = (state = initialState, action) => {
         },
         error: null,
       };
+    case TYPES.GET_CUSTOMER_BOOKINGS_SUCCESS:
+      return {
+        ...state,
+        loading: false,
+        customerBookings: {
+          ...(state.customerBookings || {}),
+          [action.payload?.status || 'accepted']: action.payload?.data,
+        },
+        error: null,
+      };
     case TYPES.ACCEPT_VENDOR_BOOKING_SUCCESS: {
       const acceptedId =
         action.data?._id || action.data?.id || action.data?.bookingId;
@@ -425,6 +436,7 @@ const customerAuthReducer = (state = initialState, action) => {
     case TYPES.GET_VENDOR_BOOKINGS_FAILED:
     case TYPES.ACCEPT_VENDOR_BOOKING_FAILED:
     case TYPES.RESEND_OTP_VENDOR_FAILED:
+    case TYPES.GET_CUSTOMER_BOOKINGS_FAILED:
       return {
         ...state,
         loading: false,

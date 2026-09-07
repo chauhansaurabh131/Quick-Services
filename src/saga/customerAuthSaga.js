@@ -1,12 +1,14 @@
-import {call, put, select, takeLatest} from 'redux-saga/effects';
+import { call, put, select, takeLatest } from 'redux-saga/effects';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as TYPES from '../actions/actionTypes';
 import * as actions from '../actions/customerAuthActions';
-import {customerAuth} from '../apis';
+import { customerAuth } from '../apis';
+import { getFCMToken } from '../utils/fcmService';
 
 function* registerCustomer(action) {
   try {
-    const {payload, callback} = action.data;
+    const { payload, callback } = action.data;
     console.log('Register Customer Request Payload:', payload);
     const response = yield call(customerAuth.register, payload);
     console.log(
@@ -34,9 +36,26 @@ function* registerCustomer(action) {
 
 function* verifyOtpCustomer(action) {
   try {
-    const {payload, callback} = action.data;
-    console.log('Verify OTP Request Payload:', payload);
-    const response = yield call(customerAuth.verifyOtp, payload);
+    const { payload, callback } = action.data;
+
+    let fcmToken = yield call([AsyncStorage, 'getItem'], 'fcmToken');
+    if (!fcmToken) {
+      try {
+        fcmToken = yield call(getFCMToken);
+      } catch (fcmErr) {
+        console.log('[Saga] Could not fetch FCM token:', fcmErr);
+      }
+    }
+
+    const currentPlatform = Platform.OS || 'android';
+    const finalPayload = {
+      ...payload,
+      deviceToken: payload?.deviceToken || fcmToken || '',
+      platform: payload?.platform || currentPlatform,
+    };
+
+    console.log('Verify OTP Request Payload:', finalPayload);
+    const response = yield call(customerAuth.verifyOtp, finalPayload);
     console.log('Verify OTP Response:', JSON.stringify(response.data, null, 2));
 
     yield put(
@@ -87,7 +106,7 @@ function* verifyOtpCustomer(action) {
 
 function* updateCustomerUser(action) {
   try {
-    const {payload, callback} = action.data;
+    const { payload, callback } = action.data;
     console.log(
       '==================================================',
       '\n[Redux Saga: UPDATE_USER_CUSTOMER Request]',
@@ -161,7 +180,7 @@ function* updateCustomerUser(action) {
 
 function* registerVendor(action) {
   try {
-    const {payload, callback} = action.data;
+    const { payload, callback } = action.data;
     console.log('Register Vendor Request Payload:', payload);
     const response = yield call(customerAuth.registerVendor, payload);
     console.log(
@@ -189,9 +208,26 @@ function* registerVendor(action) {
 
 function* verifyOtpVendor(action) {
   try {
-    const {payload, callback} = action.data;
-    console.log('Verify OTP Vendor Request Payload:', payload);
-    const response = yield call(customerAuth.verifyOtpVendor, payload);
+    const { payload, callback } = action.data;
+
+    let fcmToken = yield call([AsyncStorage, 'getItem'], 'fcmToken');
+    if (!fcmToken) {
+      try {
+        fcmToken = yield call(getFCMToken);
+      } catch (fcmErr) {
+        console.log('[Saga] Could not fetch FCM token:', fcmErr);
+      }
+    }
+
+    const currentPlatform = Platform.OS || 'android';
+    const finalPayload = {
+      ...payload,
+      deviceToken: payload?.deviceToken || fcmToken || '',
+      platform: payload?.platform || currentPlatform,
+    };
+
+    console.log('Verify OTP Vendor Request Payload:', finalPayload);
+    const response = yield call(customerAuth.verifyOtpVendor, finalPayload);
     console.log(
       'Verify OTP Vendor Response:',
       JSON.stringify(response.data, null, 2),
@@ -241,7 +277,7 @@ function* verifyOtpVendor(action) {
 
 function* updateVendorProfileSaga(action) {
   try {
-    const {payload, callback} = action.data;
+    const { payload, callback } = action.data;
     console.log('Update Vendor Profile Request Payload:', payload);
     let token = yield call(AsyncStorage.getItem, 'token');
     if (typeof token === 'object' && token !== null) {
@@ -303,7 +339,7 @@ function* updateVendorProfileSaga(action) {
 
 function* saveBusinessAddressSaga(action) {
   try {
-    const {payload, callback} = action.data;
+    const { payload, callback } = action.data;
     console.log('Save Business Address Request Payload:', payload);
     let token = yield call(AsyncStorage.getItem, 'token');
     if (typeof token === 'object' && token !== null) {
@@ -472,7 +508,7 @@ function* getCategoriesSaga(action) {
 
 function* getCategoryByIdSaga(action) {
   try {
-    const {categoryId, callback} = action.data;
+    const { categoryId, callback } = action.data;
     console.log('Fetching Category By ID:', categoryId);
     let token = yield call(AsyncStorage.getItem, 'token');
     if (typeof token === 'object' && token !== null) {
@@ -531,7 +567,7 @@ function* getCategoryByIdSaga(action) {
 
 function* getServicesByCategorySaga(action) {
   try {
-    const {categoryId, callback} = action.data;
+    const { categoryId, callback } = action.data;
     console.log('Fetching Services for Category ID:', categoryId);
     let token = yield call(AsyncStorage.getItem, 'token');
     if (typeof token === 'object' && token !== null) {
@@ -699,7 +735,7 @@ function* getVendorServicesByCategorySaga(action) {
 
 function* getVendorUserDetailsSaga(action) {
   try {
-    const {vendorUserId, callback} = action.data;
+    const { vendorUserId, callback } = action.data;
     console.log(
       '==================================================',
       '\n[Redux Saga: GET_VENDOR_USER_DETAILS Request]',
@@ -773,7 +809,7 @@ function* getVendorUserDetailsSaga(action) {
 
 function* saveVendorServicesSaga(action) {
   try {
-    const {payload, callback} = action.data;
+    const { payload, callback } = action.data;
     console.log(
       'Sending Vendor Services Payload:',
       JSON.stringify(payload, null, 2),
@@ -838,7 +874,7 @@ function* saveVendorServicesSaga(action) {
 
 function* resendOtpVendorSaga(action) {
   try {
-    const {payload, callback} = action.data;
+    const { payload, callback } = action.data;
     console.log('Resend OTP Vendor Payload:', JSON.stringify(payload, null, 2));
 
     const response = yield call(customerAuth.resendOtpVendor, payload);
@@ -865,9 +901,26 @@ function* resendOtpVendorSaga(action) {
 
 function* loginVendorSaga(action) {
   try {
-    const {payload, callback, token} = action.data;
-    console.log('Login Vendor Request Payload:', payload);
-    const response = yield call(customerAuth.loginVendor, payload, token);
+    const { payload, callback, token } = action.data;
+
+    let fcmToken = yield call([AsyncStorage, 'getItem'], 'fcmToken');
+    if (!fcmToken) {
+      try {
+        fcmToken = yield call(getFCMToken);
+      } catch (fcmErr) {
+        console.log('[Saga] Could not fetch FCM token:', fcmErr);
+      }
+    }
+
+    const currentPlatform = Platform.OS || 'android';
+    const finalPayload = {
+      ...payload,
+      deviceToken: payload?.deviceToken || fcmToken || '',
+      platform: payload?.platform || currentPlatform,
+    };
+
+    console.log('Login Vendor Request Payload:', finalPayload);
+    const response = yield call(customerAuth.loginVendor, finalPayload, token);
     console.log(
       'Login Vendor Response:',
       JSON.stringify(response.data, null, 2),
@@ -986,7 +1039,7 @@ function* getMyAvailabilitySaga(action) {
 
 function* updateMyAvailabilitySaga(action) {
   try {
-    const {payload, callback} = action.data;
+    const { payload, callback } = action.data;
     let token = yield call(AsyncStorage.getItem, 'token');
     if (typeof token === 'object' && token !== null) {
       token = token.token || token.accessToken;
@@ -1063,7 +1116,7 @@ function* updateMyAvailabilitySaga(action) {
 
 function* updateUserLocationSaga(action) {
   try {
-    const {userId, payload, callback} = action.data;
+    const { userId, payload, callback } = action.data;
     let token = yield call([AsyncStorage, 'getItem'], 'token');
     if (typeof token === 'object' && token !== null) {
       token = token.token || token.accessToken;
@@ -1140,7 +1193,7 @@ function* updateUserLocationSaga(action) {
 
 function* saveCustomerAddressSaga(action) {
   try {
-    const {payload, callback} = action.data;
+    const { payload, callback } = action.data;
     let token = yield call([AsyncStorage, 'getItem'], 'token');
     if (typeof token === 'object' && token !== null) {
       token = token.token || token.accessToken;
@@ -1217,7 +1270,7 @@ function* saveCustomerAddressSaga(action) {
 
 function* updateCustomerAddressSaga(action) {
   try {
-    const {addressId, payload, callback} = action.data;
+    const { addressId, payload, callback } = action.data;
     let token = yield call([AsyncStorage, 'getItem'], 'token');
     if (typeof token === 'object' && token !== null) {
       token = token.token || token.accessToken;
@@ -1295,7 +1348,7 @@ function* updateCustomerAddressSaga(action) {
 
 function* getCustomerAddressesSaga(action) {
   try {
-    let {userId, callback} = action.data || {};
+    let { userId, callback } = action.data || {};
     let token = yield call([AsyncStorage, 'getItem'], 'token');
     if (typeof token === 'object' && token !== null) {
       token = token.token || token.accessToken;
@@ -1382,7 +1435,7 @@ function* getCustomerAddressesSaga(action) {
 
 function* deleteCustomerAddressSaga(action) {
   try {
-    const {addressId, callback} = action.data;
+    const { addressId, callback } = action.data;
     let token = yield call([AsyncStorage, 'getItem'], 'token');
     if (typeof token === 'object' && token !== null) {
       token = token.token || token.accessToken;
@@ -1460,7 +1513,7 @@ function* deleteCustomerAddressSaga(action) {
 
 function* createBookingSaga(action) {
   try {
-    const {payload, callback} = action.data;
+    const { payload, callback } = action.data;
     let token = yield call([AsyncStorage, 'getItem'], 'token');
     if (typeof token === 'object' && token !== null) {
       token = token.token || token.accessToken;
@@ -1537,7 +1590,7 @@ function* createBookingSaga(action) {
 
 function* getBookingByIdSaga(action) {
   try {
-    const {bookingId, callback} = action.data;
+    const { bookingId, callback } = action.data;
     let token = yield call([AsyncStorage, 'getItem'], 'token');
     if (typeof token === 'object' && token !== null) {
       token = token.token || token.accessToken;
@@ -1612,7 +1665,7 @@ function* getBookingByIdSaga(action) {
 
 function* updateBookingAddressSaga(action) {
   try {
-    const {bookingId, payload, callback} = action.data || {};
+    const { bookingId, payload, callback } = action.data || {};
     let token = yield call(AsyncStorage.getItem, 'token');
 
     if (typeof token === 'object' && token !== null) {
@@ -1668,7 +1721,7 @@ function* updateBookingAddressSaga(action) {
 
 function* getVendorBookingsSaga(action) {
   try {
-    const {vendorId, status, callback} = action.data;
+    const { vendorId, status, callback } = action.data;
     let token = yield call(AsyncStorage.getItem, 'token');
     if (typeof token === 'object' && token !== null) {
       token = token.token || token.accessToken;
@@ -1742,7 +1795,7 @@ function* getVendorBookingsSaga(action) {
 
 function* acceptVendorBookingSaga(action) {
   try {
-    const {bookingId, callback} = action.data;
+    const { bookingId, callback } = action.data;
     let token = yield call(AsyncStorage.getItem, 'token');
     if (typeof token === 'object' && token !== null) {
       token = token.token || token.accessToken;
@@ -1815,7 +1868,7 @@ function* acceptVendorBookingSaga(action) {
 
 function* cancelVendorBookingSaga(action) {
   try {
-    const {bookingId, cancelReason, callback} = action.data;
+    const { bookingId, cancelReason, callback } = action.data;
     let token = yield call(AsyncStorage.getItem, 'token');
     if (typeof token === 'object' && token !== null) {
       token = token.token || token.accessToken;
@@ -1840,7 +1893,7 @@ function* cancelVendorBookingSaga(action) {
       token = typeof rawToken === 'string' ? rawToken : null;
     }
 
-    const payload = {cancelReason};
+    const payload = { cancelReason };
 
     console.log(
       '==================================================',
@@ -1893,7 +1946,7 @@ function* cancelVendorBookingSaga(action) {
 
 function* vendorSendOtpSaga(action) {
   try {
-    const {bookingId, callback} = action.data;
+    const { bookingId, callback } = action.data;
     let token = yield call(AsyncStorage.getItem, 'token');
     if (typeof token === 'object' && token !== null) {
       token = token.token || token.accessToken;
@@ -1963,7 +2016,7 @@ function* vendorSendOtpSaga(action) {
 
 function* vendorResendOtpSaga(action) {
   try {
-    const {bookingId, callback} = action.data;
+    const { bookingId, callback } = action.data;
     let token = yield call(AsyncStorage.getItem, 'token');
     if (typeof token === 'object' && token !== null) {
       token = token.token || token.accessToken;
@@ -2033,7 +2086,7 @@ function* vendorResendOtpSaga(action) {
 
 function* vendorVerifyOtpSaga(action) {
   try {
-    const {bookingId, otp, callback} = action.data;
+    const { bookingId, otp, callback } = action.data;
     let token = yield call(AsyncStorage.getItem, 'token');
     if (typeof token === 'object' && token !== null) {
       token = token.token || token.accessToken;
@@ -2058,7 +2111,7 @@ function* vendorVerifyOtpSaga(action) {
       token = typeof rawToken === 'string' ? rawToken : null;
     }
 
-    const payload = {otp};
+    const payload = { otp };
 
     console.log(
       '==================================================',
@@ -2106,6 +2159,91 @@ function* vendorVerifyOtpSaga(action) {
   }
 }
 
+function* getCustomerBookingsSaga(action) {
+  try {
+    const { status = 'accepted', page = 1, limit = 10, callback } =
+      action.data || {};
+    let token = yield call(AsyncStorage.getItem, 'token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+    if (!token || token === '[object Object]') {
+      const authState = yield select(state => state.auth);
+      let rawToken =
+        authState?.user?.token ||
+        authState?.user?.accessToken ||
+        authState?.user?.data?.token ||
+        authState?.user?.data?.accessToken ||
+        authState?.user?.tokens?.access?.token ||
+        authState?.user?.tokens?.access ||
+        authState?.user?.data?.tokens?.access?.token ||
+        authState?.user?.data?.tokens?.access ||
+        authState?.user?.user?.token ||
+        authState?.user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: GET_CUSTOMER_BOOKINGS Request]',
+      `\nEndpoint: GET https://service.mntech.website/v1/customer/bookings?status=${status}&page=${page}`,
+      `\nToken Preview: ${token ? `${token.substring(0, 25)}...` : 'NONE'}`,
+      '\n==================================================',
+    );
+
+    const response = yield call(
+      customerAuth.getCustomerBookingsByStatus,
+      status,
+      token || '',
+      page,
+      limit,
+    );
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: GET_CUSTOMER_BOOKINGS Response]',
+      `\nStatus Code: ${response?.status}`,
+      '\nResponse Data:',
+      JSON.stringify(response?.data, null, 2),
+      '\n==================================================',
+    );
+
+    const responseData =
+      response?.data?.data?.results ||
+      response?.data?.data?.docs ||
+      response?.data?.data?.bookings ||
+      response?.data?.data ||
+      response?.data?.results ||
+      response?.data?.docs ||
+      response?.data?.bookings ||
+      response?.data;
+
+    yield put(actions.getCustomerBookingsSuccess(responseData, status));
+
+    if (typeof callback === 'function') {
+      callback(null, response.data);
+    }
+  } catch (error) {
+    const errorData = error?.response?.data || error.message;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: GET_CUSTOMER_BOOKINGS Error]',
+      `\nStatus Code: ${error?.response?.status || 'N/A'}`,
+      '\nError Details:',
+      JSON.stringify(errorData, null, 2),
+      '\n==================================================',
+    );
+    yield put(actions.getCustomerBookingsFailed(errorData));
+    if (typeof action?.data?.callback === 'function') {
+      action.data.callback(errorData, null);
+    }
+  }
+}
+
 export default function* customerAuthSaga() {
   yield takeLatest(TYPES.LOGIN_CUSTOMER, registerCustomer);
   yield takeLatest(TYPES.REGISTER_VENDOR, registerVendor);
@@ -2142,4 +2280,6 @@ export default function* customerAuthSaga() {
   yield takeLatest(TYPES.VENDOR_SEND_OTP, vendorSendOtpSaga);
   yield takeLatest(TYPES.VENDOR_RESEND_OTP, vendorResendOtpSaga);
   yield takeLatest(TYPES.VENDOR_VERIFY_OTP, vendorVerifyOtpSaga);
+  yield takeLatest(TYPES.GET_CUSTOMER_BOOKINGS, getCustomerBookingsSaga);
 }
+

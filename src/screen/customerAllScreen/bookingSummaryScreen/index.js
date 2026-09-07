@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -12,17 +12,18 @@ import {
   Alert,
 } from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
-import {colors} from '../../../utils/colors';
-import {icons} from '../../../assets';
-import {hp, fontSize, fontFamily, wp} from '../../../utils/helpers';
-import {useNavigation, useRoute} from '@react-navigation/native';
-import {useDispatch, useSelector} from 'react-redux';
+import { colors } from '../../../utils/colors';
+import { icons } from '../../../assets';
+import { hp, fontSize, fontFamily, wp } from '../../../utils/helpers';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { useDispatch, useSelector } from 'react-redux';
 import SwitchButton from '../../../components/switchButton';
-import {Calendar} from 'react-native-calendars';
+import { Calendar } from 'react-native-calendars';
 import {
   getBookingById,
   saveCustomerAddress,
   updateBookingAddress,
+  createBooking,
 } from '../../../actions/customerAuthActions';
 
 const BookingSummaryScreen = () => {
@@ -121,9 +122,9 @@ const BookingSummaryScreen = () => {
   const [selectedDayObj, setSelectedDayObj] = useState(firstOpenDay);
 
   const timeSlotObjects = [
-    {slot: '9 am – 12 pm', endHour: 12},
-    {slot: '12 pm – 3 pm', endHour: 15},
-    {slot: '3 pm – 6 pm', endHour: 18},
+    { slot: '9 am – 12 pm', endHour: 12 },
+    { slot: '12 pm – 3 pm', endHour: 15 },
+    { slot: '3 pm – 6 pm', endHour: 18 },
   ];
 
   const isTimeSlotDisabled = (slotObj, dayObj) => {
@@ -173,10 +174,10 @@ const BookingSummaryScreen = () => {
   const reduxBookingDetails = useSelector(
     state => state.auth?.activeBookingDetails,
   );
-  const {user} = useSelector(state => state.auth || {});
+  const { user } = useSelector(state => state.auth || {});
 
   useEffect(() => {
-    if (routeBookingId) {
+    if (routeBookingId && !route.params?.bookingPayload) {
       setFetchingBooking(true);
       console.log(
         '==================================================',
@@ -269,14 +270,31 @@ const BookingSummaryScreen = () => {
 
   // Customer Address dynamic fields
   const customerAddrObj =
-    selectedAddress ||
+    (selectedAddress &&
+      Object.keys(selectedAddress).length > 0 &&
+      selectedAddress) ||
     bookingSummaryObj?.customerAddress ||
     (typeof bookingObj?.addressId === 'object' ? bookingObj?.addressId : {}) ||
     {};
 
-  const {fullAddress: reduxFullAddress, place: reduxPlace} = useSelector(
+  const { fullAddress: reduxFullAddress, place: reduxPlace } = useSelector(
     state => state.location || {},
   );
+
+  const selectedAddrText =
+    customerAddrObj?.displayAddress ||
+    customerAddrObj?.address ||
+    [
+      customerAddrObj?.houseNumber || customerAddrObj?.building,
+      customerAddrObj?.floor,
+      customerAddrObj?.landmark,
+      customerAddrObj?.address,
+      customerAddrObj?.city,
+      customerAddrObj?.state,
+      customerAddrObj?.pinCode || customerAddrObj?.zipCode,
+    ]
+      .filter(Boolean)
+      .join(', ');
 
   const categoryName = (
     vendorObj?.category ||
@@ -333,15 +351,15 @@ const BookingSummaryScreen = () => {
     if (typeof addr === 'object' && addr !== null) {
       const parts = [
         addr.addressLine1 ||
-          addr.address1 ||
-          addr.line1 ||
-          addr.houseNo ||
-          addr.street,
+        addr.address1 ||
+        addr.line1 ||
+        addr.houseNo ||
+        addr.street,
         addr.addressLine2 ||
-          addr.address2 ||
-          addr.line2 ||
-          addr.area ||
-          addr.landmark,
+        addr.address2 ||
+        addr.line2 ||
+        addr.area ||
+        addr.landmark,
         addr.city,
         addr.state,
         addr.pinCode || addr.pincode || addr.zipCode,
@@ -376,18 +394,17 @@ const BookingSummaryScreen = () => {
     saloonVendorObj?._id ||
     saloonVendorObj?.id;
 
-  const locationTypeLabel = reduxPlace || 'Current Location';
+  const rawLocationType =
+    customerAddrObj?.locationType || customerAddrObj?.type;
+
+  const locationTypeLabel =
+    typeof rawLocationType === 'string' && rawLocationType.trim() !== ''
+      ? rawLocationType.charAt(0).toUpperCase() + rawLocationType.slice(1)
+      : reduxPlace || 'Current Location';
 
   const fullDisplayAddress =
+    selectedAddrText ||
     reduxFullAddress ||
-    customerAddrObj?.displayAddress ||
-    [
-      customerAddrObj?.floor,
-      customerAddrObj?.address,
-      customerAddrObj?.landmark,
-    ]
-      .filter(Boolean)
-      .join(', ') ||
     'Bardoli, Gujarat, India';
 
   const displayHeaderTitle = isSalonCategory
@@ -409,8 +426,8 @@ const BookingSummaryScreen = () => {
   const servicesList = Array.isArray(priceBreakdown?.services)
     ? priceBreakdown.services
     : Array.isArray(bookingObj?.serviceIds)
-    ? bookingObj.serviceIds
-    : [];
+      ? bookingObj.serviceIds
+      : [];
 
   const mainServiceTitle =
     servicesList
@@ -630,7 +647,94 @@ const BookingSummaryScreen = () => {
       .map(val => (isValidObjectId(val) ? String(val).trim() : null))
       .find(Boolean);
 
-    const proceedToUpdateBooking = targetAddressId => {
+    const executeBookingSubmission = targetAddressId => {
+      const isNewBookingFlow = Boolean(route.params?.bookingPayload);
+
+      if (isNewBookingFlow) {
+        const routePayload = route.params?.bookingPayload || {};
+
+        const rawServiceIds =
+          routePayload.serviceIds || route.params?.serviceIds || [];
+
+        const validServiceIds = (
+          Array.isArray(rawServiceIds) ? rawServiceIds : [rawServiceIds]
+        )
+          .map(val => (isValidObjectId(val) ? String(val).trim() : null))
+          .filter(Boolean);
+
+        const rawVendorServiceId =
+          routePayload.vendorServiceId || route.params?.vendorServiceId;
+
+        const validVendorServiceId = isValidObjectId(rawVendorServiceId)
+          ? String(rawVendorServiceId).trim()
+          : undefined;
+
+        const newBookingPayload = {
+          vendorId:
+            routePayload.vendorId ||
+            route.params?.vendorUserId ||
+            route.params?.item?._id ||
+            route.params?.item?.id ||
+            '6a7320cb3577104793b1929b',
+          notes:
+            routePayload.notes ||
+            route.params?.notes ||
+            'Instant service',
+          bookingDate:
+            (selectedDate ? selectedDayObj?.isoDate : null) ||
+            routePayload.bookingDate ||
+            route.params?.bookingDate ||
+            new Date().toISOString().split('T')[0],
+          timeSlot:
+            (selectedTime ? String(selectedTime).replace('–', '-') : null) ||
+            routePayload.timeSlot ||
+            route.params?.timeSlot ||
+            '10:00 am',
+        };
+
+        if (validVendorServiceId) {
+          newBookingPayload.vendorServiceId = validVendorServiceId;
+        }
+
+        if (validServiceIds.length > 0) {
+          newBookingPayload.serviceIds = validServiceIds;
+        }
+
+        if (!isSalonCategory && targetAddressId) {
+          newBookingPayload.addressId = String(targetAddressId).trim();
+        }
+
+        console.log('\n==================================================');
+        console.log(
+          '[BookingSummaryScreen Confirm & Book -> Calling POST /v1/customer/bookings]',
+        );
+        console.log('Payload:', JSON.stringify(newBookingPayload, null, 2));
+        console.log('==================================================\n');
+
+        dispatch(
+          createBooking(newBookingPayload, (cErr, cRes) => {
+            setConfirmLoading(false);
+            if (cErr) {
+              console.log('[BookingSummaryScreen] createBooking Error:', cErr);
+              Alert.alert(
+                'Error',
+                cErr?.message || cErr?.msg || 'Failed to create booking.',
+              );
+            } else {
+              console.log(
+                '==================================================',
+                '\n[BookingSummaryScreen createBooking Success]',
+                '\nResponse:',
+                JSON.stringify(cRes, null, 2),
+                '\n==================================================',
+              );
+              navigation.navigate('Demo');
+            }
+          }),
+        );
+        return;
+      }
+
       const updateBookingPayload = {};
 
       if (!isSalonCategory) {
@@ -696,9 +800,9 @@ const BookingSummaryScreen = () => {
 
     if (isSalonCategory) {
       console.log(
-        `\n[BookingSummaryScreen] Saloon Category -> Omitting addressId in payload. Calling PUT /v1/customer/bookings/${mongoBookingId}.\n`,
+        `\n[BookingSummaryScreen] Saloon Category -> Omitting addressId in payload.\n`,
       );
-      proceedToUpdateBooking();
+      executeBookingSubmission();
       return;
     }
 
@@ -733,9 +837,9 @@ const BookingSummaryScreen = () => {
 
     if (targetAddrId && isValidObjectId(targetAddrId)) {
       console.log(
-        `\n[BookingSummaryScreen] Reusing matching existing address ID: ${targetAddrId}. Skipping POST saveCustomerAddress to avoid duplicate entry in ManageAddressesScreen.\n`,
+        `\n[BookingSummaryScreen] Reusing matching existing address ID: ${targetAddrId}.\n`,
       );
-      proceedToUpdateBooking(targetAddrId);
+      executeBookingSubmission(targetAddrId);
     } else {
       console.log('\n==================================================');
       console.log(
@@ -760,11 +864,6 @@ const BookingSummaryScreen = () => {
             return;
           }
 
-          console.log(
-            '[BookingSummaryScreen saveCustomerAddress Success Response]:',
-            JSON.stringify(responseData, null, 2),
-          );
-
           const resData = responseData?.data || responseData || {};
           const candidateIds = [
             resData?._id,
@@ -782,7 +881,7 @@ const BookingSummaryScreen = () => {
             .find(Boolean);
 
           if (createdAddressId) {
-            proceedToUpdateBooking(createdAddressId);
+            executeBookingSubmission(createdAddressId);
           } else {
             console.log(
               '[BookingSummaryScreen] No valid MongoDB ObjectId returned by saveCustomerAddress',
@@ -799,7 +898,7 @@ const BookingSummaryScreen = () => {
   };
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: colors.white}}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.white }}>
       <View
         style={{
           height: hp(50),
@@ -839,7 +938,7 @@ const BookingSummaryScreen = () => {
       </View>
 
       <View
-        style={{width: '100%', height: hp(1), backgroundColor: '#E3E3E3'}}
+        style={{ width: '100%', height: hp(1), backgroundColor: '#E3E3E3' }}
       />
 
       {fetchingBooking ? (
@@ -866,7 +965,7 @@ const BookingSummaryScreen = () => {
         </View>
       ) : (
         <ScrollView>
-          <View style={{marginTop: hp(18), marginHorizontal: wp(18)}}>
+          <View style={{ marginTop: hp(18), marginHorizontal: wp(18) }}>
             <View
               style={{
                 backgroundColor: '#fff',
@@ -927,7 +1026,7 @@ const BookingSummaryScreen = () => {
               </View>
 
               {/* Content */}
-              <View style={{padding: wp(14)}}>
+              <View style={{ padding: wp(14) }}>
                 <View
                   style={{
                     flexDirection: 'row',
@@ -1058,7 +1157,7 @@ const BookingSummaryScreen = () => {
             </View>
 
             {isInstantBooking && !isSalonCategory ? (
-              <View style={{marginTop: hp(20)}}>
+              <View style={{ marginTop: hp(20) }}>
                 <View
                   style={{
                     width: '100%',
@@ -1070,7 +1169,7 @@ const BookingSummaryScreen = () => {
                     backgroundColor: colors.white,
                     paddingHorizontal: wp(18),
                   }}>
-                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <View
                       style={{
                         width: hp(45),
@@ -1091,7 +1190,7 @@ const BookingSummaryScreen = () => {
                       />
                     </View>
 
-                    <View style={{marginLeft: wp(16)}}>
+                    <View style={{ marginLeft: wp(16) }}>
                       <Text
                         style={{
                           color: '#222222',
@@ -1113,14 +1212,14 @@ const BookingSummaryScreen = () => {
                       </Text>
                     </View>
 
-                    <View style={{position: 'absolute', right: wp(1)}}>
+                    <View style={{ position: 'absolute', right: wp(1) }}>
                       <Image
                         source={icons.bottom_Arrow_Icon}
                         style={{
                           width: hp(10),
                           height: hp(12),
                           resizeMode: 'contain',
-                          transform: [{rotate: '-90deg'}],
+                          transform: [{ rotate: '-90deg' }],
                         }}
                       />
                     </View>
@@ -1128,7 +1227,7 @@ const BookingSummaryScreen = () => {
                 </View>
               </View>
             ) : (
-              <View style={{marginTop: hp(20)}}>
+              <View style={{ marginTop: hp(20) }}>
                 <TouchableOpacity
                   activeOpacity={0.6}
                   onPress={() => refAppointmentSheet.current?.open()}
@@ -1142,7 +1241,7 @@ const BookingSummaryScreen = () => {
                     backgroundColor: colors.white,
                     paddingHorizontal: wp(18),
                   }}>
-                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <View
                       style={{
                         width: hp(45),
@@ -1167,7 +1266,7 @@ const BookingSummaryScreen = () => {
                       />
                     </View>
 
-                    <View style={{marginLeft: wp(16), flex: 1}}>
+                    <View style={{ marginLeft: wp(16), flex: 1 }}>
                       {selectedDate && selectedTime ? (
                         <>
                           <Text
@@ -1185,10 +1284,9 @@ const BookingSummaryScreen = () => {
                               fontFamily: fontFamily.poppins700,
                               marginTop: hp(2),
                             }}>
-                            {`${
-                              selectedDayObj?.dayLabel ||
+                            {`${selectedDayObj?.dayLabel ||
                               selectedDate.split(',')[0]
-                            }, ${selectedTime.replace('–', 'to')}`}
+                              }, ${selectedTime.replace('–', 'to')}`}
                           </Text>
                         </>
                       ) : (
@@ -1203,14 +1301,14 @@ const BookingSummaryScreen = () => {
                       )}
                     </View>
 
-                    <View style={{position: 'absolute', right: wp(1)}}>
+                    <View style={{ position: 'absolute', right: wp(1) }}>
                       <Image
                         source={icons.bottom_Arrow_Icon}
                         style={{
                           width: hp(10),
                           height: hp(12),
                           resizeMode: 'contain',
-                          transform: [{rotate: '-90deg'}],
+                          transform: [{ rotate: '-90deg' }],
                         }}
                       />
                     </View>
@@ -1220,7 +1318,7 @@ const BookingSummaryScreen = () => {
             )}
 
             {/* CONFIRM YOUR ADDRESS SECTION */}
-            <View style={{marginTop: hp(24)}}>
+            <View style={{ marginTop: hp(24) }}>
               <Text
                 style={{
                   color: colors.pureBlack,
@@ -1262,7 +1360,7 @@ const BookingSummaryScreen = () => {
                   {displayCardLabel}
                 </Text>
 
-                <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <View
                     style={{
                       width: hp(45),
@@ -1278,8 +1376,8 @@ const BookingSummaryScreen = () => {
                         isSalonCategory
                           ? icons.location_Icon || icons.purple_Home_Icon
                           : icons.purple_Home_Icon ||
-                            icons.home_Icon ||
-                            icons.location_Icon
+                          icons.home_Icon ||
+                          icons.location_Icon
                       }
                       style={{
                         width: hp(20),
@@ -1509,7 +1607,7 @@ const BookingSummaryScreen = () => {
                       width: hp(14),
                       height: hp(14),
                       tintColor: colors.white,
-                      transform: [{rotate: '180deg'}],
+                      transform: [{ rotate: '180deg' }],
                       marginLeft: wp(15),
                       top: -2,
                     }}
@@ -1518,7 +1616,7 @@ const BookingSummaryScreen = () => {
               )}
             </TouchableOpacity>
 
-            <View style={{alignItems: 'center', marginTop: hp(24)}}>
+            <View style={{ alignItems: 'center', marginTop: hp(24) }}>
               <Text
                 style={{
                   color: '#6E6E6E',
@@ -1538,7 +1636,7 @@ const BookingSummaryScreen = () => {
             </View>
           </View>
 
-          <View style={{height: hp(30)}} />
+          <View style={{ height: hp(30) }} />
         </ScrollView>
       )}
 
@@ -1622,7 +1720,7 @@ const BookingSummaryScreen = () => {
             width: wp(40),
           },
         }}>
-        <View style={{flex: 1}}>
+        <View style={{ flex: 1 }}>
           <Text
             style={{
               fontSize: fontSize(18),
@@ -1644,7 +1742,7 @@ const BookingSummaryScreen = () => {
           </Text>
 
           {/* Date selector cards row */}
-          <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             {daysList.map(item => {
               const isSelected = selectedDayObj?.id === item.id;
               const isDisabled = !item.isOpen;
@@ -1668,13 +1766,13 @@ const BookingSummaryScreen = () => {
                     borderColor: isDisabled
                       ? '#E5E5E5'
                       : isSelected
-                      ? '#731EE2'
-                      : '#E8E8E8',
+                        ? '#731EE2'
+                        : '#E8E8E8',
                     backgroundColor: isDisabled
                       ? '#F5F5F5'
                       : isSelected
-                      ? '#F6F0FF'
-                      : colors.white,
+                        ? '#F6F0FF'
+                        : colors.white,
                     alignItems: 'center',
                     justifyContent: 'center',
                     opacity: isDisabled ? 0.45 : 1,
@@ -1686,8 +1784,8 @@ const BookingSummaryScreen = () => {
                       color: isDisabled
                         ? '#A3A3A3'
                         : isSelected
-                        ? '#731EE2'
-                        : colors.pureBlack,
+                          ? '#731EE2'
+                          : colors.pureBlack,
                     }}>
                     {item.dayLabel}
                   </Text>
@@ -1698,8 +1796,8 @@ const BookingSummaryScreen = () => {
                       color: isDisabled
                         ? '#A3A3A3'
                         : isSelected
-                        ? '#731EE2'
-                        : '#969696',
+                          ? '#731EE2'
+                          : '#969696',
                       marginTop: hp(2),
                     }}>
                     {item.dateStr}
@@ -1745,13 +1843,13 @@ const BookingSummaryScreen = () => {
                   borderColor: isDisabled
                     ? '#E5E5E5'
                     : isSelected
-                    ? '#731EE2'
-                    : '#E8E8E8',
+                      ? '#731EE2'
+                      : '#E8E8E8',
                   backgroundColor: isDisabled
                     ? '#F5F5F5'
                     : isSelected
-                    ? '#F6F0FF'
-                    : colors.white,
+                      ? '#F6F0FF'
+                      : colors.white,
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginBottom: hp(10),
@@ -1764,8 +1862,8 @@ const BookingSummaryScreen = () => {
                     color: isDisabled
                       ? '#A3A3A3'
                       : isSelected
-                      ? '#731EE2'
-                      : colors.pureBlack,
+                        ? '#731EE2'
+                        : colors.pureBlack,
                   }}>
                   {slot}
                 </Text>
