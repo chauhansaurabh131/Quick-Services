@@ -15,7 +15,7 @@ import RBSheet from 'react-native-raw-bottom-sheet';
 import { colors } from '../../../utils/colors';
 import { icons } from '../../../assets';
 import { hp, fontSize, fontFamily, wp } from '../../../utils/helpers';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import SwitchButton from '../../../components/switchButton';
 import { Calendar } from 'react-native-calendars';
@@ -25,6 +25,8 @@ import {
   updateBookingAddress,
   createBooking,
 } from '../../../actions/customerAuthActions';
+import { setLocation } from '../../../actions/locationActions';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BookingSummaryScreen = () => {
   const dispatch = useDispatch();
@@ -32,6 +34,8 @@ const BookingSummaryScreen = () => {
   const route = useRoute();
 
   const routeBookingId = route.params?.bookingId || '9F8A2D3C';
+
+  // console.log('bookingOption', route.params?.vendor?.vendorAvailability?.bookingOption);
 
   const [isEnabled, setIsEnabled] = useState(false);
   const [fetchingBooking, setFetchingBooking] = useState(true);
@@ -42,6 +46,10 @@ const BookingSummaryScreen = () => {
   const [showTimePicker, setShowTimePicker] = useState(false);
 
   const refAppointmentSheet = useRef();
+  const refAddressSheet = useRef();
+
+  const [savedAddressesList, setSavedAddressesList] = useState([]);
+  const [selectedAddressState, setSelectedAddressState] = useState(null);
 
   const weeklySchedule =
     bookingSummaryObj?.vendorAvailability?.weeklySchedule ||
@@ -266,7 +274,8 @@ const BookingSummaryScreen = () => {
     bookingObj?.vendorId?.userId?.profileImage ||
     'https://images.unsplash.com/photo-1560066984-138dadb4c035';
 
-  const selectedAddress = route.params?.selectedAddress || {};
+  const selectedAddress =
+    selectedAddressState || route.params?.selectedAddress || {};
 
   // Customer Address dynamic fields
   const customerAddrObj =
@@ -277,9 +286,98 @@ const BookingSummaryScreen = () => {
     (typeof bookingObj?.addressId === 'object' ? bookingObj?.addressId : {}) ||
     {};
 
-  const { fullAddress: reduxFullAddress, place: reduxPlace } = useSelector(
-    state => state.location || {},
+  const reduxLocationState = useSelector(state => state.location || {});
+  const { fullAddress: reduxFullAddress, place: reduxPlace } = reduxLocationState;
+
+  const loadSavedAddresses = async () => {
+    try {
+      const reduxUserObj =
+        user?.customerUser || user?.user || user?.data?.user || user || {};
+      let userAddresses =
+        reduxUserObj?.addresses ||
+        user?.addresses ||
+        [];
+
+      let storageAddresses = [];
+      try {
+        const rawAddresses = await AsyncStorage.getItem('ADDRESSES');
+        if (rawAddresses) {
+          storageAddresses = JSON.parse(rawAddresses);
+        }
+      } catch (e) {
+        console.log('[BookingSummaryScreen] Storage address parse error:', e);
+      }
+
+      const allAddresses = [
+        ...(Array.isArray(userAddresses) ? userAddresses : []),
+        ...(Array.isArray(storageAddresses) ? storageAddresses : []),
+      ].filter(Boolean);
+
+      const map = new Map();
+      allAddresses.forEach(item => {
+        const key = item._id || item.id || item.address;
+        if (key && !map.has(key)) {
+          map.set(String(key), item);
+        }
+      });
+
+      let savedList = Array.from(map.values());
+
+      const activeHomeScreenAddress =
+        reduxFullAddress ||
+        'Current Location';
+
+      const activeMobile =
+        user?.mobile ||
+        user?.mobileNumber ||
+        user?.phoneNumber ||
+        user?.user?.mobile ||
+        user?.customerUser?.mobile ||
+        '7405665654';
+
+      const formattedMobile = String(activeMobile).startsWith('+')
+        ? String(activeMobile)
+        : `+91-${activeMobile}`;
+
+      const currentLocationCard = {
+        id: 'current_location_card_top',
+        locationType: 'unlabeled',
+        type: 'Current Location',
+        address: activeHomeScreenAddress,
+        displayAddress: activeHomeScreenAddress,
+        mobile: formattedMobile,
+        latitude: reduxLocationState?.latitude || 21.1255,
+        longitude: reduxLocationState?.longitude || 73.1155,
+      };
+
+      const filteredSavedList = savedList.filter(item => {
+        const addrStr = item?.address || item?.displayAddress || '';
+        return !addrStr.includes('412, amazing star');
+      });
+
+      const finalCombinedList = [currentLocationCard, ...filteredSavedList];
+
+      setSavedAddressesList(finalCombinedList);
+    } catch (err) {
+      console.log('[BookingSummaryScreen] loadSavedAddresses Error:', err);
+    }
+  };
+
+  const handleOpenAddressSheet = () => {
+    loadSavedAddresses();
+    refAddressSheet.current?.open();
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadSavedAddresses();
+    }, [user, reduxFullAddress]),
   );
+
+  const handleSelectAddressCard = addrItem => {
+    setSelectedAddressState(addrItem);
+    refAddressSheet.current?.close();
+  };
 
   const selectedAddrText =
     customerAddrObj?.displayAddress ||
@@ -395,17 +493,19 @@ const BookingSummaryScreen = () => {
     saloonVendorObj?.id;
 
   const rawLocationType =
-    customerAddrObj?.locationType || customerAddrObj?.type;
+    customerAddrObj?.type || customerAddrObj?.locationType;
 
   const locationTypeLabel =
-    typeof rawLocationType === 'string' && rawLocationType.trim() !== ''
+    typeof rawLocationType === 'string' &&
+      rawLocationType.trim() !== '' &&
+      rawLocationType !== 'unlabeled'
       ? rawLocationType.charAt(0).toUpperCase() + rawLocationType.slice(1)
       : reduxPlace || 'Current Location';
 
   const fullDisplayAddress =
     selectedAddrText ||
     reduxFullAddress ||
-    'Bardoli, Gujarat, India';
+    'Location updated';
 
   const displayHeaderTitle = isSalonCategory
     ? 'Saloon Location'
@@ -517,10 +617,10 @@ const BookingSummaryScreen = () => {
       '394601';
 
     const activeCity =
-      customerAddrObj?.city || customerAddrObj?.town || reduxPlace || 'Bardoli';
+      customerAddrObj?.city || customerAddrObj?.town || reduxPlace || '';
 
     const activeState =
-      customerAddrObj?.state || customerAddrObj?.stateName || 'Gujarat';
+      customerAddrObj?.state || customerAddrObj?.stateName || '';
 
     const activeHouseNumber =
       customerAddrObj?.houseNumber || customerAddrObj?.building || '';
@@ -580,7 +680,7 @@ const BookingSummaryScreen = () => {
       address:
         reduxFullAddress ||
         customerAddrObj?.address ||
-        'Bardoli, Gujarat, India',
+        'Location updated',
       houseNumber: activeHouseNumber,
       floor: activeFloor,
       landmark: activeLandmark,
@@ -814,22 +914,22 @@ const BookingSummaryScreen = () => {
 
     const matchingSavedAddr = Array.isArray(userAddresses)
       ? userAddresses.find(item => {
-          const itemId = item?._id || item?.id;
-          if (!isValidObjectId(itemId)) {
-            return false;
-          }
-          const itemText = (item?.address || item?.displayAddress || '')
-            .toLowerCase()
-            .trim();
-          const targetText = (addressPayload?.address || '')
-            .toLowerCase()
-            .trim();
-          return (
-            itemText.length > 0 &&
-            targetText.length > 0 &&
-            (itemText.includes(targetText) || targetText.includes(itemText))
-          );
-        })
+        const itemId = item?._id || item?.id;
+        if (!isValidObjectId(itemId)) {
+          return false;
+        }
+        const itemText = (item?.address || item?.displayAddress || '')
+          .toLowerCase()
+          .trim();
+        const targetText = (addressPayload?.address || '')
+          .toLowerCase()
+          .trim();
+        return (
+          itemText.length > 0 &&
+          targetText.length > 0 &&
+          (itemText.includes(targetText) || targetText.includes(itemText))
+        );
+      })
       : null;
 
     const targetAddrId =
@@ -1355,7 +1455,7 @@ const BookingSummaryScreen = () => {
                     fontSize: fontSize(12),
                     fontFamily: fontFamily.poppins400,
                     color: '#7D7D7D',
-                    marginBottom: hp(10),
+                    marginBottom: hp(12),
                   }}>
                   {displayCardLabel}
                 </Text>
@@ -1393,11 +1493,63 @@ const BookingSummaryScreen = () => {
                       flex: 1,
                       color: colors.pureBlack,
                       fontSize: fontSize(15),
-                      fontFamily: fontFamily.poppins600,
+                      fontFamily: fontFamily.poppins700,
                       lineHeight: hp(22),
                     }}>
                     {displayAddressText}
                   </Text>
+                </View>
+
+                {/* Divider Line */}
+                <View
+                  style={{
+                    width: '100%',
+                    height: 1,
+                    backgroundColor: '#EBEBEB',
+                    marginVertical: hp(14),
+                  }}
+                />
+
+                {/* Bottom Row */}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}>
+                  <Text
+                    style={{
+                      fontSize: fontSize(14),
+                      fontFamily: fontFamily.poppins400,
+                      color: '#222222',
+                    }}>
+                    Not this one?
+                  </Text>
+
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={handleOpenAddressSheet}
+                    style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text
+                      style={{
+                        color: '#731EE2',
+                        fontSize: fontSize(14),
+                        fontFamily: fontFamily.poppins600,
+                        marginRight: wp(6),
+                      }}>
+                      Change New
+                    </Text>
+                    <Image
+                      source={icons.bottom_Arrow_Icon}
+                      style={{
+                        width: hp(10),
+                        height: hp(12),
+                        resizeMode: 'contain',
+                        tintColor: '#731EE2',
+                        transform: [{ rotate: '-90deg' }],
+                      }}
+                    />
+                  </TouchableOpacity>
                 </View>
               </View>
             </View>
@@ -1899,6 +2051,269 @@ const BookingSummaryScreen = () => {
             </Text>
           </TouchableOpacity>
         </View>
+      </RBSheet>
+
+      {/* SELECT AN ADDRESS RAW BOTTOM SHEET */}
+      <RBSheet
+        ref={refAddressSheet}
+        height={hp(520)}
+        openDuration={250}
+        customStyles={{
+          container: {
+            borderTopLeftRadius: hp(24),
+            borderTopRightRadius: hp(24),
+            paddingHorizontal: wp(20),
+            paddingTop: hp(20),
+            paddingBottom: hp(20),
+            backgroundColor: '#F8FAFC',
+          },
+        }}>
+        {/* Title */}
+        <Text
+          style={{
+            fontSize: fontSize(18),
+            fontFamily: fontFamily.poppins700,
+            color: '#1A1D26',
+            marginBottom: hp(16),
+          }}>
+          Select an address
+        </Text>
+
+        {/* + Add Address Card */}
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => {
+            refAddressSheet.current?.close();
+            navigation.navigate('EnterCompleteAddressScreen');
+          }}
+          style={{
+            width: '100%',
+            backgroundColor: colors.white,
+            borderRadius: hp(16),
+            borderWidth: 1,
+            borderColor: '#E8ECF2',
+            paddingVertical: hp(14),
+            paddingHorizontal: wp(16),
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: hp(20),
+          }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text
+              style={{
+                fontSize: fontSize(20),
+                color: '#00875A',
+                fontFamily: fontFamily.poppins600,
+                marginRight: wp(12),
+                lineHeight: hp(22),
+              }}>
+              +
+            </Text>
+            <Text
+              style={{
+                fontSize: fontSize(15),
+                fontFamily: fontFamily.poppins600,
+                color: '#00875A',
+              }}>
+              Add Address
+            </Text>
+          </View>
+
+          <Image
+            source={icons.bottom_Arrow_Icon}
+            style={{
+              width: hp(10),
+              height: hp(12),
+              tintColor: '#6B7280',
+              transform: [{ rotate: '-90deg' }],
+            }}
+          />
+        </TouchableOpacity>
+
+        {/* ADDRESS CARDS LIST */}
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {(() => {
+            const currentLocationItem = savedAddressesList.find(
+              a =>
+                a?.id === 'current_location_card_top' ||
+                a?.locationType === 'current' ||
+                a?.locationType === 'unlabeled',
+            );
+
+            const otherSavedAddresses = savedAddressesList.filter(
+              a =>
+                a?.id !== 'current_location_card_top' &&
+                a?.locationType !== 'current' &&
+                a?.locationType !== 'unlabeled',
+            );
+
+            const renderAddressCard = (addrItem, cardIndex) => {
+              const isCurrentLoc =
+                addrItem?.id === 'current_location_card_top' ||
+                addrItem?.locationType === 'current' ||
+                addrItem?.locationType === 'unlabeled';
+
+              const displayTitle = isCurrentLoc
+                ? 'Current Location'
+                : addrItem?.type || addrItem?.locationType || 'Saved Address';
+
+              const fullText =
+                addrItem?.displayAddress ||
+                addrItem?.address ||
+                reduxFullAddress ||
+                'Current Location';
+
+              const rawUserPhone =
+                addrItem?.mobile ||
+                addrItem?.receiverMobile ||
+                user?.mobile ||
+                user?.mobileNumber ||
+                user?.phoneNumber ||
+                '7405665654';
+
+              const userPhone = String(rawUserPhone).startsWith('+')
+                ? String(rawUserPhone)
+                : `+91-${rawUserPhone}`;
+
+              return (
+                <TouchableOpacity
+                  key={cardIndex}
+                  activeOpacity={0.8}
+                  onPress={() => handleSelectAddressCard(addrItem)}
+                  style={{
+                    width: '100%',
+                    backgroundColor: colors.white,
+                    borderRadius: hp(20),
+                    borderWidth: 1,
+                    borderColor: '#F1F5F9',
+                    padding: wp(18),
+                    marginBottom: hp(14),
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.04,
+                    shadowRadius: 8,
+                    elevation: 3,
+                  }}>
+                  {/* DELIVERS TO BADGE */}
+                  <Text
+                    style={{
+                      fontSize: fontSize(11),
+                      fontFamily: fontFamily.poppins700,
+                      color: '#3B82F6',
+                      letterSpacing: 0.6,
+                      marginBottom: hp(12),
+                      textTransform: 'uppercase',
+                    }}>
+                    DELIVERS TO
+                  </Text>
+
+                  {/* MAIN CONTENT ROW */}
+                  <View
+                    style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                    {/* LEFT COLUMN: ICON */}
+                    <View
+                      style={{
+                        alignItems: 'center',
+                        marginRight: wp(16),
+                        width: wp(28),
+                      }}>
+                      <Image
+                        source={
+                          isCurrentLoc
+                            ? icons.location_Icon
+                            : String(displayTitle)
+                              .toLowerCase()
+                              .includes('work')
+                              ? icons.work_Icon || icons.home_Icon
+                              : icons.home_Icon
+                        }
+                        style={{
+                          width: hp(24),
+                          height: hp(24),
+                          tintColor: isCurrentLoc
+                            ? colors.primaryColor || '#731EE2'
+                            : '#475569',
+                          resizeMode: 'contain',
+                        }}
+                      />
+                    </View>
+
+                    {/* RIGHT COLUMN: TITLE, ADDRESS, PHONE */}
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={{
+                          fontSize: fontSize(16),
+                          fontFamily: fontFamily.poppins700,
+                          color: '#1E293B',
+                          marginBottom: hp(4),
+                        }}>
+                        {displayTitle}
+                      </Text>
+
+                      <Text
+                        style={{
+                          fontSize: fontSize(13),
+                          fontFamily: fontFamily.poppins400,
+                          color: '#475569',
+                          lineHeight: hp(20),
+                          marginBottom: hp(6),
+                        }}
+                        numberOfLines={3}>
+                        {fullText}
+                      </Text>
+
+                      <Text
+                        style={{
+                          fontSize: fontSize(12),
+                          fontFamily: fontFamily.poppins500,
+                          color: '#64748B',
+                        }}>
+                        Phone number:{' '}
+                        <Text
+                          style={{
+                            fontFamily: fontFamily.poppins600,
+                            color: '#1E293B',
+                          }}>
+                          {userPhone}
+                        </Text>
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            };
+
+            return (
+              <>
+                {/* 1. CURRENT LOCATION CARD */}
+                {currentLocationItem &&
+                  renderAddressCard(currentLocationItem, 'top_current')}
+
+                {/* 2. SAVED ADDRESSES HEADER */}
+                {otherSavedAddresses.length > 0 && (
+                  <Text
+                    style={{
+                      fontSize: fontSize(13),
+                      fontFamily: fontFamily.poppins600,
+                      color: '#64748B',
+                      marginTop: hp(10),
+                      marginBottom: hp(12),
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.5,
+                    }}>
+                    SAVED ADDRESSES
+                  </Text>
+                )}
+
+                {/* 3. OTHER SAVED ADDRESS CARDS */}
+                {otherSavedAddresses.map((addrItem, idx) =>
+                  renderAddressCard(addrItem, `saved_${idx}`),
+                )}
+              </>
+            );
+          })()}
+        </ScrollView>
       </RBSheet>
     </SafeAreaView>
   );

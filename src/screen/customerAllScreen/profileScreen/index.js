@@ -3,6 +3,7 @@ import { Alert, Image, SafeAreaView, Text, TouchableOpacity, View } from 'react-
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDispatch } from 'react-redux';
 import { logoutUser } from '../../../actions/customerAuthActions';
+import { resetLocation } from '../../../actions/locationActions';
 import { colors } from '../../../utils/colors';
 import { fontFamily, fontSize, hp, wp } from '../../../utils/helpers';
 import { icons } from '../../../assets';
@@ -27,9 +28,11 @@ const ProfileScreen = () => {
           onPress: async () => {
             try {
               await AsyncStorage.removeItem('token');
+              await AsyncStorage.removeItem('SELECTED_LOCATION');
             } catch (error) {
               console.log('Error clearing token on logout:', error);
             }
+            dispatch(resetLocation());
             dispatch(logoutUser());
             navigation.reset({
               index: 0,

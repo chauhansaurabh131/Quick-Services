@@ -1,7 +1,7 @@
 import React from 'react';
-import {NavigationContainer} from '@react-navigation/native';
-import {createNativeStackNavigator} from '@react-navigation/native-stack';
-import {useSelector} from 'react-redux';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useSelector } from 'react-redux';
 import LoginScreen from '../screen/customerAllScreen/loginScreen';
 import DemoScreen from '../screen/customerAllScreen/demoScreen';
 import OtpVerificationScreen from '../screen/customerAllScreen/otpVerificationScreen';
@@ -13,6 +13,7 @@ import MyBookingScreen from '../screen/customerAllScreen/myBookings/myBookingScr
 import HelpSupportScreen from '../screen/customerAllScreen/help&SupportScreen';
 import BookingIssueScreen from '../screen/customerAllScreen/bookingIssueScreen';
 import EnterCompleteAddressScreen from '../screen/customerAllScreen/enterCompleteAddressScreen';
+import ChangeLocationScreen from '../screen/customerAllScreen/changeLocationScreen';
 import ManageAddressesScreen from '../screen/customerAllScreen/manageAddressesScreen';
 import ServiceCompletedScreen from '../screen/customerAllScreen/myBookings/serviceCompletedScreen';
 import LiveTrackingScreen from '../screen/customerAllScreen/myBookings/liveTrackingScreen';
@@ -42,7 +43,7 @@ import LegalAcknowledgementAndConsentScreen from '../screen/vendorAllScreen/lega
 const Stack = createNativeStackNavigator();
 
 const Navigation = () => {
-  const {isLoggedIn, user} = useSelector(state => state.auth || {});
+  const { isLoggedIn, user } = useSelector(state => state.auth || {});
 
   const isVendor =
     user?.role === 'vendor' ||
@@ -73,7 +74,7 @@ const Navigation = () => {
     <NavigationContainer>
       <Stack.Navigator
         initialRouteName={initialRoute}
-        screenOptions={{headerShown: false}}>
+        screenOptions={{ headerShown: false }}>
         {/*<Stack.Screen*/}
         {/*  name="VendorServiceAndPricingScreen"*/}
         {/*  component={VendorServiceAndPricingScreen}*/}
@@ -180,6 +181,10 @@ const Navigation = () => {
         <Stack.Screen
           name="EnterCompleteAddressScreen"
           component={EnterCompleteAddressScreen}
+        />
+        <Stack.Screen
+          name="ChangeLocationScreen"
+          component={ChangeLocationScreen}
         />
 
         <Stack.Screen

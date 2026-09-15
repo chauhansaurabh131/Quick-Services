@@ -1,4 +1,4 @@
-import React, {useEffect, useState, useRef} from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -20,21 +20,21 @@ import {
 import Geolocation from 'react-native-geolocation-service';
 import axios from 'axios';
 
-import {colors} from '../../../utils/colors';
-import {fontFamily, fontSize, hp, wp} from '../../../utils/helpers';
-import {icons, images} from '../../../assets';
-import {useNavigation, useRoute} from '@react-navigation/native';
+import { colors } from '../../../utils/colors';
+import { fontFamily, fontSize, hp, wp } from '../../../utils/helpers';
+import { icons, images } from '../../../assets';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import BorderShowLabelTextInputComponent from '../../../components/borderShowLabelTextInputComponent';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {useTranslation} from 'react-i18next';
+import { useTranslation } from 'react-i18next';
 
-import {useDispatch, useSelector} from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   saveCustomerAddress,
   updateCustomerAddress,
 } from '../../../actions/customerAuthActions';
 
-import MapView, {Marker, PROVIDER_GOOGLE} from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 
 let GooglePlacesAutocomplete = null;
 try {
@@ -50,6 +50,8 @@ try {
 // -------------------------------------------------------------
 const GOOGLE_MAPS_API_KEY = 'AIzaSyBaqU_1hOFIhVLm8su_caJheEChJCNBTyY';
 
+
+
 const EnumLocationTypeOfAddress = {
   HOME: 'home',
   WORK: 'work',
@@ -62,7 +64,7 @@ const EnterCompleteAddressScreen = () => {
   const route = useRoute();
   const editData = route.params?.editData;
   const navigation = useNavigation();
-  const {t} = useTranslation();
+  const { t } = useTranslation();
   const mapRef = useRef(null);
 
   const reduxLocation = useSelector(state => state.location || {});
@@ -115,8 +117,139 @@ const EnterCompleteAddressScreen = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [searching, setSearching] = useState(false);
   const searchTimerRef = useRef(null);
+  const isSelectingSuggestionRef = useRef(false);
+  const debounceReverseTimerRef = useRef(null);
+  const ignoreReverseGeocodeCoordsRef = useRef(null);
 
-  // Debounced Search Text Change Handler (Prevents HTTP 429 Rate Limits)
+  const setIgnoreReverseGeocode = (lat, lng, durationMs = 2500) => {
+    if (!lat || !lng) return;
+    ignoreReverseGeocodeCoordsRef.current = {
+      lat: parseFloat(lat),
+      lng: parseFloat(lng),
+      expiresAt: Date.now() + durationMs,
+    };
+  };
+
+  const shouldSkipReverseGeocode = (lat, lng) => {
+    if (!ignoreReverseGeocodeCoordsRef.current) return false;
+    const { lat: targetLat, lng: targetLng, expiresAt } =
+      ignoreReverseGeocodeCoordsRef.current;
+    if (Date.now() > expiresAt) {
+      ignoreReverseGeocodeCoordsRef.current = null;
+      return false;
+    }
+    const latDiff = Math.abs(parseFloat(lat) - targetLat);
+    const lngDiff = Math.abs(parseFloat(lng) - targetLng);
+    if (latDiff < 0.0005 && lngDiff < 0.0005) {
+      return true;
+    }
+    ignoreReverseGeocodeCoordsRef.current = null;
+    return false;
+  };
+
+  const debouncedReverseGeocode = (lat, lng, delay = 350) => {
+    if (debounceReverseTimerRef.current) {
+      clearTimeout(debounceReverseTimerRef.current);
+    }
+    debounceReverseTimerRef.current = setTimeout(() => {
+      reverseGeocode(lat, lng);
+    }, delay);
+  };
+
+  const geocodeQueryToCoords = async queryText => {
+    if (!queryText) return null;
+
+    // 1. Google Geocoding API for exact coordinates in India
+    if (
+      GOOGLE_MAPS_API_KEY &&
+      GOOGLE_MAPS_API_KEY !== 'YOUR_GOOGLE_MAPS_API_KEY'
+    ) {
+      try {
+        const googleUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+          queryText,
+        )}&components=country:in&key=${GOOGLE_MAPS_API_KEY}`;
+        const gRes = await axios.get(googleUrl);
+        if (
+          gRes.data?.status === 'OK' &&
+          gRes.data?.results &&
+          gRes.data.results.length > 0
+        ) {
+          const first = gRes.data.results[0];
+          if (first.geometry?.location) {
+            return {
+              lat: first.geometry.location.lat,
+              lng: first.geometry.location.lng,
+              fullAddr: first.formatted_address || queryText,
+            };
+          }
+        }
+      } catch (gErr) {}
+    }
+
+    // 2. Photon API for dynamic real coordinates in India
+    try {
+      const pUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(
+        queryText,
+      )}&countrycode=in&limit=1`;
+      const pRes = await axios.get(pUrl);
+      if (pRes.data?.features && pRes.data.features.length > 0) {
+        const feat = pRes.data.features[0];
+        const coords = feat.geometry.coordinates;
+        return {
+          lat: coords[1],
+          lng: coords[0],
+          fullAddr: feat.properties.name || queryText,
+        };
+      }
+    } catch (e) {}
+
+    // 3. OSM Nominatim search with full query
+    try {
+      const osmUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+        queryText,
+      )}&countrycodes=in&limit=1&addressdetails=1`;
+      const res = await axios.get(osmUrl, {
+        headers: { 'User-Agent': 'QuickServiceApp' },
+      });
+      if (res.data && res.data[0]) {
+        return {
+          lat: parseFloat(res.data[0].lat),
+          lng: parseFloat(res.data[0].lon),
+          fullAddr: res.data[0].display_name || queryText,
+        };
+      }
+    } catch (e) {}
+
+    // 4. Sub-phrase fallback search via Photon
+    const cleanText = queryText
+      .replace(/india/gi, '')
+      .replace(/country/gi, '')
+      .replace(/state/gi, '')
+      .trim();
+
+    const words = cleanText.split(/[\s,]+/).filter(w => w.length >= 2);
+    if (words.length >= 2) {
+      const subQuery = words.slice(-2).join(' ');
+      try {
+        const pUrl2 = `https://photon.komoot.io/api/?q=${encodeURIComponent(
+          subQuery,
+        )}&countrycode=in&limit=1`;
+        const pRes2 = await axios.get(pUrl2);
+        if (pRes2.data?.features && pRes2.data.features.length > 0) {
+          const feat = pRes2.data.features[0];
+          const coords = feat.geometry.coordinates;
+          return {
+            lat: coords[1],
+            lng: coords[0],
+            fullAddr: feat.properties.name || queryText,
+          };
+        }
+      } catch (e) {}
+    }
+
+    return null;
+  };
+
   const handleSearchTextChange = text => {
     setSearchText(text);
     if (searchTimerRef.current) {
@@ -133,7 +266,44 @@ const EnterCompleteAddressScreen = () => {
     }, 400);
   };
 
-  // Search Place Auto-Complete Suggestions (Google Places + OpenStreetMap Fallback)
+  const handleSearchSubmit = async () => {
+    Keyboard.dismiss();
+    const query = searchText.trim();
+    if (!query) return;
+
+    if (suggestions.length > 0) {
+      handleSelectSuggestion(suggestions[0]);
+      return;
+    }
+
+    try {
+      setSearching(true);
+      isSelectingSuggestionRef.current = true;
+      const result = await geocodeQueryToCoords(query);
+      if (result && result.lat && result.lng) {
+        setSuggestions([]);
+        setAddress(result.fullAddr || query);
+        setHouseNumber(query.split(',')[0].trim());
+        setLandmark(query.split(',')[0].trim());
+        setIgnoreReverseGeocode(result.lat, result.lng, 2500);
+        animateToLocation(result.lat, result.lng);
+      }
+    } catch (err) {
+      console.log('[SearchSubmit] Error:', err);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const sanitizeSearchQuery = rawQuery => {
+    if (!rawQuery) return '';
+    return rawQuery
+      .replace(/\b(near|opp|opposite|behind|b\/h|o\/p|beside|next to|flat|house|floor|room|building|apt|apartment|no\.?|number)\b/gi, ' ')
+      .replace(/[^\w\s]/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
   const fetchSearchSuggestions = async query => {
     if (!query || query.trim().length < 2) {
       setSuggestions([]);
@@ -143,113 +313,193 @@ const EnterCompleteAddressScreen = () => {
     try {
       setSearching(true);
       let list = [];
+      const cleanQ = query.trim();
+      const sanitizedQ = sanitizeSearchQuery(cleanQ);
 
-      // 1. Try Google Places Autocomplete (Biased to current location / Bardoli 50km radius)
+      // 1. Google Places Autocomplete predictions (Google Maps standard)
       if (
         GOOGLE_MAPS_API_KEY &&
         GOOGLE_MAPS_API_KEY !== 'YOUR_GOOGLE_MAPS_API_KEY'
       ) {
         try {
-          const gUrl = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
-            query,
-          )}&location=${region.latitude},${
-            region.longitude
-          }&radius=50000&components=country:in&key=${GOOGLE_MAPS_API_KEY}`;
-          const gRes = await axios.get(gUrl);
+          const isIndiaRegion =
+            region.latitude >= 6 &&
+            region.latitude <= 36 &&
+            region.longitude >= 68 &&
+            region.longitude <= 98;
 
-          if (gRes.data?.status === 'OK' && gRes.data?.predictions) {
-            list = gRes.data.predictions.map(p => ({
-              id: p.place_id,
-              title: p.structured_formatting?.main_text || p.description,
-              description: p.description,
-              placeId: p.place_id,
-              source: 'google',
-            }));
+          const locationBias = isIndiaRegion
+            ? `&location=${region.latitude},${region.longitude}&radius=50000`
+            : '';
+          const googleUrl = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
+            sanitizedQ || cleanQ,
+          )}${locationBias}&components=country:in&key=${GOOGLE_MAPS_API_KEY}`;
+          const gRes = await axios.get(googleUrl);
+          if (
+            gRes.data?.status === 'OK' &&
+            gRes.data?.predictions &&
+            gRes.data.predictions.length > 0
+          ) {
+            gRes.data.predictions.forEach(p => {
+              list.push({
+                id: `google_${p.place_id}`,
+                title:
+                  p.structured_formatting?.main_text ||
+                  p.description.split(',')[0],
+                description: p.description,
+                placeId: p.place_id,
+                source: 'google',
+              });
+            });
           }
-        } catch (gErr) {
-          console.log('[Search] Google Places Error:', gErr?.message);
+        } catch (gErr) {}
+      }
+
+      // 2. Real-time Photon Geocoding API Search (Multi-word queries ONLY - NO single word spam)
+      const rawWords = (sanitizedQ || cleanQ).split(/\s+/).filter(Boolean);
+      const multiWordQueries = [cleanQ, sanitizedQ];
+      if (rawWords.length >= 2) {
+        for (let i = 0; i < rawWords.length - 1; i++) {
+          const phrase = `${rawWords[i]} ${rawWords[i + 1]}`;
+          if (phrase.length >= 5) {
+            multiWordQueries.push(phrase);
+          }
         }
       }
 
-      // 2. OpenStreetMap Search for real location coordinates in India
+      const searchQueries = Array.from(new Set(multiWordQueries.filter(Boolean)));
+
+      for (const sq of searchQueries) {
+        try {
+          const pUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(
+            sq,
+          )}&countrycode=in&limit=10`;
+          const pRes = await axios.get(pUrl);
+          if (pRes.data?.features && pRes.data.features.length > 0) {
+            pRes.data.features.forEach((f, idx) => {
+              const props = f.properties;
+              const placeTitle =
+                props.name ||
+                props.street ||
+                props.district ||
+                props.city ||
+                sq;
+
+              const descParts = [
+                placeTitle,
+                props.street && props.street !== placeTitle ? props.street : null,
+                props.district || props.suburb || props.neighbourhood,
+                props.city || props.town || props.county,
+                props.state,
+                'India',
+              ].filter(Boolean);
+
+              const fullDesc = Array.from(new Set(descParts)).join(', ');
+              list.push({
+                id: `photon_${idx}_${props.osm_id || idx}_${sq}`,
+                title: placeTitle,
+                description: fullDesc,
+                lat: f.geometry.coordinates[1],
+                lng: f.geometry.coordinates[0],
+                city: props.city || props.town || props.district || '',
+                state: props.state || '',
+                postcode: props.postcode || '',
+                source: 'photon',
+              });
+            });
+          }
+        } catch (pErr) {}
+        if (list.length >= 15) break;
+      }
+
+      // 3. Real-time OpenStreetMap Nominatim Search
       try {
         const osmUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          query,
+          sanitizedQ || cleanQ,
         )}&countrycodes=in&limit=8&addressdetails=1`;
-
         const osmRes = await axios.get(osmUrl, {
-          headers: {'User-Agent': 'QuickServiceApp'},
+          headers: { 'User-Agent': 'QuickServiceApp' },
         });
 
-        if (
-          osmRes.data &&
-          Array.isArray(osmRes.data) &&
-          osmRes.data.length > 0
-        ) {
-          const osList = osmRes.data.map((item, idx) => ({
-            id: `osm_${idx}_${item.place_id}`,
-            title: item.display_name.split(',')[0],
-            description: item.display_name,
-            lat: parseFloat(item.lat),
-            lng: parseFloat(item.lon),
-            source: 'osm',
-          }));
+        if (osmRes.data && Array.isArray(osmRes.data)) {
+          osmRes.data.forEach((item, idx) => {
+            const addr = item.address || {};
+            const mainTitle =
+              item.display_name.split(',')[0] || cleanQ;
+            const cityVal =
+              addr.city || addr.town || addr.village || addr.suburb || '';
 
-          // Merge OSM real-coordinate results
-          list = [...list, ...osList];
+            list.push({
+              id: `osm_${idx}_${item.place_id}`,
+              title: mainTitle,
+              description: item.display_name,
+              lat: parseFloat(item.lat),
+              lng: parseFloat(item.lon),
+              city: cityVal,
+              state: addr.state || '',
+              postcode: addr.postcode || '',
+              source: 'osm',
+            });
+          });
+        }
+      } catch (osmErr) {}
+
+      // 4. Dynamic Structured Match Generator (ONLY as last fallback if no API results found)
+      if (list.length === 0 && rawWords.length >= 1) {
+        const isNonIndianCity = city && (city.toLowerCase().includes('mountain view') || city.toLowerCase().includes('santa clara') || city.toLowerCase().includes('california') || city.toLowerCase().includes('united states'));
+        const activeCity = (!isNonIndianCity && city) ? city : 'Bardoli';
+        const activeState = (!isNonIndianCity && stateName) ? stateName : 'Gujarat';
+
+        let socPart = rawWords.slice(0, 2).join(' ');
+        let landPart = rawWords.slice(2).join(' ');
+        if (!landPart && rawWords.length >= 2) {
+          socPart = rawWords[0];
+          landPart = rawWords.slice(1).join(' ');
         }
 
-        // Also search with current city (e.g. query + " Bardoli") for local landmark matches
-        const currentLocName = city || 'Bardoli';
-        const localOsmUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          query + ' ' + currentLocName,
-        )}&countrycodes=in&limit=5&addressdetails=1`;
-
-        const localOsmRes = await axios.get(localOsmUrl, {
-          headers: {'User-Agent': 'QuickServiceApp'},
-        });
-
-        if (
-          localOsmRes.data &&
-          Array.isArray(localOsmRes.data) &&
-          localOsmRes.data.length > 0
-        ) {
-          const localList = localOsmRes.data.map((item, idx) => ({
-            id: `osm_local_${idx}_${item.place_id}`,
-            title: item.display_name.split(',')[0],
-            description: item.display_name,
-            lat: parseFloat(item.lat),
-            lng: parseFloat(item.lon),
-            source: 'osm',
-          }));
-
-          list = [...localList, ...list];
+        if (socPart && landPart) {
+          list.push({
+            id: `struct_full_${Date.now()}_${Math.random()}`,
+            title: `${socPart}, ${landPart}`,
+            description: `${socPart}, ${landPart}, ${activeCity}, ${activeState}, India`,
+            society: socPart,
+            landmark: landPart,
+            city: activeCity,
+            source: 'structured_match',
+          });
         }
-      } catch (osmErr) {
-        if (osmErr?.response?.status !== 429) {
-          console.log('[Search] OSM Error:', osmErr?.message);
+        if (socPart) {
+          list.push({
+            id: `struct_soc_${Date.now()}_${Math.random()}`,
+            title: `${socPart}`,
+            description: `${socPart}, ${activeCity}, ${activeState}, India`,
+            society: socPart,
+            landmark: socPart,
+            city: activeCity,
+            source: 'structured_match',
+          });
         }
       }
 
-      // Filter out duplicate predictions by place ID / title
+      // Deduplicate results by title/description
       const uniqueList = [];
-      const seenTitles = new Set();
+      const seenKeys = new Set();
       list.forEach(item => {
-        const titleKey = (item.title || item.description || '').toLowerCase();
-        if (!seenTitles.has(titleKey)) {
-          seenTitles.add(titleKey);
+        const key = (item.title + '|' + item.description)
+          .toLowerCase()
+          .trim();
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
           uniqueList.push(item);
         }
       });
 
       console.log('\n==================================================');
-      console.log('🔍 USER SEARCH QUERY:', query);
-      console.log(`📍 SEARCH SUGGESTIONS FOUND (${uniqueList.length}):`);
+      console.log('🔍 DYNAMIC GOOGLE MAPS ADDRESS SEARCH:', query);
+      console.log(`📍 FOUND ${uniqueList.length} API RESULTS:`);
       uniqueList.forEach((item, idx) => {
         console.log(
-          `   ${idx + 1}. [${item.source.toUpperCase()}] ${item.title} -> ${
-            item.description
-          }`,
+          `   ${idx + 1}. [${item.source.toUpperCase()}] ${item.title} -> ${item.description}`,
         );
       });
       console.log('==================================================\n');
@@ -262,22 +512,36 @@ const EnterCompleteAddressScreen = () => {
     }
   };
 
-  // Handle selection of suggested place -> Auto-fill text inputs & Navigate map pin
   const handleSelectSuggestion = async item => {
+    isSelectingSuggestionRef.current = true;
     setSearchText(item.title);
     setSuggestions([]);
     Keyboard.dismiss();
 
-    if (item.source === 'custom_local') {
-      setAddress(item.description);
-      setHouseNumber(item.title);
-      setLandmark(item.title);
-      animateToLocation(region.latitude, region.longitude);
-      return;
-    }
-
     let targetLat = item.lat;
     let targetLng = item.lng;
+
+    if (item.source === 'structured_match') {
+      setAddress(item.description);
+      if (item.society) setHouseNumber(item.society);
+      if (item.landmark) setLandmark(item.landmark);
+      if (item.city) setCity(item.city);
+
+      const geo = await geocodeQueryToCoords(item.description);
+      if (geo && geo.lat && geo.lng) {
+        targetLat = geo.lat;
+        targetLng = geo.lng;
+      } else {
+        targetLat = region.latitude;
+        targetLng = region.longitude;
+      }
+
+      if (targetLat && targetLng) {
+        setIgnoreReverseGeocode(targetLat, targetLng, 2500);
+        animateToLocation(targetLat, targetLng);
+      }
+      return;
+    }
 
     if (item.source === 'google' && item.placeId) {
       try {
@@ -293,20 +557,6 @@ const EnterCompleteAddressScreen = () => {
 
           const formatted = result.formatted_address || item.description;
           setAddress(formatted);
-
-          console.log('\n==================================================');
-          console.log(
-            '🎯 SELECTED SEARCH PLACE:',
-            item.title || item.description,
-          );
-          console.log('📍 FULL ADDRESS:', formatted);
-          console.log(
-            '🎯 TARGET LATITUDE:',
-            targetLat,
-            '| TARGET LONGITUDE:',
-            targetLng,
-          );
-          console.log('==================================================\n');
 
           if (result.address_components) {
             let streetVal = '';
@@ -340,9 +590,12 @@ const EnterCompleteAddressScreen = () => {
               }
             });
 
-            const placeName = areaVal || streetVal.trim() || item.title;
+            const placeName = item.title || areaVal || streetVal.trim();
             setHouseNumber(placeName);
             setLandmark(placeName);
+          } else {
+            setHouseNumber(item.title);
+            setLandmark(item.title);
           }
         }
       } catch (dErr) {
@@ -351,33 +604,40 @@ const EnterCompleteAddressScreen = () => {
         setHouseNumber(item.title);
         setLandmark(item.title);
       }
-    } else if (item.source === 'osm') {
+    } else if (item.source === 'photon' || item.source === 'osm') {
       setAddress(item.description);
       setHouseNumber(item.title);
       setLandmark(item.title);
+      if (item.city) setCity(item.city);
+      if (item.state) setStateName(item.state);
+      if (item.postcode) setPinCode(item.postcode);
 
-      console.log('\n==================================================');
-      console.log('🎯 SELECTED SEARCH PLACE (OSM):', item.title);
-      console.log('📍 FULL ADDRESS:', item.description);
-      console.log(
-        '🎯 TARGET LATITUDE:',
-        targetLat,
-        '| TARGET LONGITUDE:',
-        targetLng,
-      );
-      console.log('==================================================\n');
+      if (item.lat && item.lng) {
+        targetLat = item.lat;
+        targetLng = item.lng;
+      }
+    }
+
+    if (!targetLat || !targetLng) {
+      const fullQueryStr = `${item.title || ''} ${item.description || ''}`;
+      const geoRes = await geocodeQueryToCoords(fullQueryStr);
+      if (geoRes && geoRes.lat && geoRes.lng) {
+        targetLat = geoRes.lat;
+        targetLng = geoRes.lng;
+      }
     }
 
     if (targetLat && targetLng) {
+      setIgnoreReverseGeocode(targetLat, targetLng, 2500);
       animateToLocation(targetLat, targetLng);
     }
   };
 
   const addressTypes = [
-    {id: 1, label: t('home'), value: 'Home', icon: icons.purple_Home_Icon},
-    {id: 2, label: t('work'), value: 'Work', icon: icons.work_Icon},
-    {id: 3, label: t('hotel'), value: 'Hotel', icon: icons.hotel_Icon},
-    {id: 4, label: t('other'), value: 'Other', icon: icons.other_Icon},
+    { id: 1, label: t('home'), value: 'Home', icon: icons.purple_Home_Icon },
+    { id: 2, label: t('work'), value: 'Work', icon: icons.work_Icon },
+    { id: 3, label: t('hotel'), value: 'Hotel', icon: icons.hotel_Icon },
+    { id: 4, label: t('other'), value: 'Other', icon: icons.other_Icon },
   ];
 
   useEffect(() => {
@@ -471,7 +731,7 @@ const EnterCompleteAddressScreen = () => {
       Geolocation.getCurrentPosition(
         position => {
           if (position?.coords?.latitude && position?.coords?.longitude) {
-            const {latitude, longitude} = position.coords;
+            const { latitude, longitude } = position.coords;
             animateToLocation(latitude, longitude);
             reverseGeocode(latitude, longitude);
           } else {
@@ -489,7 +749,7 @@ const EnterCompleteAddressScreen = () => {
             'Could not get device GPS location. Please turn on Location services on your phone.',
           );
         },
-        {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000},
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
       );
     } catch (err) {
       console.log('[EnterCompleteAddressScreen] Location Exception:', err);
@@ -522,6 +782,12 @@ const EnterCompleteAddressScreen = () => {
     try {
       setFetchingAddress(true);
       let addressFound = false;
+      let freshAddress = '';
+      let freshHouseNumber = '';
+      let freshLandmark = '';
+      let freshCity = '';
+      let freshState = '';
+      let freshPinCode = '';
 
       if (
         GOOGLE_MAPS_API_KEY &&
@@ -529,96 +795,100 @@ const EnterCompleteAddressScreen = () => {
       ) {
         try {
           const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GOOGLE_MAPS_API_KEY}`;
-          console.log('[ReverseGeocode] Requesting Google Geocoding API...');
           const res = await axios.get(url);
-
-          console.log('[ReverseGeocode] Google API Status:', res.data?.status);
-          if (res.data?.error_message) {
-            console.log(
-              '[ReverseGeocode] Google API Error Message:',
-              res.data.error_message,
-            );
-          }
 
           if (
             res.data?.status === 'OK' &&
             res.data?.results &&
             res.data.results.length > 0
           ) {
-            console.log(
-              '[ReverseGeocode] Total Google Results Count:',
-              res.data.results.length,
-            );
-
-            res.data.results.slice(0, 3).forEach((r, idx) => {
-              console.log(
-                `[ReverseGeocode] Result ${idx} (${r.types?.join(', ')}):`,
-                r.formatted_address,
-              );
-            });
-
-            const result = res.data.results[0];
-            const fullAddressText = result.formatted_address || '';
-            setAddress(fullAddressText);
-            addressFound = true;
-
-            console.log('\n==================================================');
-            console.log('📍 DRAGGED PIN NEW ADDRESS:', fullAddressText);
-            console.log('📍 COORDINATES:', `Lat: ${lat}, Lng: ${lng}`);
-            console.log('==================================================\n');
+            const detailedResult =
+              res.data.results.find(
+                r =>
+                  r.types?.includes('street_address') ||
+                  r.types?.includes('route') ||
+                  r.types?.includes('sublocality_level_1') ||
+                  r.types?.includes('sublocality_level_2') ||
+                  r.types?.includes('neighborhood') ||
+                  r.types?.includes('premise'),
+              ) || res.data.results[0];
 
             let streetVal = '';
             let areaVal = '';
 
-            result.address_components.forEach(component => {
-              if (
-                component.types.includes('route') ||
-                component.types.includes('street_number')
-              ) {
-                streetVal += component.long_name + ' ';
-              }
-              if (
-                component.types.includes('sublocality_level_1') ||
-                component.types.includes('sublocality') ||
-                component.types.includes('neighborhood')
-              ) {
-                areaVal = component.long_name;
-              }
-              if (
-                component.types.includes('locality') ||
-                component.types.includes('postal_town')
-              ) {
-                setCity(component.long_name);
-              }
-              if (component.types.includes('administrative_area_level_1')) {
-                setStateName(component.long_name);
-              }
-              if (component.types.includes('postal_code')) {
-                setPinCode(component.long_name);
-              }
+            res.data.results.forEach(r => {
+              r.address_components?.forEach(component => {
+                if (
+                  (component.types.includes('route') ||
+                    component.types.includes('street_number') ||
+                    component.types.includes('premise')) &&
+                  !streetVal.includes(component.long_name)
+                ) {
+                  streetVal += (streetVal ? ' ' : '') + component.long_name;
+                }
+                if (
+                  (component.types.includes('sublocality_level_1') ||
+                    component.types.includes('sublocality') ||
+                    component.types.includes('neighborhood')) &&
+                  !areaVal
+                ) {
+                  areaVal = component.long_name;
+                }
+                if (
+                  (component.types.includes('locality') ||
+                    component.types.includes('postal_town')) &&
+                  !freshCity
+                ) {
+                  freshCity = component.long_name;
+                }
+                if (
+                  component.types.includes('administrative_area_level_1') &&
+                  !freshState
+                ) {
+                  freshState = component.long_name;
+                }
+                if (component.types.includes('postal_code') && !freshPinCode) {
+                  freshPinCode = component.long_name;
+                }
+              });
             });
 
             const placeName = areaVal || streetVal.trim();
             if (placeName) {
-              setHouseNumber(placeName);
-              setLandmark(placeName);
+              freshHouseNumber = placeName;
+              freshLandmark = placeName;
             }
+
+            freshAddress = detailedResult.formatted_address || res.data.results[0]?.formatted_address || '';
+
+            const parts = [
+              streetVal.trim(),
+              areaVal,
+              freshCity,
+              freshState,
+              freshPinCode,
+            ].filter(Boolean);
+            const constructed = Array.from(new Set(parts)).join(', ');
+
+            if (constructed && constructed.length > freshAddress.length) {
+              freshAddress = constructed;
+            }
+
+            addressFound = true;
           }
         } catch (googleErr) {
           console.log(
-            '[ReverseGeocode] Google Geocoding Axios Catch Error:',
-            googleErr?.response?.data || googleErr?.message,
+            '[ReverseGeocode] Google Geocoding Axios Error:',
+            googleErr?.message,
           );
         }
       }
 
-      // Try Google Places Nearby Search API (returns exact POI, society, building, and road vicinity)
-      if (!addressFound && GOOGLE_MAPS_API_KEY) {
+      if (GOOGLE_MAPS_API_KEY) {
         try {
-          const nearbyUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=250&key=${GOOGLE_MAPS_API_KEY}`;
+          const nearbyUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=150&key=${GOOGLE_MAPS_API_KEY}`;
           const nRes = await axios.get(nearbyUrl);
           if (nRes.data?.status === 'OK' && nRes.data?.results?.length > 0) {
-            // Calculate distance to pin for each result to pick the exact place under the pin
             const getDist = p => {
               const pLat = p.geometry?.location?.lat || lat;
               const pLng = p.geometry?.location?.lng || lng;
@@ -629,45 +899,28 @@ const EnterCompleteAddressScreen = () => {
               (a, b) => getDist(a) - getDist(b),
             );
 
-            // Pick place with specific street / POI details closest to pin
-            const detailedPlace =
-              sortedResults.find(
-                p =>
-                  p.vicinity &&
-                  p.vicinity.toLowerCase() !== 'bardoli' &&
-                  !p.types?.includes('locality') &&
-                  !p.types?.includes('political'),
-              ) || sortedResults[0];
-
-            const placeVicinity =
-              detailedPlace.vicinity || detailedPlace.name || '';
-            const fullAddr =
-              placeVicinity.includes('Gujarat') ||
-              placeVicinity.includes('Bardoli')
-                ? `${placeVicinity}, Gujarat, India`
-                : `${placeVicinity}, Bardoli, Gujarat, India`;
-
-            setAddress(fullAddr);
-            setHouseNumber(detailedPlace.name || placeVicinity.split(',')[0]);
-            setLandmark(placeVicinity);
-            setCity('Bardoli');
-            setStateName('Gujarat');
-            setPinCode('394600');
-            addressFound = true;
-
-            console.log('\n==================================================');
-            console.log(
-              '📍 DRAGGED PIN NEW ADDRESS (GOOGLE PLACES):',
-              fullAddr,
+            const detailedPlace = sortedResults.find(
+              p =>
+                p.name &&
+                !p.types?.includes('locality') &&
+                !p.types?.includes('political') &&
+                !p.types?.includes('administrative_area_level_1') &&
+                !p.types?.includes('country'),
             );
-            console.log(
-              '📍 BUILDING / LANDMARK:',
-              detailedPlace.name,
-              '| VICINITY:',
-              placeVicinity,
-            );
-            console.log('📍 COORDINATES:', `Lat: ${lat}, Lng: ${lng}`);
-            console.log('==================================================\n');
+
+            if (detailedPlace && detailedPlace.name) {
+              const poiName = detailedPlace.name;
+              const vicinity = detailedPlace.vicinity || '';
+
+              freshHouseNumber = poiName;
+              freshLandmark = poiName;
+
+              if (!freshAddress || !freshAddress.toLowerCase().includes(poiName.toLowerCase())) {
+                const combined = [poiName, vicinity !== poiName ? vicinity : '', freshAddress].filter(Boolean);
+                freshAddress = Array.from(new Set(combined)).join(', ');
+              }
+              addressFound = true;
+            }
           }
         } catch (nErr) {
           console.log('[ReverseGeocode] Nearby Search Error:', nErr?.message);
@@ -675,68 +928,88 @@ const EnterCompleteAddressScreen = () => {
       }
 
       if (!addressFound) {
-        console.log('[ReverseGeocode] Falling back to OpenStreetMap...');
-        const res = await axios.get(
-          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
-          {headers: {'User-Agent': 'QuickServiceApp'}},
-        );
-
-        if (res.data) {
-          const addr = res.data.address || {};
-          const localArea =
-            addr.suburb ||
-            addr.neighbourhood ||
-            addr.residential ||
-            addr.quarter ||
-            addr.industrial ||
-            addr.commercial ||
-            '';
-          const roadName = addr.road || addr.pedestrian || addr.street || '';
-          const townName =
-            addr.town ||
-            addr.city ||
-            addr.village ||
-            addr.hamlet ||
-            addr.county ||
-            '';
-          const districtName = addr.state_district || addr.county || '';
-          const stateNameVal = addr.state || '';
-          const postCodeVal = addr.postcode || '';
-
-          const parts = [
-            localArea,
-            roadName,
-            townName,
-            districtName !== townName ? districtName : '',
-            stateNameVal,
-            postCodeVal,
-          ].filter(Boolean);
-
-          const formattedCleanAddress =
-            parts.length > 0
-              ? Array.from(new Set(parts)).join(', ')
-              : res.data.display_name || '';
-
-          setAddress(formattedCleanAddress);
-          setCity(townName);
-          setStateName(stateNameVal);
-          setPinCode(postCodeVal);
-
-          const placeName = localArea || roadName || townName;
-          if (placeName) {
-            setHouseNumber(placeName);
-            setLandmark(placeName);
-          }
-
-          console.log('\n==================================================');
-          console.log(
-            '📍 DRAGGED PIN NEW ADDRESS (OSM):',
-            formattedCleanAddress,
+        try {
+          const res = await axios.get(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+            { headers: { 'User-Agent': 'QuickServiceApp' } },
           );
-          console.log('📍 COORDINATES:', `Lat: ${lat}, Lng: ${lng}`);
-          console.log('==================================================\n');
+
+          if (res.data) {
+            const addr = res.data.address || {};
+            const houseNo = addr.house_number || addr.housenumber || addr.building || '';
+            const poiName =
+              addr.amenity ||
+              addr.shop ||
+              addr.office ||
+              addr.tourism ||
+              addr.leisure ||
+              addr.name ||
+              '';
+            const localArea =
+              addr.suburb ||
+              addr.neighbourhood ||
+              addr.residential ||
+              addr.quarter ||
+              addr.industrial ||
+              addr.commercial ||
+              '';
+            const roadName = addr.road || addr.pedestrian || addr.street || '';
+            const townName =
+              addr.city ||
+              addr.town ||
+              addr.village ||
+              addr.municipality ||
+              addr.hamlet ||
+              addr.county ||
+              addr.state_district ||
+              '';
+            const districtName = addr.state_district || addr.county || '';
+            freshState = addr.state || '';
+            freshPinCode = addr.postcode || '';
+            freshCity = townName || localArea;
+
+            const roadWithHouseNo = [houseNo, roadName].filter(Boolean).join(' ');
+            const parts = [
+              poiName,
+              roadWithHouseNo || roadName,
+              localArea,
+              townName,
+              districtName !== townName ? districtName : '',
+              freshState,
+              freshPinCode,
+            ].filter(Boolean);
+
+            freshAddress =
+              parts.length > 0
+                ? Array.from(new Set(parts)).join(', ')
+                : res.data.display_name || '';
+
+            const houseOrBuildingVal =
+              poiName ||
+              (houseNo ? `${houseNo}, ${roadName || localArea}` : '') ||
+              roadName ||
+              localArea ||
+              townName;
+
+            if (houseOrBuildingVal) {
+              freshHouseNumber = houseOrBuildingVal;
+              freshLandmark = poiName || roadName || localArea || townName;
+            }
+          }
+        } catch (osmErr) {
+          if (osmErr?.response?.status !== 429) {
+            console.log('[EnterCompleteAddressScreen] OSM Reverse Error:', osmErr?.message);
+          }
         }
       }
+
+      if (freshAddress) setAddress(freshAddress);
+      if (freshHouseNumber) setHouseNumber(freshHouseNumber);
+      if (freshLandmark) setLandmark(freshLandmark);
+      if (freshCity) setCity(freshCity);
+      if (freshState) setStateName(freshState);
+      if (freshPinCode) setPinCode(freshPinCode);
+
     } catch (error) {
       console.log(
         '[EnterCompleteAddressScreen] Reverse Geocoding Error:',
@@ -828,10 +1101,9 @@ const EnterCompleteAddressScreen = () => {
       '==================================================',
       '\n[EnterCompleteAddressScreen Swiggy/Zomato Style Payload]',
       `\nMode: ${isEditMode ? 'UPDATE (PUT)' : 'CREATE (POST)'}`,
-      `\nEndpoint: ${
-        isEditMode
-          ? `PUT /customer/address/${addressId}`
-          : 'POST /customer/address'
+      `\nEndpoint: ${isEditMode
+        ? `PUT /customer/address/${addressId}`
+        : 'POST /customer/address'
       }`,
       '\nPayload:',
       JSON.stringify(payload, null, 2),
@@ -840,63 +1112,9 @@ const EnterCompleteAddressScreen = () => {
 
     const actionToDispatch = isEditMode
       ? updateCustomerAddress(
-          addressId,
-          payload,
-          async (error, responseData) => {
-            setLoading(false);
-            if (
-              error ||
-              responseData?.status === 'Failure' ||
-              responseData?.code >= 400
-            ) {
-              const errMsgs =
-                error?.message ||
-                responseData?.message ||
-                'Failed to update address';
-              Alert.alert(
-                'Error',
-                typeof errMsgs === 'string' ? errMsgs : JSON.stringify(errMsgs),
-              );
-              return;
-            }
-
-            try {
-              const existing = await AsyncStorage.getItem('ADDRESSES');
-              let addressList = existing ? JSON.parse(existing) : [];
-
-              const updatedList = addressList.map(item =>
-                item.id === addressId || item._id === addressId
-                  ? {
-                      ...item,
-                      type: selectedType,
-                      locationType: locationTypeVal,
-                      address,
-                      houseNumber,
-                      floor,
-                      landmark,
-                      name,
-                      mobile,
-                      latitude: region.latitude,
-                      longitude: region.longitude,
-                    }
-                  : item,
-              );
-
-              await AsyncStorage.setItem(
-                'ADDRESSES',
-                JSON.stringify(updatedList),
-              );
-            } catch (storageErr) {
-              console.log(
-                '[EnterCompleteAddressScreen] Local Storage Error:',
-                storageErr,
-              );
-            }
-
-            navigation.goBack();
-          },
-        )
-      : saveCustomerAddress(payload, async (error, responseData) => {
+        addressId,
+        payload,
+        async (error, responseData) => {
           setLoading(false);
           if (
             error ||
@@ -906,7 +1124,7 @@ const EnterCompleteAddressScreen = () => {
             const errMsgs =
               error?.message ||
               responseData?.message ||
-              'Failed to save address';
+              'Failed to update address';
             Alert.alert(
               'Error',
               typeof errMsgs === 'string' ? errMsgs : JSON.stringify(errMsgs),
@@ -918,26 +1136,27 @@ const EnterCompleteAddressScreen = () => {
             const existing = await AsyncStorage.getItem('ADDRESSES');
             let addressList = existing ? JSON.parse(existing) : [];
 
-            const savedAddressData = responseData?.data || responseData || {};
-            const newAddress = {
-              id: savedAddressData?.id || savedAddressData?._id || Date.now(),
-              type: selectedType,
-              locationType: locationTypeVal,
-              address,
-              houseNumber,
-              floor,
-              landmark,
-              name,
-              mobile,
-              isDefault: true,
-              latitude: region.latitude,
-              longitude: region.longitude,
-            };
+            const updatedList = addressList.map(item =>
+              item.id === addressId || item._id === addressId
+                ? {
+                  ...item,
+                  type: selectedType,
+                  locationType: locationTypeVal,
+                  address,
+                  houseNumber,
+                  floor,
+                  landmark,
+                  name,
+                  mobile,
+                  latitude: region.latitude,
+                  longitude: region.longitude,
+                }
+                : item,
+            );
 
-            addressList.push(newAddress);
             await AsyncStorage.setItem(
               'ADDRESSES',
-              JSON.stringify(addressList),
+              JSON.stringify(updatedList),
             );
           } catch (storageErr) {
             console.log(
@@ -947,22 +1166,75 @@ const EnterCompleteAddressScreen = () => {
           }
 
           navigation.goBack();
-        });
+        },
+      )
+      : saveCustomerAddress(payload, async (error, responseData) => {
+        setLoading(false);
+        if (
+          error ||
+          responseData?.status === 'Failure' ||
+          responseData?.code >= 400
+        ) {
+          const errMsgs =
+            error?.message ||
+            responseData?.message ||
+            'Failed to save address';
+          Alert.alert(
+            'Error',
+            typeof errMsgs === 'string' ? errMsgs : JSON.stringify(errMsgs),
+          );
+          return;
+        }
+
+        try {
+          const existing = await AsyncStorage.getItem('ADDRESSES');
+          let addressList = existing ? JSON.parse(existing) : [];
+
+          const savedAddressData = responseData?.data || responseData || {};
+          const newAddress = {
+            id: savedAddressData?.id || savedAddressData?._id || Date.now(),
+            type: selectedType,
+            locationType: locationTypeVal,
+            address,
+            houseNumber,
+            floor,
+            landmark,
+            name,
+            mobile,
+            isDefault: true,
+            latitude: region.latitude,
+            longitude: region.longitude,
+          };
+
+          addressList.push(newAddress);
+          await AsyncStorage.setItem(
+            'ADDRESSES',
+            JSON.stringify(addressList),
+          );
+        } catch (storageErr) {
+          console.log(
+            '[EnterCompleteAddressScreen] Local Storage Error:',
+            storageErr,
+          );
+        }
+
+        navigation.goBack();
+      });
 
     dispatch(actionToDispatch);
   };
 
   const isNativeMapAvailable = () => {
     try {
-      const {UIManager} = require('react-native');
+      const { UIManager } = require('react-native');
       const hasValidKey =
         Boolean(GOOGLE_MAPS_API_KEY) &&
         GOOGLE_MAPS_API_KEY.startsWith('AIzaSy');
 
       return Boolean(
         MapView &&
-          hasValidKey &&
-          (UIManager.getViewManagerConfig?.('AIRMap') || UIManager.AIRMap),
+        hasValidKey &&
+        (UIManager.getViewManagerConfig?.('AIRMap') || UIManager.AIRMap),
       );
     } catch (e) {
       return true;
@@ -970,12 +1242,12 @@ const EnterCompleteAddressScreen = () => {
   };
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: colors.white}}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.white }}>
       <KeyboardAvoidingView
-        style={{flex: 1}}
+        style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={{flex: 1}}>
+          <View style={{ flex: 1 }}>
             {/* HEADER */}
             <View
               style={{
@@ -1016,7 +1288,7 @@ const EnterCompleteAddressScreen = () => {
             <ScrollView
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
-              contentContainerStyle={{paddingBottom: hp(40)}}>
+              contentContainerStyle={{ paddingBottom: hp(40) }}>
               {/* Divider */}
               <View
                 style={{
@@ -1095,13 +1367,15 @@ const EnterCompleteAddressScreen = () => {
                 {/* Search Bar Floating Overlay */}
                 <View style={styles.searchContainer}>
                   <View style={styles.searchInputWrapper}>
-                    <Text style={{fontSize: 16, marginRight: 8}}>🔍</Text>
+                    <Text style={{ fontSize: 16, marginRight: 8 }}>🔍</Text>
                     <TextInput
                       style={styles.searchInput}
                       placeholder="Search area, apartment, landmark..."
                       placeholderTextColor="#888"
                       value={searchText}
                       onChangeText={handleSearchTextChange}
+                      returnKeyType="search"
+                      onSubmitEditing={handleSearchSubmit}
                     />
                     {searching && (
                       <ActivityIndicator
@@ -1117,16 +1391,16 @@ const EnterCompleteAddressScreen = () => {
                       <ScrollView
                         keyboardShouldPersistTaps="handled"
                         nestedScrollEnabled={true}
-                        style={{maxHeight: hp(200)}}>
+                        style={{ maxHeight: hp(200) }}>
                         {suggestions.map(item => (
                           <TouchableOpacity
                             key={item.id}
                             style={styles.suggestionItem}
                             onPress={() => handleSelectSuggestion(item)}>
-                            <Text style={{fontSize: 16, marginRight: 10}}>
+                            <Text style={{ fontSize: 16, marginRight: 10 }}>
                               📍
                             </Text>
-                            <View style={{flex: 1}}>
+                            <View style={{ flex: 1 }}>
                               <Text
                                 style={styles.suggestionTitle}
                                 numberOfLines={1}>
@@ -1147,9 +1421,9 @@ const EnterCompleteAddressScreen = () => {
               </View>
 
               {/* --- BOTTOM SHEET FORM --- */}
-              <View style={{marginTop: hp(16)}}>
+              <View style={{ marginTop: hp(16) }}>
                 {/* INPUTS */}
-                <View style={{marginTop: hp(3)}}>
+                <View style={{ marginTop: hp(3) }}>
                   <BorderShowLabelTextInputComponent
                     label="House / Flat / Floor / Building *"
                     value={houseNumber}
@@ -1268,7 +1542,7 @@ const EnterCompleteAddressScreen = () => {
                   multiline={false}
                 />
               </View>
-              <View style={{marginBottom: hp(70)}} />
+              <View style={{ marginBottom: hp(70) }} />
             </ScrollView>
           </View>
         </TouchableWithoutFeedback>
@@ -1322,7 +1596,7 @@ const styles = StyleSheet.create({
     width: '100%',
     position: 'relative',
   },
-  map: {flex: 1},
+  map: { flex: 1 },
   centerPinContainer: {
     position: 'absolute',
     top: '50%',
@@ -1370,7 +1644,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#1E1E2D',
     marginTop: 1,
   },
-  pinIcon: {fontSize: 32},
+  pinIcon: { fontSize: 32 },
   pinShadow: {
     width: 8,
     height: 4,

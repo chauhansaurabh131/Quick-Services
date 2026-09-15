@@ -441,7 +441,7 @@ const PreBookingServiceScreen = () => {
       const activeHomeScreenAddress =
         locationState?.fullAddress ||
         locationState?.address ||
-        '8, Rameshwar Nagar, J P Nagar Society, Bardoli, Gujarat, India';
+        'Current Location';
 
       const activeMobile =
         user?.mobile ||
@@ -966,7 +966,7 @@ const PreBookingServiceScreen = () => {
                 addrItem?.displayAddress ||
                 addrItem?.address ||
                 locationState?.fullAddress ||
-                '8, Rameshwar Nagar, J P Nagar Society, Bardoli, Gujarat, India';
+                'Current Location';
 
               const rawUserPhone =
                 addrItem?.mobile ||

@@ -5,6 +5,7 @@ const initialState = {
   longitude: null,
   place: 'Fetching location...',
   fullAddress: '',
+  isManualSelection: false,
 };
 
 const locationReducer = (state = initialState, action) => {
@@ -16,6 +17,10 @@ const locationReducer = (state = initialState, action) => {
         longitude: action.payload.longitude,
         place: action.payload.place,
         fullAddress: action.payload.fullAddress,
+        isManualSelection:
+          action.payload.isManualSelection !== undefined
+            ? action.payload.isManualSelection
+            : state.isManualSelection,
       };
     case TYPES.RESET_LOCATION:
       return initialState;
