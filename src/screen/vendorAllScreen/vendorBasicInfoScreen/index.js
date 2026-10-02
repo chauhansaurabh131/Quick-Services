@@ -520,6 +520,28 @@ const VendorBasicInfoScreen = () => {
           }
 
           console.log('Final resolved image display URL:', displayUrl);
+          try {
+            await AsyncStorage.setItem('VENDOR_PROFILE_PIC', displayUrl);
+            const storedUserStr = await AsyncStorage.getItem('USER');
+            if (storedUserStr) {
+              const storedUser = JSON.parse(storedUserStr);
+              const updatedStoredUser = {
+                ...storedUser,
+                profileImage: displayUrl,
+                profilePic: displayUrl,
+                userProfilePic: displayUrl,
+                vendorUser: {
+                  ...(storedUser.vendorUser || {}),
+                  profileImage: displayUrl,
+                  profilePic: displayUrl,
+                },
+              };
+              await AsyncStorage.setItem(
+                'USER',
+                JSON.stringify(updatedStoredUser),
+              );
+            }
+          } catch (e) {}
           setS3UploadedImage(displayUrl);
           setUploadingImage(false);
         } catch (uploadError) {

@@ -150,30 +150,117 @@ const VendorProfileScreen = () => {
     }),
   ).current;
 
-  const rawPic =
-    reduxUser?.profilePic ||
-    reduxUser?.profileImage ||
-    reduxUser?.userProfilePic ||
-    user?.profilePic ||
-    user?.profileImage ||
-    user?.user?.profilePic ||
-    user?.user?.profileImage ||
-    vendorUserDetails?.profilePic ||
-    vendorUserDetails?.profileImage ||
-    vendorUserDetails?.data?.profilePic ||
-    vendorUserDetails?.data?.profileImage;
+  const [asyncImage, setAsyncImage] = useState(null);
 
-  const profileImageUri =
-    typeof rawPic === 'string'
-      ? rawPic
-      : Array.isArray(rawPic) && rawPic.length > 0
-      ? rawPic[0]?.url ||
-        rawPic[0]?.location ||
-        rawPic[0]?.fileUrl ||
-        (typeof rawPic[0] === 'string' ? rawPic[0] : null)
-      : typeof rawPic === 'object' && rawPic !== null
-      ? rawPic.url || rawPic.location || rawPic.fileUrl
-      : 'https://images.unsplash.com/photo-1560066984-138dadb4c035';
+  const extractPicUrl = val => {
+    if (!val) {
+      return null;
+    }
+    if (typeof val === 'string' && val.trim().length > 0) {
+      const trimmed = val.trim();
+      if (
+        trimmed === '[object Object]' ||
+        trimmed === 'null' ||
+        trimmed === 'undefined'
+      ) {
+        return null;
+      }
+      if (
+        trimmed.startsWith('file://') ||
+        trimmed.startsWith('content://') ||
+        trimmed.startsWith('ph://') ||
+        trimmed.startsWith('assets-library://')
+      ) {
+        return trimmed;
+      }
+      if (trimmed.startsWith('http://')) {
+        return trimmed.replace('http://', 'https://');
+      }
+      if (trimmed.startsWith('https://')) {
+        return trimmed;
+      }
+      if (
+        !trimmed.startsWith('http') &&
+        !trimmed.startsWith('/') &&
+        trimmed.includes('.')
+      ) {
+        return `https://trendigo-s3.s3.amazonaws.com/${trimmed}`;
+      }
+      return trimmed;
+    }
+    if (Array.isArray(val) && val.length > 0) {
+      return extractPicUrl(val[0]);
+    }
+    if (typeof val === 'object' && val !== null) {
+      return (
+        extractPicUrl(val.url) ||
+        extractPicUrl(val.location) ||
+        extractPicUrl(val.fileUrl) ||
+        extractPicUrl(val.uri) ||
+        extractPicUrl(val.s3Url) ||
+        extractPicUrl(val.publicUrl) ||
+        extractPicUrl(val.profilePic) ||
+        extractPicUrl(val.profileImage) ||
+        null
+      );
+    }
+    return null;
+  };
+
+  useEffect(() => {
+    const loadStoragePic = async () => {
+      try {
+        const storedPic = await AsyncStorage.getItem('VENDOR_PROFILE_PIC');
+        if (storedPic) {
+          const extracted = extractPicUrl(storedPic);
+          if (extracted) {
+            setAsyncImage(extracted);
+            return;
+          }
+        }
+        const storedUser = await AsyncStorage.getItem('USER');
+        if (storedUser) {
+          const parsed = JSON.parse(storedUser);
+          const pic = extractPicUrl(
+            parsed?.profilePic ||
+              parsed?.profileImage ||
+              parsed?.userProfilePic ||
+              parsed?.vendorUser?.profilePic ||
+              parsed?.vendorUser?.profileImage,
+          );
+          if (pic) {
+            setAsyncImage(pic);
+          }
+        }
+      } catch (err) {}
+    };
+    loadStoragePic();
+  }, []);
+
+  const displayProfileImageUri =
+    extractPicUrl(localProfileImage) ||
+    extractPicUrl(asyncImage) ||
+    extractPicUrl(reduxUser?.profilePic) ||
+    extractPicUrl(reduxUser?.profileImage) ||
+    extractPicUrl(reduxUser?.userProfilePic) ||
+    extractPicUrl(reduxUser?.profile_pic) ||
+    extractPicUrl(reduxUser?.profile_image) ||
+    extractPicUrl(reduxUser?.image) ||
+    extractPicUrl(reduxUser?.avatar) ||
+    extractPicUrl(user?.profilePic) ||
+    extractPicUrl(user?.profileImage) ||
+    extractPicUrl(user?.userProfilePic) ||
+    extractPicUrl(user?.vendorUser?.profilePic) ||
+    extractPicUrl(user?.vendorUser?.profileImage) ||
+    extractPicUrl(user?.user?.profilePic) ||
+    extractPicUrl(user?.user?.profileImage) ||
+    extractPicUrl(vendorUserDetails?.profilePic) ||
+    extractPicUrl(vendorUserDetails?.profileImage) ||
+    extractPicUrl(vendorUserDetails?.data?.profilePic) ||
+    extractPicUrl(vendorUserDetails?.data?.profileImage) ||
+    extractPicUrl(vendorUserDetails?.vendorUser?.profilePic) ||
+    extractPicUrl(vendorUserDetails?.vendorUser?.profileImage) ||
+    'https://images.unsplash.com/photo-1560066984-138dadb4c035';
 
   const vendorTitle =
     reduxUser?.businessName ||
@@ -311,6 +398,31 @@ const VendorProfileScreen = () => {
             }
           }
 
+          try {
+            await AsyncStorage.setItem('VENDOR_PROFILE_PIC', displayUrl);
+            const storedUserStr = await AsyncStorage.getItem('USER');
+            if (storedUserStr) {
+              const storedUser = JSON.parse(storedUserStr);
+              const updatedStoredUser = {
+                ...storedUser,
+                profileImage: displayUrl,
+                profilePic: displayUrl,
+                userProfilePic: displayUrl,
+                vendorUser: {
+                  ...(storedUser.vendorUser || {}),
+                  profileImage: displayUrl,
+                  profilePic: displayUrl,
+                },
+              };
+              await AsyncStorage.setItem(
+                'USER',
+                JSON.stringify(updatedStoredUser),
+              );
+            }
+          } catch (e) {}
+
+          setAsyncImage(displayUrl);
+
           dispatch(
             updateVendorProfile(
               {profilePic: displayUrl, profileImage: displayUrl},
@@ -412,8 +524,9 @@ const VendorProfileScreen = () => {
             position: 'relative',
           }}>
           <Image
+            key={displayProfileImageUri}
             source={{
-              uri: localProfileImage || profileImageUri,
+              uri: displayProfileImageUri,
             }}
             style={{
               width: hp(120),

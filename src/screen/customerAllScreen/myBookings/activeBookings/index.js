@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Linking,
 } from 'react-native';
 import {fontFamily, fontSize, hp, wp} from '../../../../utils/helpers';
 import {colors} from '../../../../utils/colors';
@@ -37,7 +38,13 @@ const defaultBookings = [
   },
 ];
 
-const ActiveBookings = ({bookingsList, fetching = false, onRefresh}) => {
+const ActiveBookings = ({
+  bookingsList,
+  fetching = false,
+  loadingMore = false,
+  onRefresh,
+  onLoadMore,
+}) => {
   const {t} = useTranslation();
   const navigation = useNavigation();
 
@@ -145,10 +152,7 @@ const ActiveBookings = ({bookingsList, fetching = false, onRefresh}) => {
 
   const getBookingTime = item => {
     return (
-      item?.timeSlot ||
-      item?.appointmentTime ||
-      item?.time ||
-      '10 AM to 11 AM'
+      item?.timeSlot || item?.appointmentTime || item?.time || '10 AM to 11 AM'
     );
   };
 
@@ -161,6 +165,32 @@ const ActiveBookings = ({bookingsList, fetching = false, onRefresh}) => {
     const num = Number(str);
     const formatted = !isNaN(num) ? num.toFixed(2) : str;
     return `Rs. ${formatted}`;
+  };
+
+  const handleCallPhone = item => {
+    const rawNumber =
+      item?.vendorMobileNumber ||
+      item?.vendorPhone ||
+      item?.vendorMobile ||
+      item?.vendorId?.vendorMobileNumber ||
+      item?.vendorId?.mobileNumber ||
+      item?.vendorId?.phone ||
+      item?.vendorId?.mobile ||
+      item?.vendorId?.phoneNumber ||
+      item?.vendor?.vendorMobileNumber ||
+      item?.vendor?.mobileNumber ||
+      item?.vendor?.phone ||
+      item?.vendor?.mobile ||
+      item?.phone ||
+      item?.mobile ||
+      '7405665654';
+    const cleanNumber = String(rawNumber).replace(/[^0-9+]/g, '');
+    const url = `tel:${cleanNumber}`;
+    Linking.canOpenURL(url)
+      .then(supported => {
+        return Linking.openURL(url);
+      })
+      .catch(err => console.log('Error opening dialer:', err));
   };
 
   const renderItem = ({item}) => {
@@ -201,14 +231,25 @@ const ActiveBookings = ({bookingsList, fetching = false, onRefresh}) => {
             {title}
           </Text>
 
-          <Text
+          <View
             style={{
-              fontSize: fontSize(10),
-              fontFamily: fontFamily.poppins500,
-              color: colors.primaryColor,
+              backgroundColor: '#F6EEFF',
+              paddingHorizontal: wp(14),
+              paddingVertical: hp(5),
+              borderRadius: hp(15),
+              justifyContent: 'center',
+              alignItems: 'center',
             }}>
-            {t('onTheWay')}
-          </Text>
+            <Text
+              style={{
+                fontSize: fontSize(11),
+                fontFamily: fontFamily.poppins600,
+                color: colors.primaryColor || '#731EE2',
+                letterSpacing: 0.5,
+              }}>
+              ACCEPTED
+            </Text>
+          </View>
         </View>
 
         <View style={{flexDirection: 'row', alignItems: 'center'}}>
@@ -332,7 +373,7 @@ const ActiveBookings = ({bookingsList, fetching = false, onRefresh}) => {
             <Text
               style={{
                 fontSize: fontSize(12),
-                color: colors.pureBlack,
+                color: colors.primaryColor || '#731EE2',
                 fontFamily: fontFamily.poppins600,
               }}>
               {price}
@@ -343,20 +384,18 @@ const ActiveBookings = ({bookingsList, fetching = false, onRefresh}) => {
         {/* Buttons */}
         <View
           style={{
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            marginTop: hp(14),
+            marginTop: hp(16),
           }}>
           <TouchableOpacity
             activeOpacity={0.6}
+            onPress={() => handleCallPhone(item)}
             style={{
-              flex: 1,
-              height: hp(40),
-              backgroundColor: '#F1EBFF',
-              borderRadius: hp(20),
+              width: '100%',
+              height: hp(42),
+              backgroundColor: '#F6EEFF',
+              borderRadius: hp(21),
               justifyContent: 'center',
               alignItems: 'center',
-              marginRight: wp(8),
               flexDirection: 'row',
             }}>
             <Image
@@ -365,52 +404,39 @@ const ActiveBookings = ({bookingsList, fetching = false, onRefresh}) => {
                 width: hp(13),
                 height: hp(13),
                 resizeMode: 'contain',
-                top: 1,
-                marginRight: wp(15),
+                marginRight: wp(10),
               }}
             />
             <Text
               style={{
-                color: colors.primaryColor,
-                fontSize: fontSize(14),
-                fontFamily: fontFamily.poppins500,
+                color: colors.primaryColor || '#731EE2',
+                fontSize: fontSize(13),
+                fontFamily: fontFamily.poppins600,
+                letterSpacing: 0.5,
               }}>
-              {t('call')}
+              {(t('call') || 'CALL').toUpperCase()}
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            activeOpacity={0.6}
+          {/* OTP Warning Message */}
+          <View
             style={{
-              flex: 1,
-              height: hp(40),
-              backgroundColor: '#F1EBFF',
-              borderRadius: hp(20),
-              justifyContent: 'center',
-              alignItems: 'center',
-              marginLeft: wp(8),
-              flexDirection: 'row',
+              backgroundColor: '#FFF9EC',
+              borderRadius: hp(12),
+              paddingHorizontal: wp(14),
+              paddingVertical: hp(12),
+              marginTop: hp(12),
             }}>
-            <Image
-              source={icons.message_Icon}
-              style={{
-                width: hp(15),
-                height: hp(15),
-                resizeMode: 'contain',
-                top: 1,
-                marginRight: wp(15),
-              }}
-            />
-
             <Text
               style={{
-                color: colors.primaryColor,
-                fontSize: fontSize(14),
-                fontFamily: fontFamily.poppins500,
+                fontSize: fontSize(12),
+                fontFamily: fontFamily.poppins400,
+                color: '#917637',
+                lineHeight: hp(18),
               }}>
-              {t('chat')}
+              Do not share OTP on call, share only on visit in the personal
             </Text>
-          </TouchableOpacity>
+          </View>
         </View>
 
         {/* Divider */}
@@ -426,7 +452,7 @@ const ActiveBookings = ({bookingsList, fetching = false, onRefresh}) => {
         {/* View Details */}
         <TouchableOpacity
           onPress={() => {
-            navigation.navigate('LiveTrackingScreen', {booking: item});
+            navigation.navigate('DetailsScreen', {booking: item});
           }}
           style={{
             alignItems: 'center',
@@ -447,7 +473,10 @@ const ActiveBookings = ({bookingsList, fetching = false, onRefresh}) => {
   if (fetching && dataToDisplay.length === 0) {
     return (
       <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-        <ActivityIndicator size="large" color={colors.primaryColor || '#731EE2'} />
+        <ActivityIndicator
+          size="large"
+          color={colors.primaryColor || '#731EE2'}
+        />
       </View>
     );
   }
@@ -485,6 +514,18 @@ const ActiveBookings = ({bookingsList, fetching = false, onRefresh}) => {
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{paddingBottom: hp(30)}}
+        onEndReached={onLoadMore}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={{paddingVertical: hp(15), alignItems: 'center'}}>
+              <ActivityIndicator
+                size="small"
+                color={colors.primaryColor || '#731EE2'}
+              />
+            </View>
+          ) : null
+        }
         refreshControl={
           onRefresh ? (
             <RefreshControl

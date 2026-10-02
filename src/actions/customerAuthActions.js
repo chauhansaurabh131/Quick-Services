@@ -2,7 +2,7 @@ import * as TYPES from './actionTypes';
 
 export const loginCustomer = (payload, callback) => ({
   type: TYPES.LOGIN_CUSTOMER,
-  data: { payload, callback },
+  data: {payload, callback},
 });
 
 export const loginCustomerSuccess = data => ({
@@ -17,7 +17,7 @@ export const loginCustomerFailed = error => ({
 
 export const registerVendor = (payload, callback) => ({
   type: TYPES.REGISTER_VENDOR,
-  data: { payload, callback },
+  data: {payload, callback},
 });
 
 export const registerVendorSuccess = data => ({
@@ -32,7 +32,7 @@ export const registerVendorFailed = error => ({
 
 export const verifyOtpCustomer = (payload, callback) => ({
   type: TYPES.VERIFY_OTP_CUSTOMER,
-  data: { payload, callback },
+  data: {payload, callback},
 });
 
 export const verifyOtpCustomerSuccess = data => ({
@@ -47,7 +47,7 @@ export const verifyOtpCustomerFailed = error => ({
 
 export const verifyOtpVendor = (payload, callback) => ({
   type: TYPES.VERIFY_OTP_VENDOR,
-  data: { payload, callback },
+  data: {payload, callback},
 });
 
 export const verifyOtpVendorSuccess = data => ({
@@ -62,7 +62,7 @@ export const verifyOtpVendorFailed = error => ({
 
 export const updateUserCustomer = (payload, callback) => ({
   type: TYPES.UPDATE_USER_CUSTOMER,
-  data: { payload, callback },
+  data: {payload, callback},
 });
 
 export const updateUserCustomerSuccess = (data, payload) => ({
@@ -78,7 +78,7 @@ export const updateUserCustomerFailed = error => ({
 
 export const updateVendorProfile = (payload, callback) => ({
   type: TYPES.UPDATE_VENDOR_PROFILE,
-  data: { payload, callback },
+  data: {payload, callback},
 });
 
 export const updateVendorProfileSuccess = (data, payload) => ({
@@ -94,7 +94,7 @@ export const updateVendorProfileFailed = error => ({
 
 export const saveBusinessAddress = (payload, callback) => ({
   type: TYPES.SAVE_BUSINESS_ADDRESS,
-  data: { payload, callback },
+  data: {payload, callback},
 });
 
 export const saveBusinessAddressSuccess = (data, payload) => ({
@@ -110,7 +110,7 @@ export const saveBusinessAddressFailed = error => ({
 
 export const getVendorCategories = callback => ({
   type: TYPES.GET_VENDOR_CATEGORIES,
-  data: { callback },
+  data: {callback},
 });
 
 export const getVendorCategoriesSuccess = data => ({
@@ -125,7 +125,7 @@ export const getVendorCategoriesFailed = error => ({
 
 export const getCategories = callback => ({
   type: TYPES.GET_CATEGORIES,
-  data: { callback },
+  data: {callback},
 });
 
 export const getCategoriesSuccess = data => ({
@@ -140,7 +140,7 @@ export const getCategoriesFailed = error => ({
 
 export const getCategoryById = (categoryId, callback) => ({
   type: TYPES.GET_CATEGORY_BY_ID,
-  data: { categoryId, callback },
+  data: {categoryId, callback},
 });
 
 export const getCategoryByIdSuccess = data => ({
@@ -155,7 +155,7 @@ export const getCategoryByIdFailed = error => ({
 
 export const getServicesByCategory = (categoryId, callback) => ({
   type: TYPES.GET_SERVICES_BY_CATEGORY,
-  data: { categoryId, callback },
+  data: {categoryId, callback},
 });
 
 export const getServicesByCategorySuccess = (data, categoryId) => ({
@@ -178,7 +178,7 @@ export const getVendorServicesByCategory = (
   limit = 10,
 ) => ({
   type: TYPES.GET_VENDOR_SERVICES_BY_CATEGORY,
-  data: { categoryId, longitude, latitude, callback, page, limit },
+  data: {categoryId, longitude, latitude, callback, page, limit},
 });
 
 export const getVendorServicesByCategorySuccess = (data, categoryId) => ({
@@ -194,7 +194,7 @@ export const getVendorServicesByCategoryFailed = error => ({
 
 export const getVendorUserDetails = (vendorUserId, callback) => ({
   type: TYPES.GET_VENDOR_USER_DETAILS,
-  data: { vendorUserId, callback },
+  data: {vendorUserId, callback},
 });
 
 export const getVendorUserDetailsSuccess = data => ({
@@ -209,7 +209,7 @@ export const getVendorUserDetailsFailed = error => ({
 
 export const saveVendorServices = (payload, callback) => ({
   type: TYPES.SAVE_VENDOR_SERVICES,
-  data: { payload, callback },
+  data: {payload, callback},
 });
 
 export const saveVendorServicesSuccess = (data, payload) => ({
@@ -225,7 +225,7 @@ export const saveVendorServicesFailed = error => ({
 
 export const resendOtpVendor = (payload, callback) => ({
   type: TYPES.RESEND_OTP_VENDOR,
-  data: { payload, callback },
+  data: {payload, callback},
 });
 
 export const resendOtpVendorSuccess = data => ({
@@ -240,7 +240,7 @@ export const resendOtpVendorFailed = error => ({
 
 export const loginVendor = (payload, callback, token) => ({
   type: TYPES.LOGIN_VENDOR,
-  data: { payload, callback, token },
+  data: {payload, callback, token},
 });
 
 export const loginVendorSuccess = data => ({
@@ -255,7 +255,7 @@ export const loginVendorFailed = error => ({
 
 export const getMyAvailability = callback => ({
   type: TYPES.GET_MY_AVAILABILITY,
-  data: { callback },
+  data: {callback},
 });
 
 export const getMyAvailabilitySuccess = data => ({
@@ -270,7 +270,7 @@ export const getMyAvailabilityFailed = error => ({
 
 export const updateMyAvailability = (payload, callback) => ({
   type: TYPES.UPDATE_MY_AVAILABILITY,
-  data: { payload, callback },
+  data: {payload, callback},
 });
 
 export const updateMyAvailabilitySuccess = (data, payload) => ({
@@ -290,7 +290,7 @@ export const logoutUser = () => ({
 
 export const updateUserLocation = (userId, payload, callback) => ({
   type: TYPES.UPDATE_USER_LOCATION,
-  data: { userId, payload, callback },
+  data: {userId, payload, callback},
 });
 
 export const updateUserLocationSuccess = data => ({
@@ -305,7 +305,7 @@ export const updateUserLocationFailed = error => ({
 
 export const saveCustomerAddress = (payload, callback) => ({
   type: TYPES.SAVE_CUSTOMER_ADDRESS,
-  data: { payload, callback },
+  data: {payload, callback},
 });
 
 export const saveCustomerAddressSuccess = data => ({
@@ -320,7 +320,7 @@ export const saveCustomerAddressFailed = error => ({
 
 export const updateCustomerAddress = (addressId, payload, callback) => ({
   type: TYPES.UPDATE_CUSTOMER_ADDRESS,
-  data: { addressId, payload, callback },
+  data: {addressId, payload, callback},
 });
 
 export const updateCustomerAddressSuccess = data => ({
@@ -335,7 +335,7 @@ export const updateCustomerAddressFailed = error => ({
 
 export const getCustomerAddresses = (userId, callback) => ({
   type: TYPES.GET_CUSTOMER_ADDRESSES,
-  data: { userId, callback },
+  data: {userId, callback},
 });
 
 export const getCustomerAddressesSuccess = data => ({
@@ -350,7 +350,7 @@ export const getCustomerAddressesFailed = error => ({
 
 export const deleteCustomerAddress = (addressId, callback) => ({
   type: TYPES.DELETE_CUSTOMER_ADDRESS,
-  data: { addressId, callback },
+  data: {addressId, callback},
 });
 
 export const deleteCustomerAddressSuccess = (data, addressId) => ({
@@ -366,7 +366,7 @@ export const deleteCustomerAddressFailed = error => ({
 
 export const createBooking = (payload, callback) => ({
   type: TYPES.CREATE_BOOKING,
-  data: { payload, callback },
+  data: {payload, callback},
 });
 
 export const createBookingSuccess = data => ({
@@ -381,7 +381,7 @@ export const createBookingFailed = error => ({
 
 export const getBookingById = (bookingId, callback) => ({
   type: TYPES.GET_BOOKING_BY_ID,
-  data: { bookingId, callback },
+  data: {bookingId, callback},
 });
 
 export const getBookingByIdSuccess = data => ({
@@ -396,7 +396,7 @@ export const getBookingByIdFailed = error => ({
 
 export const updateBookingAddress = (bookingId, payload, callback) => ({
   type: TYPES.UPDATE_BOOKING_ADDRESS,
-  data: { bookingId, payload, callback },
+  data: {bookingId, payload, callback},
 });
 
 export const updateBookingAddressSuccess = data => ({
@@ -411,12 +411,12 @@ export const updateBookingAddressFailed = error => ({
 
 export const getVendorBookings = (vendorId, status, callback) => ({
   type: TYPES.GET_VENDOR_BOOKINGS,
-  data: { vendorId, status, callback },
+  data: {vendorId, status, callback},
 });
 
 export const getVendorBookingsSuccess = (data, status) => ({
   type: TYPES.GET_VENDOR_BOOKINGS_SUCCESS,
-  payload: { data, status },
+  payload: {data, status},
 });
 
 export const getVendorBookingsFailed = error => ({
@@ -426,7 +426,7 @@ export const getVendorBookingsFailed = error => ({
 
 export const acceptVendorBooking = (bookingId, callback) => ({
   type: TYPES.ACCEPT_VENDOR_BOOKING,
-  data: { bookingId, callback },
+  data: {bookingId, callback},
 });
 
 export const acceptVendorBookingSuccess = data => ({
@@ -441,7 +441,7 @@ export const acceptVendorBookingFailed = error => ({
 
 export const cancelVendorBooking = (bookingId, cancelReason, callback) => ({
   type: TYPES.CANCEL_VENDOR_BOOKING,
-  data: { bookingId, cancelReason, callback },
+  data: {bookingId, cancelReason, callback},
 });
 
 export const cancelVendorBookingSuccess = data => ({
@@ -456,7 +456,7 @@ export const cancelVendorBookingFailed = error => ({
 
 export const vendorSendOtp = (bookingId, callback) => ({
   type: TYPES.VENDOR_SEND_OTP,
-  data: { bookingId, callback },
+  data: {bookingId, callback},
 });
 
 export const vendorSendOtpSuccess = data => ({
@@ -471,7 +471,7 @@ export const vendorSendOtpFailed = error => ({
 
 export const vendorResendOtp = (bookingId, callback) => ({
   type: TYPES.VENDOR_RESEND_OTP,
-  data: { bookingId, callback },
+  data: {bookingId, callback},
 });
 
 export const vendorResendOtpSuccess = data => ({
@@ -486,7 +486,7 @@ export const vendorResendOtpFailed = error => ({
 
 export const vendorVerifyOtp = (bookingId, otp, callback) => ({
   type: TYPES.VENDOR_VERIFY_OTP,
-  data: { bookingId, otp, callback },
+  data: {bookingId, otp, callback},
 });
 
 export const vendorVerifyOtpSuccess = data => ({
@@ -502,7 +502,7 @@ export const vendorVerifyOtpFailed = error => ({
 export const getCustomerBookings = (status, p2, p3, p4) => {
   let page = 1;
   let limit = 10;
-  let callback = undefined;
+  let callback;
 
   if (typeof p2 === 'function') {
     callback = p2;
@@ -510,7 +510,10 @@ export const getCustomerBookings = (status, p2, p3, p4) => {
     page = Number(p2) || 1;
     if (typeof p3 === 'function') {
       callback = p3;
-    } else if (typeof p3 === 'number' || (typeof p3 === 'string' && !isNaN(p3))) {
+    } else if (
+      typeof p3 === 'number' ||
+      (typeof p3 === 'string' && !isNaN(p3))
+    ) {
       limit = Number(p3) || 10;
       if (typeof p4 === 'function') {
         callback = p4;
@@ -529,9 +532,9 @@ export const getCustomerBookings = (status, p2, p3, p4) => {
   };
 };
 
-export const getCustomerBookingsSuccess = (data, status) => ({
+export const getCustomerBookingsSuccess = (data, status, page = 1) => ({
   type: TYPES.GET_CUSTOMER_BOOKINGS_SUCCESS,
-  payload: { data, status },
+  payload: {data, status, page},
 });
 
 export const getCustomerBookingsFailed = error => ({
@@ -539,3 +542,192 @@ export const getCustomerBookingsFailed = error => ({
   error,
 });
 
+export const cancelCustomerBooking = (bookingId, payload, callback) => ({
+  type: TYPES.CANCEL_CUSTOMER_BOOKING,
+  data: {bookingId, payload, callback},
+});
+
+export const cancelCustomerBookingSuccess = data => ({
+  type: TYPES.CANCEL_CUSTOMER_BOOKING_SUCCESS,
+  data,
+});
+
+export const cancelCustomerBookingFailed = error => ({
+  type: TYPES.CANCEL_CUSTOMER_BOOKING_FAILED,
+  error,
+});
+
+export const createCustomerReview = (payload, callback) => ({
+  type: TYPES.CREATE_CUSTOMER_REVIEW,
+  data: {payload, callback},
+});
+
+export const createCustomerReviewSuccess = data => ({
+  type: TYPES.CREATE_CUSTOMER_REVIEW_SUCCESS,
+  data,
+});
+
+export const createCustomerReviewFailed = error => ({
+  type: TYPES.CREATE_CUSTOMER_REVIEW_FAILED,
+  error,
+});
+
+export const uploadProfilePic = (payload, callback) => ({
+  type: TYPES.UPLOAD_PROFILE_PIC,
+  data: {payload, callback},
+});
+
+export const uploadProfilePicSuccess = (data, payload) => ({
+  type: TYPES.UPLOAD_PROFILE_PIC_SUCCESS,
+  data,
+  payload,
+});
+
+export const uploadProfilePicFailed = error => ({
+  type: TYPES.UPLOAD_PROFILE_PIC_FAILED,
+  error,
+});
+
+export const getVendorPaginatedReviews = (p1, p2, p3) => {
+  let page = 1;
+  let limit = 10;
+  let callback;
+
+  if (typeof p1 === 'function') {
+    callback = p1;
+  } else if (typeof p1 === 'number' || (typeof p1 === 'string' && !isNaN(p1))) {
+    page = Number(p1) || 1;
+    if (typeof p2 === 'function') {
+      callback = p2;
+    } else if (
+      typeof p2 === 'number' ||
+      (typeof p2 === 'string' && !isNaN(p2))
+    ) {
+      limit = Number(p2) || 10;
+      if (typeof p3 === 'function') {
+        callback = p3;
+      }
+    }
+  }
+
+  return {
+    type: TYPES.GET_VENDOR_PAGINATED_REVIEWS,
+    data: {
+      page,
+      limit,
+      callback,
+    },
+  };
+};
+
+export const getVendorPaginatedReviewsSuccess = (data, page = 1) => ({
+  type: TYPES.GET_VENDOR_PAGINATED_REVIEWS_SUCCESS,
+  payload: {data, page},
+});
+
+export const getVendorPaginatedReviewsFailed = error => ({
+  type: TYPES.GET_VENDOR_PAGINATED_REVIEWS_FAILED,
+  error,
+});
+
+export const replyVendorReview = (reviewId, payload, callback) => ({
+  type: TYPES.REPLY_VENDOR_REVIEW,
+  data: {reviewId, payload, callback},
+});
+
+export const replyVendorReviewSuccess = (data, reviewId) => ({
+  type: TYPES.REPLY_VENDOR_REVIEW_SUCCESS,
+  payload: {data, reviewId},
+});
+
+export const replyVendorReviewFailed = error => ({
+  type: TYPES.REPLY_VENDOR_REVIEW_FAILED,
+  error,
+});
+
+export const getCustomerReviews = (p1, p2, p3) => {
+  let page = 1;
+  let limit = 10;
+  let callback;
+
+  if (typeof p1 === 'function') {
+    callback = p1;
+  } else if (typeof p1 === 'number' || (typeof p1 === 'string' && !isNaN(p1))) {
+    page = Number(p1) || 1;
+    if (typeof p2 === 'function') {
+      callback = p2;
+    } else if (
+      typeof p2 === 'number' ||
+      (typeof p2 === 'string' && !isNaN(p2))
+    ) {
+      limit = Number(p2) || 10;
+      if (typeof p3 === 'function') {
+        callback = p3;
+      }
+    }
+  }
+
+  return {
+    type: TYPES.GET_CUSTOMER_REVIEWS,
+    data: {
+      page,
+      limit,
+      callback,
+    },
+  };
+};
+
+export const getCustomerReviewsSuccess = (data, page = 1) => ({
+  type: TYPES.GET_CUSTOMER_REVIEWS_SUCCESS,
+  payload: {data, page},
+});
+
+export const getCustomerReviewsFailed = error => ({
+  type: TYPES.GET_CUSTOMER_REVIEWS_FAILED,
+  error,
+});
+
+export const updateCustomerReview = (reviewId, payload, callback) => ({
+  type: TYPES.UPDATE_CUSTOMER_REVIEW,
+  data: {reviewId, payload, callback},
+});
+
+export const updateCustomerReviewSuccess = (data, reviewId) => ({
+  type: TYPES.UPDATE_CUSTOMER_REVIEW_SUCCESS,
+  payload: {data, reviewId},
+});
+
+export const updateCustomerReviewFailed = error => ({
+  type: TYPES.UPDATE_CUSTOMER_REVIEW_FAILED,
+  error,
+});
+
+export const deleteCustomerReview = (reviewId, callback) => ({
+  type: TYPES.DELETE_CUSTOMER_REVIEW,
+  data: {reviewId, callback},
+});
+
+export const deleteCustomerReviewSuccess = (data, reviewId) => ({
+  type: TYPES.DELETE_CUSTOMER_REVIEW_SUCCESS,
+  payload: {data, reviewId},
+});
+
+export const deleteCustomerReviewFailed = error => ({
+  type: TYPES.DELETE_CUSTOMER_REVIEW_FAILED,
+  error,
+});
+
+export const deleteVendorReviewReply = (reviewId, callback) => ({
+  type: TYPES.DELETE_VENDOR_REVIEW_REPLY,
+  data: {reviewId, callback},
+});
+
+export const deleteVendorReviewReplySuccess = (data, reviewId) => ({
+  type: TYPES.DELETE_VENDOR_REVIEW_REPLY_SUCCESS,
+  payload: {data, reviewId},
+});
+
+export const deleteVendorReviewReplyFailed = error => ({
+  type: TYPES.DELETE_VENDOR_REVIEW_REPLY_FAILED,
+  error,
+});

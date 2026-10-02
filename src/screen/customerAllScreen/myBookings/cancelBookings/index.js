@@ -47,7 +47,13 @@ const defaultBookings = [
   },
 ];
 
-const CancelBookings = ({bookingsList, fetching = false, onRefresh}) => {
+const CancelBookings = ({
+  bookingsList,
+  fetching = false,
+  loadingMore = false,
+  onRefresh,
+  onLoadMore,
+}) => {
   const {t} = useTranslation();
   const navigation = useNavigation();
 
@@ -211,10 +217,11 @@ const CancelBookings = ({bookingsList, fetching = false, onRefresh}) => {
           <Text
             style={{
               fontSize: fontSize(10),
-              fontFamily: fontFamily.poppins500,
-              color: colors.red,
+              fontFamily: fontFamily.poppins600,
+              color: '#FF3B30',
+              letterSpacing: 0.5,
             }}>
-            {t('canceled')}
+            CANCELED
           </Text>
         </View>
 
@@ -360,7 +367,9 @@ const CancelBookings = ({bookingsList, fetching = false, onRefresh}) => {
         {/* View Details */}
         <TouchableOpacity
           onPress={() => {
-            navigation.navigate('ServiceCancelledScreen', {booking: item});
+            navigation.navigate('DetailsScreen', {
+              booking: {...item, status: 'cancelled'},
+            });
           }}
           style={{
             alignItems: 'center',
@@ -381,7 +390,10 @@ const CancelBookings = ({bookingsList, fetching = false, onRefresh}) => {
   if (fetching && dataToDisplay.length === 0) {
     return (
       <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-        <ActivityIndicator size="large" color={colors.primaryColor || '#731EE2'} />
+        <ActivityIndicator
+          size="large"
+          color={colors.primaryColor || '#731EE2'}
+        />
       </View>
     );
   }
@@ -419,6 +431,18 @@ const CancelBookings = ({bookingsList, fetching = false, onRefresh}) => {
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{paddingBottom: hp(30)}}
+        onEndReached={onLoadMore}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={{paddingVertical: hp(15), alignItems: 'center'}}>
+              <ActivityIndicator
+                size="small"
+                color={colors.primaryColor || '#731EE2'}
+              />
+            </View>
+          ) : null
+        }
         refreshControl={
           onRefresh ? (
             <RefreshControl

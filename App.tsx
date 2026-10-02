@@ -14,13 +14,15 @@ LogBox.ignoreAllLogs();
 
 const App = () => {
   useEffect(() => {
-    let cleanup;
+    let cleanup: (() => void) | undefined;
     initFCM().then(unsub => {
       cleanup = unsub;
     });
 
     return () => {
-      if (cleanup) cleanup();
+      if (cleanup) {
+        cleanup();
+      }
     };
   }, []);
 

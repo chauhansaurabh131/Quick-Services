@@ -4,11 +4,12 @@ import {Image} from 'react-native';
 
 import HomeScreen from '../../screen/customerAllScreen/homeScreen';
 import BookingScreen from '../../screen/customerAllScreen/bookingScreen';
-import ChatScreen from '../../screen/customerAllScreen/chatScreen';
 import ProfileScreen from '../../screen/customerAllScreen/profileScreen';
 import {icons} from '../../assets';
 import {fontFamily, hp} from '../../utils/helpers';
 import BookingServiceScreen from '../../screen/customerAllScreen/bookingServiceScreen';
+import MySaved from '../../screen/customerAllScreen/mySaved';
+import MyBookingScreen from '../../screen/customerAllScreen/myBookings/myBookingScreen ';
 
 const Tab = createBottomTabNavigator();
 
@@ -48,8 +49,8 @@ const BottomTabNavigator = () => {
             case 'Bookings':
               icon = icons.bookings_Icon;
               break;
-            case 'Chat':
-              icon = icons.chat_Icon;
+            case 'MySaved':
+              icon = icons.heart_Icon;
               break;
             case 'Profile':
               icon = icons.profile_Icon;
@@ -65,14 +66,15 @@ const BottomTabNavigator = () => {
                 width: hp(16),
                 height: hp(16),
                 tintColor: color,
+                resizeMode: 'contain',
               }}
             />
           );
         },
       })}>
       <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Bookings" component={BookingScreen} />
-      <Tab.Screen name="Chat" component={ChatScreen} />
+      <Tab.Screen name="Bookings" component={MyBookingScreen} />
+      <Tab.Screen name="MySaved" component={MySaved} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
 
       <Tab.Screen

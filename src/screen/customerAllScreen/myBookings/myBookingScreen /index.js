@@ -1,24 +1,44 @@
-import React, { useState, useCallback } from 'react';
-import { Image, SafeAreaView, Text, TouchableOpacity, View } from 'react-native';
-import { colors } from '../../../../utils/colors';
-import { fontFamily, fontSize, hp, wp } from '../../../../utils/helpers';
-import { icons } from '../../../../assets';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { useDispatch, useSelector } from 'react-redux';
-import { getCustomerBookings } from '../../../../actions/customerAuthActions';
+import React, {useState, useCallback} from 'react';
+import {Image, SafeAreaView, Text, TouchableOpacity, View} from 'react-native';
+import {colors} from '../../../../utils/colors';
+import {fontFamily, fontSize, hp, wp} from '../../../../utils/helpers';
+import {icons} from '../../../../assets';
+import {useNavigation, useFocusEffect} from '@react-navigation/native';
+import {useDispatch, useSelector} from 'react-redux';
+import {getCustomerBookings} from '../../../../actions/customerAuthActions';
 import ActiveBookings from '../activeBookings';
 import CompleteBookings from '../completeBookings';
 import CancelBookings from '../cancelBookings';
-import { useTranslation } from 'react-i18next';
+import {useTranslation} from 'react-i18next';
 
 const MyBookingScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
   const [selectedTab, setSelectedTab] = useState('active');
-  const [fetching, setFetching] = useState(false);
-  const { t } = useTranslation();
+  const [pagesMap, setPagesMap] = useState({
+    accepted: 1,
+    completed: 1,
+    cancelled: 1,
+  });
+  const [totalPagesMap, setTotalPagesMap] = useState({
+    accepted: 1,
+    completed: 1,
+    cancelled: 1,
+  });
+  const [fetchingMap, setFetchingMap] = useState({
+    accepted: false,
+    completed: false,
+    cancelled: false,
+  });
+  const [loadingMoreMap, setLoadingMoreMap] = useState({
+    accepted: false,
+    completed: false,
+    cancelled: false,
+  });
 
-  const { customerBookings } = useSelector(state => state.auth || {});
+  const {t} = useTranslation();
+
+  const {customerBookings} = useSelector(state => state.auth || {});
 
   const statusMap = {
     active: 'accepted',
@@ -29,11 +49,45 @@ const MyBookingScreen = () => {
   const currentStatus = statusMap[selectedTab] || 'accepted';
 
   const fetchBookingsForTab = useCallback(
-    (statusToFetch = currentStatus) => {
-      setFetching(true);
+    (statusToFetch = currentStatus, targetPage = 1) => {
+      const isFirstPage = targetPage === 1;
+      if (isFirstPage) {
+        setFetchingMap(prev => ({...prev, [statusToFetch]: true}));
+      } else {
+        setLoadingMoreMap(prev => ({...prev, [statusToFetch]: true}));
+      }
+
       dispatch(
-        getCustomerBookings(statusToFetch, 1, (err, res) => {
-          setFetching(false);
+        getCustomerBookings(statusToFetch, targetPage, 10, (err, res) => {
+          if (isFirstPage) {
+            setFetchingMap(prev => ({...prev, [statusToFetch]: false}));
+            setPagesMap(prev => ({...prev, [statusToFetch]: 1}));
+          } else {
+            setLoadingMoreMap(prev => ({...prev, [statusToFetch]: false}));
+            setPagesMap(prev => ({...prev, [statusToFetch]: targetPage}));
+          }
+
+          if (!err && res) {
+            const dataObj = res?.data || res;
+            const calculatedPages =
+              dataObj?.totalPages ||
+              res?.totalPages ||
+              Math.ceil(
+                (dataObj?.totalResults ||
+                  dataObj?.totalDocs ||
+                  dataObj?.total ||
+                  res?.totalResults ||
+                  res?.totalDocs ||
+                  res?.total ||
+                  0) / 10,
+              ) ||
+              1;
+
+            setTotalPagesMap(prev => ({
+              ...prev,
+              [statusToFetch]: calculatedPages > 0 ? calculatedPages : 1,
+            }));
+          }
         }),
       );
     },
@@ -42,17 +96,32 @@ const MyBookingScreen = () => {
 
   useFocusEffect(
     useCallback(() => {
-      fetchBookingsForTab(currentStatus);
+      fetchBookingsForTab(currentStatus, 1);
     }, [fetchBookingsForTab, currentStatus]),
   );
 
   const handleTabChange = tab => {
     setSelectedTab(tab);
     const newStatus = statusMap[tab] || 'accepted';
-    fetchBookingsForTab(newStatus);
+    fetchBookingsForTab(newStatus, 1);
   };
 
-  const rawActive = customerBookings?.accepted || customerBookings?.panding || [];
+  const handleLoadMore = status => {
+    const currentPage = pagesMap[status] || 1;
+    const totalPages = totalPagesMap[status] || 1;
+    const isFetching = fetchingMap[status];
+    const isLoadingMore = loadingMoreMap[status];
+
+    if (isFetching || isLoadingMore || currentPage >= totalPages) {
+      return;
+    }
+
+    const nextPage = currentPage + 1;
+    fetchBookingsForTab(status, nextPage);
+  };
+
+  const rawActive =
+    customerBookings?.accepted || customerBookings?.panding || [];
   const activeBookingsList = Array.isArray(rawActive)
     ? rawActive
     : Array.isArray(rawActive?.results)
@@ -85,7 +154,7 @@ const MyBookingScreen = () => {
     ? rawCancelled.data
     : [];
 
-  const TabButton = ({ title, value }) => {
+  const TabButton = ({title, value}) => {
     const isActive = selectedTab === value;
 
     return (
@@ -113,7 +182,7 @@ const MyBookingScreen = () => {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.white }}>
+    <SafeAreaView style={{flex: 1, backgroundColor: colors.white}}>
       {/* Header */}
       <View
         style={{
@@ -152,7 +221,7 @@ const MyBookingScreen = () => {
       </View>
 
       <View
-        style={{ width: '100%', height: hp(1), backgroundColor: '#E3E3E3' }}
+        style={{width: '100%', height: hp(1), backgroundColor: '#E3E3E3'}}
       />
 
       {/* Tabs */}
@@ -171,26 +240,32 @@ const MyBookingScreen = () => {
       </View>
 
       {/* Tab Content */}
-      <View style={{ flex: 1 }}>
+      <View style={{flex: 1}}>
         {selectedTab === 'active' && (
           <ActiveBookings
             bookingsList={activeBookingsList}
-            fetching={fetching}
-            onRefresh={() => fetchBookingsForTab('accepted')}
+            fetching={fetchingMap.accepted}
+            loadingMore={loadingMoreMap.accepted}
+            onRefresh={() => fetchBookingsForTab('accepted', 1)}
+            onLoadMore={() => handleLoadMore('accepted')}
           />
         )}
         {selectedTab === 'completed' && (
           <CompleteBookings
             bookingsList={completedBookingsList}
-            fetching={fetching}
-            onRefresh={() => fetchBookingsForTab('completed')}
+            fetching={fetchingMap.completed}
+            loadingMore={loadingMoreMap.completed}
+            onRefresh={() => fetchBookingsForTab('completed', 1)}
+            onLoadMore={() => handleLoadMore('completed')}
           />
         )}
         {selectedTab === 'cancelled' && (
           <CancelBookings
             bookingsList={cancelledBookingsList}
-            fetching={fetching}
-            onRefresh={() => fetchBookingsForTab('cancelled')}
+            fetching={fetchingMap.cancelled}
+            loadingMore={loadingMoreMap.cancelled}
+            onRefresh={() => fetchBookingsForTab('cancelled', 1)}
+            onLoadMore={() => handleLoadMore('cancelled')}
           />
         )}
       </View>
@@ -199,4 +274,3 @@ const MyBookingScreen = () => {
 };
 
 export default MyBookingScreen;
-

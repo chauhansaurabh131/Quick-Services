@@ -13,7 +13,13 @@ import {useNavigation, useRoute} from '@react-navigation/native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {colors} from '../../../utils/colors';
-import {fontFamily, fontSize, hp, wp} from '../../../utils/helpers';
+import {
+  fontFamily,
+  fontSize,
+  formatReviewTime,
+  hp,
+  wp,
+} from '../../../utils/helpers';
 import {icons} from '../../../assets';
 import {
   getVendorUserDetails,
@@ -172,14 +178,19 @@ const PreBookingServiceScreen = () => {
         routeVendorData.address ||
         'Location Details N/A';
 
-  // Extract Rating
-  const rating = vendorUserObj.rating
-    ? vendorUserObj.rating.toString()
-    : userObj.rating
-    ? userObj.rating.toString()
-    : routeVendorData.rating
-    ? routeVendorData.rating.toString()
-    : '4.6';
+  // Extract Rating (use averageRating first, fallback to rating)
+  const rawRatingVal = Number(
+    apiData?.averageRating ??
+      apiData?.rating ??
+      vendorUserObj?.averageRating ??
+      vendorUserObj?.rating ??
+      userObj?.averageRating ??
+      userObj?.rating ??
+      routeVendorData?.averageRating ??
+      routeVendorData?.rating ??
+      0,
+  );
+  const rating = !isNaN(rawRatingVal) && rawRatingVal > 0 ? rawRatingVal : 0;
 
   // Extract Offered Services
   const rawServices = apiData.services || vendorUserObj.services || [];
@@ -267,6 +278,43 @@ const PreBookingServiceScreen = () => {
       ? defaultSaloonServices
       : defaultOtherServices;
 
+  // Extract Customer Reviews from API data
+  const apiReviews =
+    apiData?.reviews ||
+    apiData?.vendorUser?.reviews ||
+    apiData?.data?.reviews ||
+    routeVendorData?.reviews ||
+    [];
+
+  const customerReviews =
+    Array.isArray(apiReviews) && apiReviews.length > 0
+      ? apiReviews.map((r, idx) => ({
+          id: r._id || r.id || String(idx),
+          name:
+            r.customerName ||
+            r.user?.fullName ||
+            r.user?.name ||
+            r.userName ||
+            r.name ||
+            'Customer',
+          service: r.serviceName || r.service || '',
+          time: formatReviewTime(
+            r.reviewTime || r.createdAt || r.time || r.date,
+          ),
+          rating: r.stars ?? r.rating ?? r.star ?? 5,
+          review: r.review || r.comment || r.feedback || '',
+          reply: r.reply || r.vendorReply || null,
+          image:
+            r.userProfilePic ||
+            r.user?.profilePic ||
+            r.user?.userProfilePic ||
+            r.userImage ||
+            r.profilePic ||
+            r.image ||
+            'https://randomuser.me/api/portraits/men/32.jpg',
+        }))
+      : [];
+
   const toggleServiceSelect = index => {
     if (selectedServices.includes(index)) {
       setSelectedServices(selectedServices.filter(i => i !== index));
@@ -340,9 +388,7 @@ const PreBookingServiceScreen = () => {
       .filter(Boolean);
 
     const finalServiceIdsToPass =
-      validServiceIds.length > 0
-        ? validServiceIds
-        : fallbackServiceIds;
+      validServiceIds.length > 0 ? validServiceIds : fallbackServiceIds;
 
     const firstSelectedObj =
       offeredServices[selectedServices[0]] || offeredServices[0] || {};
@@ -481,17 +527,12 @@ const PreBookingServiceScreen = () => {
 
   const handleBookAppointmentPress = () => {
     const payload = getPreparedBookingPayload();
-    if (isSalonCategory) {
-      navigation.navigate('BookingSummaryScreen', {
-        item: apiData,
-        vendor: apiData,
-        selectedServices,
-        bookingPayload: payload,
-      });
-    } else {
-      loadSavedAddresses();
-      refAddressSheet.current?.open();
-    }
+    navigation.navigate('BookingSummaryScreen', {
+      item: apiData,
+      vendor: apiData,
+      selectedServices,
+      bookingPayload: payload,
+    });
   };
 
   const handleSelectAddressAndProceed = selectedAddr => {
@@ -529,7 +570,7 @@ const PreBookingServiceScreen = () => {
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{paddingBottom: hp(90)}}>
+          contentContainerStyle={{paddingBottom: hp(100)}}>
           {/* HERO IMAGE & FLOATING ACTION BUTTONS */}
           <View style={{width: '100%', height: hp(250), position: 'relative'}}>
             <Image
@@ -552,7 +593,7 @@ const PreBookingServiceScreen = () => {
                 width: hp(38),
                 height: hp(38),
                 borderRadius: hp(19),
-                backgroundColor: '#FFFFFF',
+                backgroundColor: 'rgba(0,0,0,0.5)',
                 justifyContent: 'center',
                 alignItems: 'center',
                 elevation: 4,
@@ -567,38 +608,10 @@ const PreBookingServiceScreen = () => {
                   width: hp(16),
                   height: hp(16),
                   resizeMode: 'contain',
-                  tintColor: colors.pureBlack,
+                  tintColor: colors.white,
                 }}
               />
             </TouchableOpacity>
-
-            {/* FLOATING STATUS BADGE PILL (OFFLINE / ONLINE) */}
-            <View
-              style={{
-                position: 'absolute',
-                top: hp(16),
-                right: wp(64),
-                paddingHorizontal: wp(14),
-                paddingVertical: hp(6),
-                borderRadius: hp(50),
-                backgroundColor: '#EDEDED',
-                justifyContent: 'center',
-                alignItems: 'center',
-                elevation: 4,
-                shadowColor: '#000',
-                shadowOffset: {width: 0, height: 2},
-                shadowOpacity: 0.15,
-                shadowRadius: 3,
-              }}>
-              <Text
-                style={{
-                  fontSize: fontSize(12),
-                  fontFamily: fontFamily.poppins500,
-                  color: colors.pureBlack,
-                }}>
-                {statusBadgeText}
-              </Text>
-            </View>
 
             {/* FLOATING LIKE / HEART BUTTON */}
             <TouchableOpacity
@@ -611,7 +624,8 @@ const PreBookingServiceScreen = () => {
                 width: hp(38),
                 height: hp(38),
                 borderRadius: hp(19),
-                backgroundColor: '#FFFFFF',
+                // backgroundColor: '#000000D6',
+                backgroundColor: 'rgba(0,0,0,0.5)',
                 justifyContent: 'center',
                 alignItems: 'center',
                 elevation: 4,
@@ -620,13 +634,15 @@ const PreBookingServiceScreen = () => {
                 shadowOpacity: 0.15,
                 shadowRadius: 3,
               }}>
-              <Text
+              <Image
+                source={icons.heart_Icon}
                 style={{
-                  fontSize: fontSize(18),
-                  color: isLiked ? '#FF3B30' : colors.pureBlack,
-                }}>
-                {isLiked ? '♥' : '♡'}
-              </Text>
+                  width: hp(17),
+                  height: hp(17),
+                  resizeMode: 'contain',
+                  tintColor: isLiked ? '#731EE2' : '#FFFFFF',
+                }}
+              />
             </TouchableOpacity>
           </View>
 
@@ -679,40 +695,42 @@ const PreBookingServiceScreen = () => {
             </Text>
 
             {/* Rating Pill */}
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                marginTop: hp(14),
-              }}>
+            {Number(rating) > 0 && (
               <View
                 style={{
-                  backgroundColor: '#3A3A3A',
-                  borderRadius: hp(50),
                   flexDirection: 'row',
                   alignItems: 'center',
-                  paddingHorizontal: wp(12),
-                  paddingVertical: hp(5),
+                  marginTop: hp(14),
                 }}>
-                <Image
-                  source={icons.star_Icon}
+                <View
                   style={{
-                    width: hp(14),
-                    height: hp(14),
-                    resizeMode: 'contain',
-                    marginRight: wp(6),
-                  }}
-                />
-                <Text
-                  style={{
-                    color: colors.white,
-                    fontSize: fontSize(12),
-                    fontFamily: fontFamily.poppins600,
+                    backgroundColor: '#3A3A3A',
+                    borderRadius: hp(50),
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: wp(12),
+                    paddingVertical: hp(5),
                   }}>
-                  {rating}
-                </Text>
+                  <Image
+                    source={icons.star_Icon}
+                    style={{
+                      width: hp(14),
+                      height: hp(14),
+                      resizeMode: 'contain',
+                      marginRight: wp(6),
+                    }}
+                  />
+                  <Text
+                    style={{
+                      color: colors.white,
+                      fontSize: fontSize(12),
+                      fontFamily: fontFamily.poppins600,
+                    }}>
+                    {rating}
+                  </Text>
+                </View>
               </View>
-            </View>
+            )}
           </View>
 
           {/* OFFERED SERVICES SECTION */}
@@ -805,6 +823,144 @@ const PreBookingServiceScreen = () => {
               })
             )}
           </View>
+
+          {/* CUSTOMER REVIEWS SECTION */}
+          {customerReviews.length > 0 && (
+            <View style={{paddingHorizontal: wp(20), paddingTop: hp(16)}}>
+              <Text
+                style={{
+                  fontSize: fontSize(18),
+                  fontFamily: fontFamily.poppins700,
+                  color: colors.pureBlack,
+                  marginBottom: hp(14),
+                }}>
+                Customer Reviews
+              </Text>
+
+              {customerReviews.map((item, index) => (
+                <View
+                  key={item.id || index}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: '#EAEAEA',
+                    borderRadius: hp(18),
+                    padding: wp(18),
+                    marginBottom: hp(14),
+                    backgroundColor: colors.white,
+                  }}>
+                  {/* User Header */}
+                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                    <Image
+                      source={{uri: item.image}}
+                      style={{
+                        width: hp(36),
+                        height: hp(36),
+                        borderRadius: hp(18),
+                      }}
+                    />
+
+                    <View style={{marginLeft: wp(12)}}>
+                      <Text
+                        style={{
+                          fontSize: fontSize(15),
+                          fontFamily: fontFamily.poppins600,
+                          color: colors.pureBlack,
+                        }}>
+                        {item.name}
+                      </Text>
+
+                      <Text
+                        style={{
+                          fontSize: fontSize(12),
+                          color: '#B4B4B4',
+                          fontFamily: fontFamily.poppins400,
+                          marginTop: hp(2),
+                        }}>
+                        {item.service
+                          ? `${item.service} • ${item.time}`
+                          : item.time}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Review Text */}
+                  {Boolean(item.review) && (
+                    <Text
+                      style={{
+                        marginTop: hp(12),
+                        fontSize: fontSize(12),
+                        color: '#2C2C2C',
+                        fontFamily: fontFamily.poppins400,
+                        lineHeight: hp(18),
+                      }}>
+                      {item.review}
+                    </Text>
+                  )}
+
+                  {/* Rating Footer */}
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      marginTop: hp(14),
+                    }}>
+                    <Image
+                      source={icons.star_Icon}
+                      style={{
+                        width: hp(14),
+                        height: hp(14),
+                        tintColor: '#F0AA07',
+                        marginRight: wp(6),
+                      }}
+                    />
+                    <Text
+                      style={{
+                        fontSize: fontSize(13),
+                        color: colors.pureBlack,
+                        fontFamily: fontFamily.poppins600,
+                      }}>
+                      {item.rating}
+                    </Text>
+                  </View>
+
+                  {/* Vendor Reply Card */}
+                  {Boolean(
+                    item.reply && String(item.reply).trim().length > 0,
+                  ) && (
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        backgroundColor: '#F7F7F7',
+                        borderRadius: hp(14),
+                        padding: wp(14),
+                        marginTop: hp(14),
+                      }}>
+                      <Image
+                        source={{uri: imageUri}}
+                        style={{
+                          width: hp(32),
+                          height: hp(32),
+                          borderRadius: hp(50),
+                        }}
+                      />
+                      <Text
+                        style={{
+                          flex: 1,
+                          marginLeft: wp(12),
+                          fontSize: fontSize(13),
+                          fontFamily: fontFamily.poppins400,
+                          color: colors.pureBlack,
+                          lineHeight: hp(18),
+                        }}>
+                        {item.reply}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
         </ScrollView>
       )}
 

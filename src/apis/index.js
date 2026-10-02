@@ -104,6 +104,16 @@ export const customerAuth = {
           : '',
       },
     }),
+  cancelCustomerBookingById: (bookingId, payload, token) =>
+    api.put(`/customer/bookings/${bookingId}/cancel`, payload, {
+      headers: {
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
+      },
+    }),
   getVendorBookingsByStatus: (vendorId, status, token) =>
     api.get(`/vendor/bookings/vendor/${vendorId}?status=${status}`, {
       headers: {
@@ -273,12 +283,12 @@ export const customerAuth = {
       payload,
       token
         ? {
-          headers: {
-            Authorization: token.startsWith('Bearer ')
-              ? token
-              : `Bearer ${token}`,
-          },
-        }
+            headers: {
+              Authorization: token.startsWith('Bearer ')
+                ? token
+                : `Bearer ${token}`,
+            },
+          }
         : {},
     ),
   getMyAvailability: token =>
@@ -301,12 +311,91 @@ export const customerAuth = {
           : '',
       },
     }),
-  getCustomerBookingsByStatus: (status, token, page = 1) =>
+  getCustomerBookingsByStatus: (status, token, page = 1, limit = 10) =>
     api.get('/customer/bookings', {
       params: {
         status: status,
         page: page,
+        limit: limit,
       },
+      headers: {
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
+      },
+    }),
+  createCustomerReview: (payload, token) =>
+    api.post('/customer/reviews', payload, {
+      headers: {
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
+      },
+    }),
+  getVendorPaginatedReviews: (page = 1, limit = 10, token) =>
+    api.get('/vendor/reviews/paginated', {
+      params: {
+        page,
+        limit,
+      },
+      headers: {
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
+      },
+    }),
+  replyVendorReview: (reviewId, payload, token) =>
+    api.put(`/vendor/reviews/${reviewId}/reply`, payload, {
+      headers: {
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
+      },
+    }),
+  deleteVendorReviewReply: (reviewId, token) =>
+    api.delete(`/vendor/reviews/${reviewId}/reply`, {
+      headers: {
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
+      },
+    }),
+  getCustomerReviews: (page = 1, limit = 10, token) =>
+    api.get('/customer/reviews', {
+      params: {
+        page,
+        limit,
+      },
+      headers: {
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
+      },
+    }),
+  updateCustomerReview: (reviewId, payload, token) =>
+    api.put(`/customer/reviews/${reviewId}`, payload, {
+      headers: {
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
+      },
+    }),
+  deleteCustomerReview: (reviewId, token) =>
+    api.delete(`/customer/reviews/${reviewId}`, {
       headers: {
         Authorization: token
           ? token.startsWith('Bearer ')
@@ -340,7 +429,7 @@ export const s3Api = {
 
     try {
       console.log('Attempting S3 upload request on service.mntech.website...');
-      return await api.post('/s3/profilepic', payload, { headers });
+      return await api.post('/s3/profilepic', payload, {headers});
     } catch (err) {
       console.log(
         'service.mntech.website S3 request error status:',
@@ -352,7 +441,7 @@ export const s3Api = {
       return await axios.post(
         'https://mntrendigo.mntech.website/api/v1/s3/profilepic',
         payload,
-        { headers },
+        {headers},
       );
     }
   },

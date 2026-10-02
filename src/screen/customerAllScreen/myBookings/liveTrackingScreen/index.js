@@ -8,17 +8,19 @@ import {
   TouchableOpacity,
   TextInput,
   Keyboard,
+  Linking,
 } from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import {fontFamily, fontSize, hp, wp} from '../../../../utils/helpers';
 import {colors} from '../../../../utils/colors';
 import {icons, images} from '../../../../assets';
 import {useTranslation} from 'react-i18next';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useRoute} from '@react-navigation/native';
 
 const TOTAL_TIME = 12 * 60; // 12 mins in seconds
 
 const LiveTrackingScreen = () => {
+  const route = useRoute();
   const refTrackingSheet = useRef();
   const refCancelSheet = useRef();
 
@@ -117,6 +119,20 @@ const LiveTrackingScreen = () => {
     setTimeout(() => {
       refTrackingSheet.current.open();
     }, 300);
+  };
+
+  const handleCallPhone = () => {
+    const rawNumber =
+      route?.params?.booking?.vendorMobileNumber ||
+      route?.params?.booking?.vendorPhone ||
+      '7405665654';
+    const cleanNumber = String(rawNumber).replace(/[^0-9+]/g, '');
+    const url = `tel:${cleanNumber}`;
+    Linking.canOpenURL(url)
+      .then(supported => {
+        return Linking.openURL(url);
+      })
+      .catch(err => console.log('Error opening dialer:', err));
   };
 
   return (
@@ -294,6 +310,7 @@ const LiveTrackingScreen = () => {
             <View style={{flexDirection: 'row'}}>
               <TouchableOpacity
                 activeOpacity={0.6}
+                onPress={handleCallPhone}
                 style={{
                   width: hp(45),
                   height: hp(45),

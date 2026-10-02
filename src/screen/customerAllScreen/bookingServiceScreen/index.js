@@ -233,7 +233,13 @@ const BookingServiceScreen = ({route}) => {
         return false;
       }
     } else if (appliedFilter === 'Popular') {
-      const ratingVal = Number(item.rating || 4.8);
+      const rawR =
+        item.averageRating !== undefined && item.averageRating !== null
+          ? item.averageRating
+          : item.rating !== undefined && item.rating !== null
+          ? item.rating
+          : 0;
+      const ratingVal = Number(rawR || 0);
       if (ratingVal < 4.5) {
         return false;
       }
@@ -250,87 +256,99 @@ const BookingServiceScreen = ({route}) => {
     return true;
   });
 
-  const dataToDisplay = filteredList.map((item, idx) => ({
-    id: item._id || item.id || idx.toString(),
-    name:
-      item.businessName ||
-      item.business_name ||
-      item.vendor?.businessName ||
-      item.vendor?.business_name ||
-      item.vendorId?.businessName ||
-      item.vendorId?.business_name ||
-      item.vendorName ||
-      item.vendor_name ||
-      item.vendorId?.name ||
-      item.vendor?.name ||
-      item.name ||
-      item.title ||
-      'Quick Service Provider',
-    service:
-      item.categoryTitle ||
-      item.category_title ||
-      item.serviceDetails?.title ||
-      item.serviceDetails?.name ||
-      item.serviceName ||
-      item.service_name ||
-      item.title ||
-      item.service?.name ||
-      item.serviceId?.name ||
-      category?.name ||
-      'Professional Service',
-    price:
-      item.charge !== null && item.charge !== undefined
-        ? `Rs. ${item.charge}`
-        : item.visitCharge !== null && item.visitCharge !== undefined
-        ? `Rs. ${item.visitCharge}`
-        : item.price
-        ? `Rs. ${item.price}`
-        : 'Rs. 0',
+  const dataToDisplay = filteredList.map((item, idx) => {
+    const rawRating =
+      item.averageRating !== undefined && item.averageRating !== null
+        ? Number(item.averageRating)
+        : item.rating !== undefined && item.rating !== null
+        ? Number(item.rating)
+        : 0;
 
-    rating: item.rating ? item.rating.toString() : '4.8',
-    distance:
-      item.distance !== null &&
-      item.distance !== undefined &&
-      !isNaN(Number(item.distance))
-        ? `${Number(item.distance).toFixed(1)} Km Away`
-        : item.dist !== null &&
-          item.dist !== undefined &&
-          !isNaN(Number(item.dist))
-        ? `${Number(item.dist).toFixed(1)} Km Away`
-        : '8.6 Km Away',
-    time:
-      item.distance !== null &&
-      item.distance !== undefined &&
-      !isNaN(Number(item.distance))
-        ? `${Number(item.distance).toFixed(1)} Km Away`
-        : item.duration
-        ? `${item.duration} mins`
-        : '8.6 Km Away',
-    _id: item._id || item.id || item.userId || item.vendorUserId,
-    rawItem: item,
-    vendorAvailability:
-      item.vendorAvailability ||
-      item.vendor?.vendorAvailability ||
-      item.vendorId?.vendorAvailability ||
-      {},
-    image:
-      (typeof item.profilePic === 'string' &&
-        item.profilePic.trim() !== '' &&
-        item.profilePic) ||
-      (typeof item.profile_pic === 'string' &&
-        item.profile_pic.trim() !== '' &&
-        item.profile_pic) ||
-      (typeof item.profileImage === 'string' &&
-        item.profileImage.trim() !== '' &&
-        item.profileImage) ||
-      (Array.isArray(item.profilePic) && item.profilePic[0]) ||
-      (Array.isArray(item.profileImage) && item.profileImage[0]) ||
-      item.image ||
-      item.imageUrl ||
-      item.vendor?.image ||
-      item.vendorId?.image ||
-      'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f',
-  }));
+    const parsedRating = !isNaN(rawRating) && rawRating > 0 ? rawRating : 0;
+
+    return {
+      id: item._id || item.id || idx.toString(),
+      name:
+        item.businessName ||
+        item.business_name ||
+        item.vendor?.businessName ||
+        item.vendor?.business_name ||
+        item.vendorId?.businessName ||
+        item.vendorId?.business_name ||
+        item.vendorName ||
+        item.vendor_name ||
+        item.vendorId?.name ||
+        item.vendor?.name ||
+        item.name ||
+        item.title ||
+        'Quick Service Provider',
+      service:
+        item.categoryTitle ||
+        item.category_title ||
+        item.serviceDetails?.title ||
+        item.serviceDetails?.name ||
+        item.serviceName ||
+        item.service_name ||
+        item.title ||
+        item.service?.name ||
+        item.serviceId?.name ||
+        category?.name ||
+        'Professional Service',
+      price:
+        item.charge !== null && item.charge !== undefined
+          ? `Rs. ${item.charge}`
+          : item.visitCharge !== null && item.visitCharge !== undefined
+          ? `Rs. ${item.visitCharge}`
+          : item.price
+          ? `Rs. ${item.price}`
+          : 'Rs. 0',
+
+      rating: parsedRating,
+      averageRating: parsedRating,
+      distance:
+        item.distance !== null &&
+        item.distance !== undefined &&
+        !isNaN(Number(item.distance))
+          ? `${Number(item.distance).toFixed(1)} Km Away`
+          : item.dist !== null &&
+            item.dist !== undefined &&
+            !isNaN(Number(item.dist))
+          ? `${Number(item.dist).toFixed(1)} Km Away`
+          : '8.6 Km Away',
+      time:
+        item.distance !== null &&
+        item.distance !== undefined &&
+        !isNaN(Number(item.distance))
+          ? `${Number(item.distance).toFixed(1)} Km Away`
+          : item.duration
+          ? `${item.duration} mins`
+          : '8.6 Km Away',
+      _id: item._id || item.id || item.userId || item.vendorUserId,
+      rawItem: item,
+      vendorAvailability:
+        item.vendorAvailability ||
+        item.vendor?.vendorAvailability ||
+        item.vendorId?.vendorAvailability ||
+        {},
+      image:
+        (typeof item.profilePic === 'string' &&
+          item.profilePic.trim() !== '' &&
+          item.profilePic) ||
+        (typeof item.profile_pic === 'string' &&
+          item.profile_pic.trim() !== '' &&
+          item.profile_pic) ||
+        (typeof item.profileImage === 'string' &&
+          item.profileImage.trim() !== '' &&
+          item.profileImage) ||
+        (Array.isArray(item.profilePic) && item.profilePic[0]) ||
+        (Array.isArray(item.profileImage) && item.profileImage[0]) ||
+        item.image ||
+        item.imageUrl ||
+        item.vendor?.image ||
+        item.vendorId?.image ||
+        'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f',
+    };
+  });
 
   const renderItem = ({item}) => {
     const nameStr = (
@@ -402,36 +420,38 @@ const BookingServiceScreen = ({route}) => {
             />
 
             {/* Rating Pill */}
-            <View
-              style={{
-                position: 'absolute',
-                top: hp(12),
-                left: wp(12),
-                backgroundColor: 'rgba(28, 28, 28, 0.85)',
-                borderRadius: hp(50),
-                flexDirection: 'row',
-                alignItems: 'center',
-                paddingHorizontal: wp(10),
-                paddingVertical: hp(5),
-              }}>
-              <Image
-                source={icons.star_Icon}
+            {Number(item.averageRating || item.rating || 0) > 0 && (
+              <View
                 style={{
-                  width: hp(14),
-                  height: hp(14),
-                  resizeMode: 'contain',
-                  marginRight: wp(6),
-                }}
-              />
-              <Text
-                style={{
-                  color: colors.white,
-                  fontSize: fontSize(12),
-                  fontFamily: fontFamily.poppins600,
+                  position: 'absolute',
+                  top: hp(12),
+                  left: wp(12),
+                  backgroundColor: 'rgba(28, 28, 28, 0.85)',
+                  borderRadius: hp(50),
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: wp(10),
+                  paddingVertical: hp(5),
                 }}>
-                {item.rating}
-              </Text>
-            </View>
+                <Image
+                  source={icons.star_Icon}
+                  style={{
+                    width: hp(14),
+                    height: hp(14),
+                    resizeMode: 'contain',
+                    marginRight: wp(6),
+                  }}
+                />
+                <Text
+                  style={{
+                    color: colors.white,
+                    fontSize: fontSize(12),
+                    fontFamily: fontFamily.poppins600,
+                  }}>
+                  {item.averageRating || item.rating}
+                </Text>
+              </View>
+            )}
 
             {/* Status Pill (Offline Only when isAvailable is false) */}
             {!isAvailable && (
@@ -654,37 +674,39 @@ const BookingServiceScreen = ({route}) => {
           />
 
           {/* Rating */}
-          <View
-            style={{
-              position: 'absolute',
-              top: hp(10),
-              left: wp(12),
-              backgroundColor: 'rgba(28, 28, 28, 0.85)',
-              borderRadius: hp(50),
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingHorizontal: wp(12),
-              paddingVertical: hp(5),
-            }}>
-            <Image
-              source={icons.star_Icon}
+          {Number(item.averageRating || item.rating || 0) > 0 && (
+            <View
               style={{
-                width: hp(14),
-                height: hp(14),
-                resizeMode: 'contain',
-                marginRight: wp(8),
-              }}
-            />
-
-            <Text
-              style={{
-                color: colors.white,
-                fontSize: fontSize(11),
-                fontFamily: fontFamily.poppins600,
+                position: 'absolute',
+                top: hp(10),
+                left: wp(12),
+                backgroundColor: 'rgba(28, 28, 28, 0.85)',
+                borderRadius: hp(50),
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: wp(12),
+                paddingVertical: hp(5),
               }}>
-              {item.rating}
-            </Text>
-          </View>
+              <Image
+                source={icons.star_Icon}
+                style={{
+                  width: hp(14),
+                  height: hp(14),
+                  resizeMode: 'contain',
+                  marginRight: wp(8),
+                }}
+              />
+
+              <Text
+                style={{
+                  color: colors.white,
+                  fontSize: fontSize(11),
+                  fontFamily: fontFamily.poppins600,
+                }}>
+                {item.averageRating || item.rating}
+              </Text>
+            </View>
+          )}
 
           {/* Status Pill (Offline Only when isAvailable is false) */}
           {!isAvailable && (
@@ -1004,7 +1026,7 @@ const BookingServiceScreen = ({route}) => {
         </View>
 
         {/* FILTER BUTTON */}
-        <TouchableOpacity
+        {/* <TouchableOpacity
           activeOpacity={0.6}
           onPress={() => refRBSheet.current?.open()}
           style={{
@@ -1026,7 +1048,7 @@ const BookingServiceScreen = ({route}) => {
               tintColor: appliedFilter ? '#731EE2' : undefined,
             }}
           />
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </View>
 
       {loading ? (

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -12,20 +12,24 @@ import {
   Alert,
 } from 'react-native';
 import RBSheet from 'react-native-raw-bottom-sheet';
-import { colors } from '../../../utils/colors';
-import { icons } from '../../../assets';
-import { hp, fontSize, fontFamily, wp } from '../../../utils/helpers';
-import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
-import { useDispatch, useSelector } from 'react-redux';
+import {colors} from '../../../utils/colors';
+import {icons} from '../../../assets';
+import {hp, fontSize, fontFamily, wp} from '../../../utils/helpers';
+import {
+  useNavigation,
+  useRoute,
+  useFocusEffect,
+} from '@react-navigation/native';
+import {useDispatch, useSelector} from 'react-redux';
 import SwitchButton from '../../../components/switchButton';
-import { Calendar } from 'react-native-calendars';
+import {Calendar} from 'react-native-calendars';
 import {
   getBookingById,
   saveCustomerAddress,
   updateBookingAddress,
   createBooking,
 } from '../../../actions/customerAuthActions';
-import { setLocation } from '../../../actions/locationActions';
+import {setLocation} from '../../../actions/locationActions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BookingSummaryScreen = () => {
@@ -35,12 +39,13 @@ const BookingSummaryScreen = () => {
 
   const routeBookingId = route.params?.bookingId || '9F8A2D3C';
 
-  // console.log('bookingOption', route.params?.vendor?.vendorAvailability?.bookingOption);
+  // console.log('bookingOption', route.params?.item?.vendorUser?.userId?.profilePic);
 
   const [isEnabled, setIsEnabled] = useState(false);
   const [fetchingBooking, setFetchingBooking] = useState(true);
   const [apiBookingDetails, setApiBookingDetails] = useState(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   const [dateModalVisible, setDateModalVisible] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -130,9 +135,9 @@ const BookingSummaryScreen = () => {
   const [selectedDayObj, setSelectedDayObj] = useState(firstOpenDay);
 
   const timeSlotObjects = [
-    { slot: '9 am – 12 pm', endHour: 12 },
-    { slot: '12 pm – 3 pm', endHour: 15 },
-    { slot: '3 pm – 6 pm', endHour: 18 },
+    {slot: '9 am – 12 pm', endHour: 12},
+    {slot: '12 pm – 3 pm', endHour: 15},
+    {slot: '3 pm – 6 pm', endHour: 18},
   ];
 
   const isTimeSlotDisabled = (slotObj, dayObj) => {
@@ -182,7 +187,7 @@ const BookingSummaryScreen = () => {
   const reduxBookingDetails = useSelector(
     state => state.auth?.activeBookingDetails,
   );
-  const { user } = useSelector(state => state.auth || {});
+  const {user} = useSelector(state => state.auth || {});
 
   useEffect(() => {
     if (routeBookingId && !route.params?.bookingPayload) {
@@ -256,23 +261,114 @@ const BookingSummaryScreen = () => {
   const isInstantBooking = bookingType.includes('instant');
 
   // Vendor & Service dynamic fields
+  const routeItem = route.params?.item || {};
+  const routeVendor = route.params?.vendor || {};
+
   const businessName =
+    routeItem?.vendorUser?.businessName ||
+    routeVendor?.vendorUser?.businessName ||
+    routeItem?.businessName ||
+    routeVendor?.businessName ||
+    routeItem?.business_name ||
+    routeVendor?.business_name ||
     vendorObj?.businessName ||
+    vendorObj?.business_name ||
+    vendorObj?.name ||
+    bookingObj?.vendorId?.businessName ||
+    bookingObj?.vendorId?.business_name ||
+    bookingObj?.vendorId?.name ||
     bookingObj?.vendorId?.userId?.fullName ||
     bookingObj?.vendorId?.userId?.name ||
+    routeItem?.vendorUser?.userId?.fullName ||
+    routeItem?.vendorUser?.userId?.name ||
+    routeVendor?.vendorUser?.userId?.fullName ||
+    routeVendor?.vendorUser?.userId?.name ||
+    routeItem?.name ||
+    routeVendor?.name ||
+    apiBookingDetails?.vendorId?.businessName ||
+    apiBookingDetails?.vendorId?.userId?.fullName ||
     'Vendor Profile';
 
   const categoryTitle =
-    vendorObj?.category || bookingObj?.vendorId?.categoryId?.title || 'Service';
+    routeItem?.categoryTitle ||
+    routeItem?.category_title ||
+    routeVendor?.categoryTitle ||
+    routeVendor?.category_title ||
+    vendorObj?.category ||
+    bookingObj?.vendorId?.categoryId?.title ||
+    'Service';
+
+  const rawRatingVal =
+    routeItem?.averageRating ??
+    routeItem?.rating ??
+    routeVendor?.averageRating ??
+    routeVendor?.rating ??
+    routeItem?.vendorUser?.averageRating ??
+    routeItem?.vendorUser?.rating ??
+    routeVendor?.vendorUser?.averageRating ??
+    routeVendor?.vendorUser?.rating ??
+    vendorObj?.rating ??
+    bookingObj?.vendorId?.rating ??
+    '4.5';
 
   const vendorRating =
-    vendorObj?.rating || bookingObj?.vendorId?.rating || '4.5';
+    rawRatingVal !== undefined &&
+    rawRatingVal !== null &&
+    Number(rawRatingVal) > 0
+      ? String(rawRatingVal)
+      : '4.5';
+
+  const staticFallbackImage =
+    'https://images.unsplash.com/photo-1560066984-138dadb4c035';
+
+  const rawVendorImage =
+    routeItem?.vendorUser?.userId?.profilePic ||
+    routeItem?.vendorUser?.userId?.profile_pic ||
+    routeItem?.vendorUser?.userId?.profileImage ||
+    routeItem?.vendorUser?.profilePic ||
+    routeItem?.vendorUser?.profile_pic ||
+    routeItem?.vendorUser?.profileImage ||
+    routeVendor?.vendorUser?.userId?.profilePic ||
+    routeVendor?.vendorUser?.userId?.profile_pic ||
+    routeVendor?.vendorUser?.userId?.profileImage ||
+    routeVendor?.vendorUser?.profilePic ||
+    routeVendor?.vendorUser?.profile_pic ||
+    routeVendor?.vendorUser?.profileImage ||
+    routeItem?.profilePic ||
+    routeItem?.profile_pic ||
+    routeItem?.profileImage ||
+    routeItem?.image ||
+    routeItem?.imageUrl ||
+    routeVendor?.profilePic ||
+    routeVendor?.profile_pic ||
+    routeVendor?.profileImage ||
+    routeVendor?.image ||
+    routeVendor?.imageUrl ||
+    routeItem?.rawItem?.image ||
+    routeItem?.rawItem?.profilePic ||
+    routeItem?.rawItem?.profile_pic ||
+    routeItem?.rawItem?.profileImage ||
+    vendorObj?.profileImage ||
+    vendorObj?.profilePic ||
+    vendorObj?.profile_pic ||
+    vendorObj?.image ||
+    bookingObj?.vendorId?.userId?.profilePic ||
+    bookingObj?.vendorId?.userId?.profile_pic ||
+    bookingObj?.vendorId?.userId?.profileImage ||
+    bookingObj?.vendorId?.profilePic ||
+    bookingObj?.vendorId?.profileImage ||
+    apiBookingDetails?.vendorId?.userId?.profilePic ||
+    apiBookingDetails?.vendorId?.userId?.profile_pic ||
+    apiBookingDetails?.vendorId?.userId?.profileImage ||
+    staticFallbackImage;
 
   const vendorImage =
-    vendorObj?.profileImage ||
-    bookingObj?.vendorId?.userId?.profilePic ||
-    bookingObj?.vendorId?.userId?.profileImage ||
-    'https://images.unsplash.com/photo-1560066984-138dadb4c035';
+    imageError ||
+    !rawVendorImage ||
+    typeof rawVendorImage !== 'string' ||
+    rawVendorImage.trim() === ''
+      ? staticFallbackImage
+      : rawVendorImage;
 
   const selectedAddress =
     selectedAddressState || route.params?.selectedAddress || {};
@@ -287,16 +383,13 @@ const BookingSummaryScreen = () => {
     {};
 
   const reduxLocationState = useSelector(state => state.location || {});
-  const { fullAddress: reduxFullAddress, place: reduxPlace } = reduxLocationState;
+  const {fullAddress: reduxFullAddress, place: reduxPlace} = reduxLocationState;
 
   const loadSavedAddresses = async () => {
     try {
       const reduxUserObj =
         user?.customerUser || user?.user || user?.data?.user || user || {};
-      let userAddresses =
-        reduxUserObj?.addresses ||
-        user?.addresses ||
-        [];
+      let userAddresses = reduxUserObj?.addresses || user?.addresses || [];
 
       let storageAddresses = [];
       try {
@@ -323,9 +416,7 @@ const BookingSummaryScreen = () => {
 
       let savedList = Array.from(map.values());
 
-      const activeHomeScreenAddress =
-        reduxFullAddress ||
-        'Current Location';
+      const activeHomeScreenAddress = reduxFullAddress || 'Current Location';
 
       const activeMobile =
         user?.mobile ||
@@ -449,15 +540,15 @@ const BookingSummaryScreen = () => {
     if (typeof addr === 'object' && addr !== null) {
       const parts = [
         addr.addressLine1 ||
-        addr.address1 ||
-        addr.line1 ||
-        addr.houseNo ||
-        addr.street,
+          addr.address1 ||
+          addr.line1 ||
+          addr.houseNo ||
+          addr.street,
         addr.addressLine2 ||
-        addr.address2 ||
-        addr.line2 ||
-        addr.area ||
-        addr.landmark,
+          addr.address2 ||
+          addr.line2 ||
+          addr.area ||
+          addr.landmark,
         addr.city,
         addr.state,
         addr.pinCode || addr.pincode || addr.zipCode,
@@ -497,15 +588,13 @@ const BookingSummaryScreen = () => {
 
   const locationTypeLabel =
     typeof rawLocationType === 'string' &&
-      rawLocationType.trim() !== '' &&
-      rawLocationType !== 'unlabeled'
+    rawLocationType.trim() !== '' &&
+    rawLocationType !== 'unlabeled'
       ? rawLocationType.charAt(0).toUpperCase() + rawLocationType.slice(1)
       : reduxPlace || 'Current Location';
 
   const fullDisplayAddress =
-    selectedAddrText ||
-    reduxFullAddress ||
-    'Location updated';
+    selectedAddrText || reduxFullAddress || 'Location updated';
 
   const displayHeaderTitle = isSalonCategory
     ? 'Saloon Location'
@@ -526,8 +615,8 @@ const BookingSummaryScreen = () => {
   const servicesList = Array.isArray(priceBreakdown?.services)
     ? priceBreakdown.services
     : Array.isArray(bookingObj?.serviceIds)
-      ? bookingObj.serviceIds
-      : [];
+    ? bookingObj.serviceIds
+    : [];
 
   const mainServiceTitle =
     servicesList
@@ -678,9 +767,7 @@ const BookingSummaryScreen = () => {
 
     const addressPayload = {
       address:
-        reduxFullAddress ||
-        customerAddrObj?.address ||
-        'Location updated',
+        reduxFullAddress || customerAddrObj?.address || 'Location updated',
       houseNumber: activeHouseNumber,
       floor: activeFloor,
       landmark: activeLandmark,
@@ -776,10 +863,7 @@ const BookingSummaryScreen = () => {
             route.params?.item?._id ||
             route.params?.item?.id ||
             '6a7320cb3577104793b1929b',
-          notes:
-            routePayload.notes ||
-            route.params?.notes ||
-            'Instant service',
+          notes: routePayload.notes || route.params?.notes || 'Instant service',
           bookingDate:
             (selectedDate ? selectedDayObj?.isoDate : null) ||
             routePayload.bookingDate ||
@@ -900,7 +984,7 @@ const BookingSummaryScreen = () => {
 
     if (isSalonCategory) {
       console.log(
-        `\n[BookingSummaryScreen] Saloon Category -> Omitting addressId in payload.\n`,
+        '\n[BookingSummaryScreen] Saloon Category -> Omitting addressId in payload.\n',
       );
       executeBookingSubmission();
       return;
@@ -914,22 +998,22 @@ const BookingSummaryScreen = () => {
 
     const matchingSavedAddr = Array.isArray(userAddresses)
       ? userAddresses.find(item => {
-        const itemId = item?._id || item?.id;
-        if (!isValidObjectId(itemId)) {
-          return false;
-        }
-        const itemText = (item?.address || item?.displayAddress || '')
-          .toLowerCase()
-          .trim();
-        const targetText = (addressPayload?.address || '')
-          .toLowerCase()
-          .trim();
-        return (
-          itemText.length > 0 &&
-          targetText.length > 0 &&
-          (itemText.includes(targetText) || targetText.includes(itemText))
-        );
-      })
+          const itemId = item?._id || item?.id;
+          if (!isValidObjectId(itemId)) {
+            return false;
+          }
+          const itemText = (item?.address || item?.displayAddress || '')
+            .toLowerCase()
+            .trim();
+          const targetText = (addressPayload?.address || '')
+            .toLowerCase()
+            .trim();
+          return (
+            itemText.length > 0 &&
+            targetText.length > 0 &&
+            (itemText.includes(targetText) || targetText.includes(itemText))
+          );
+        })
       : null;
 
     const targetAddrId =
@@ -998,7 +1082,7 @@ const BookingSummaryScreen = () => {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.white }}>
+    <SafeAreaView style={{flex: 1, backgroundColor: colors.white}}>
       <View
         style={{
           height: hp(50),
@@ -1038,7 +1122,7 @@ const BookingSummaryScreen = () => {
       </View>
 
       <View
-        style={{ width: '100%', height: hp(1), backgroundColor: '#E3E3E3' }}
+        style={{width: '100%', height: hp(1), backgroundColor: '#E3E3E3'}}
       />
 
       {fetchingBooking ? (
@@ -1065,7 +1149,7 @@ const BookingSummaryScreen = () => {
         </View>
       ) : (
         <ScrollView>
-          <View style={{ marginTop: hp(18), marginHorizontal: wp(18) }}>
+          <View style={{marginTop: hp(18), marginHorizontal: wp(18)}}>
             <View
               style={{
                 backgroundColor: '#fff',
@@ -1082,6 +1166,7 @@ const BookingSummaryScreen = () => {
                   source={{
                     uri: vendorImage,
                   }}
+                  onError={() => setImageError(true)}
                   style={{
                     width: '100%',
                     height: hp(120),
@@ -1126,7 +1211,7 @@ const BookingSummaryScreen = () => {
               </View>
 
               {/* Content */}
-              <View style={{ padding: wp(14) }}>
+              <View style={{padding: wp(14)}}>
                 <View
                   style={{
                     flexDirection: 'row',
@@ -1257,7 +1342,7 @@ const BookingSummaryScreen = () => {
             </View>
 
             {isInstantBooking && !isSalonCategory ? (
-              <View style={{ marginTop: hp(20) }}>
+              <View style={{marginTop: hp(20)}}>
                 <View
                   style={{
                     width: '100%',
@@ -1269,7 +1354,7 @@ const BookingSummaryScreen = () => {
                     backgroundColor: colors.white,
                     paddingHorizontal: wp(18),
                   }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
                     <View
                       style={{
                         width: hp(45),
@@ -1290,7 +1375,7 @@ const BookingSummaryScreen = () => {
                       />
                     </View>
 
-                    <View style={{ marginLeft: wp(16) }}>
+                    <View style={{marginLeft: wp(16)}}>
                       <Text
                         style={{
                           color: '#222222',
@@ -1312,14 +1397,14 @@ const BookingSummaryScreen = () => {
                       </Text>
                     </View>
 
-                    <View style={{ position: 'absolute', right: wp(1) }}>
+                    <View style={{position: 'absolute', right: wp(1)}}>
                       <Image
                         source={icons.bottom_Arrow_Icon}
                         style={{
                           width: hp(10),
                           height: hp(12),
                           resizeMode: 'contain',
-                          transform: [{ rotate: '-90deg' }],
+                          transform: [{rotate: '-90deg'}],
                         }}
                       />
                     </View>
@@ -1327,7 +1412,7 @@ const BookingSummaryScreen = () => {
                 </View>
               </View>
             ) : (
-              <View style={{ marginTop: hp(20) }}>
+              <View style={{marginTop: hp(20)}}>
                 <TouchableOpacity
                   activeOpacity={0.6}
                   onPress={() => refAppointmentSheet.current?.open()}
@@ -1341,7 +1426,7 @@ const BookingSummaryScreen = () => {
                     backgroundColor: colors.white,
                     paddingHorizontal: wp(18),
                   }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
                     <View
                       style={{
                         width: hp(45),
@@ -1366,7 +1451,7 @@ const BookingSummaryScreen = () => {
                       />
                     </View>
 
-                    <View style={{ marginLeft: wp(16), flex: 1 }}>
+                    <View style={{marginLeft: wp(16), flex: 1}}>
                       {selectedDate && selectedTime ? (
                         <>
                           <Text
@@ -1384,9 +1469,10 @@ const BookingSummaryScreen = () => {
                               fontFamily: fontFamily.poppins700,
                               marginTop: hp(2),
                             }}>
-                            {`${selectedDayObj?.dayLabel ||
+                            {`${
+                              selectedDayObj?.dayLabel ||
                               selectedDate.split(',')[0]
-                              }, ${selectedTime.replace('–', 'to')}`}
+                            }, ${selectedTime.replace('–', 'to')}`}
                           </Text>
                         </>
                       ) : (
@@ -1401,14 +1487,14 @@ const BookingSummaryScreen = () => {
                       )}
                     </View>
 
-                    <View style={{ position: 'absolute', right: wp(1) }}>
+                    <View style={{position: 'absolute', right: wp(1)}}>
                       <Image
                         source={icons.bottom_Arrow_Icon}
                         style={{
                           width: hp(10),
                           height: hp(12),
                           resizeMode: 'contain',
-                          transform: [{ rotate: '-90deg' }],
+                          transform: [{rotate: '-90deg'}],
                         }}
                       />
                     </View>
@@ -1418,7 +1504,7 @@ const BookingSummaryScreen = () => {
             )}
 
             {/* CONFIRM YOUR ADDRESS SECTION */}
-            <View style={{ marginTop: hp(24) }}>
+            <View style={{marginTop: hp(24)}}>
               <Text
                 style={{
                   color: colors.pureBlack,
@@ -1460,7 +1546,7 @@ const BookingSummaryScreen = () => {
                   {displayCardLabel}
                 </Text>
 
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{flexDirection: 'row', alignItems: 'center'}}>
                   <View
                     style={{
                       width: hp(45),
@@ -1476,8 +1562,8 @@ const BookingSummaryScreen = () => {
                         isSalonCategory
                           ? icons.location_Icon || icons.purple_Home_Icon
                           : icons.purple_Home_Icon ||
-                          icons.home_Icon ||
-                          icons.location_Icon
+                            icons.home_Icon ||
+                            icons.location_Icon
                       }
                       style={{
                         width: hp(20),
@@ -1529,7 +1615,7 @@ const BookingSummaryScreen = () => {
                   <TouchableOpacity
                     activeOpacity={0.7}
                     onPress={handleOpenAddressSheet}
-                    style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    style={{flexDirection: 'row', alignItems: 'center'}}>
                     <Text
                       style={{
                         color: '#731EE2',
@@ -1546,7 +1632,7 @@ const BookingSummaryScreen = () => {
                         height: hp(12),
                         resizeMode: 'contain',
                         tintColor: '#731EE2',
-                        transform: [{ rotate: '-90deg' }],
+                        transform: [{rotate: '-90deg'}],
                       }}
                     />
                   </TouchableOpacity>
@@ -1759,7 +1845,7 @@ const BookingSummaryScreen = () => {
                       width: hp(14),
                       height: hp(14),
                       tintColor: colors.white,
-                      transform: [{ rotate: '180deg' }],
+                      transform: [{rotate: '180deg'}],
                       marginLeft: wp(15),
                       top: -2,
                     }}
@@ -1768,7 +1854,7 @@ const BookingSummaryScreen = () => {
               )}
             </TouchableOpacity>
 
-            <View style={{ alignItems: 'center', marginTop: hp(24) }}>
+            <View style={{alignItems: 'center', marginTop: hp(24)}}>
               <Text
                 style={{
                   color: '#6E6E6E',
@@ -1788,7 +1874,7 @@ const BookingSummaryScreen = () => {
             </View>
           </View>
 
-          <View style={{ height: hp(30) }} />
+          <View style={{height: hp(30)}} />
         </ScrollView>
       )}
 
@@ -1872,7 +1958,7 @@ const BookingSummaryScreen = () => {
             width: wp(40),
           },
         }}>
-        <View style={{ flex: 1 }}>
+        <View style={{flex: 1}}>
           <Text
             style={{
               fontSize: fontSize(18),
@@ -1894,7 +1980,7 @@ const BookingSummaryScreen = () => {
           </Text>
 
           {/* Date selector cards row */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
             {daysList.map(item => {
               const isSelected = selectedDayObj?.id === item.id;
               const isDisabled = !item.isOpen;
@@ -1918,13 +2004,13 @@ const BookingSummaryScreen = () => {
                     borderColor: isDisabled
                       ? '#E5E5E5'
                       : isSelected
-                        ? '#731EE2'
-                        : '#E8E8E8',
+                      ? '#731EE2'
+                      : '#E8E8E8',
                     backgroundColor: isDisabled
                       ? '#F5F5F5'
                       : isSelected
-                        ? '#F6F0FF'
-                        : colors.white,
+                      ? '#F6F0FF'
+                      : colors.white,
                     alignItems: 'center',
                     justifyContent: 'center',
                     opacity: isDisabled ? 0.45 : 1,
@@ -1936,8 +2022,8 @@ const BookingSummaryScreen = () => {
                       color: isDisabled
                         ? '#A3A3A3'
                         : isSelected
-                          ? '#731EE2'
-                          : colors.pureBlack,
+                        ? '#731EE2'
+                        : colors.pureBlack,
                     }}>
                     {item.dayLabel}
                   </Text>
@@ -1948,8 +2034,8 @@ const BookingSummaryScreen = () => {
                       color: isDisabled
                         ? '#A3A3A3'
                         : isSelected
-                          ? '#731EE2'
-                          : '#969696',
+                        ? '#731EE2'
+                        : '#969696',
                       marginTop: hp(2),
                     }}>
                     {item.dateStr}
@@ -1995,13 +2081,13 @@ const BookingSummaryScreen = () => {
                   borderColor: isDisabled
                     ? '#E5E5E5'
                     : isSelected
-                      ? '#731EE2'
-                      : '#E8E8E8',
+                    ? '#731EE2'
+                    : '#E8E8E8',
                   backgroundColor: isDisabled
                     ? '#F5F5F5'
                     : isSelected
-                      ? '#F6F0FF'
-                      : colors.white,
+                    ? '#F6F0FF'
+                    : colors.white,
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginBottom: hp(10),
@@ -2014,8 +2100,8 @@ const BookingSummaryScreen = () => {
                     color: isDisabled
                       ? '#A3A3A3'
                       : isSelected
-                        ? '#731EE2'
-                        : colors.pureBlack,
+                      ? '#731EE2'
+                      : colors.pureBlack,
                   }}>
                   {slot}
                 </Text>
@@ -2099,7 +2185,7 @@ const BookingSummaryScreen = () => {
             justifyContent: 'space-between',
             marginBottom: hp(20),
           }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{flexDirection: 'row', alignItems: 'center'}}>
             <Text
               style={{
                 fontSize: fontSize(20),
@@ -2126,7 +2212,7 @@ const BookingSummaryScreen = () => {
               width: hp(10),
               height: hp(12),
               tintColor: '#6B7280',
-              transform: [{ rotate: '-90deg' }],
+              transform: [{rotate: '-90deg'}],
             }}
           />
         </TouchableOpacity>
@@ -2190,7 +2276,7 @@ const BookingSummaryScreen = () => {
                     padding: wp(18),
                     marginBottom: hp(14),
                     shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 4 },
+                    shadowOffset: {width: 0, height: 4},
                     shadowOpacity: 0.04,
                     shadowRadius: 8,
                     elevation: 3,
@@ -2210,7 +2296,7 @@ const BookingSummaryScreen = () => {
 
                   {/* MAIN CONTENT ROW */}
                   <View
-                    style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                    style={{flexDirection: 'row', alignItems: 'flex-start'}}>
                     {/* LEFT COLUMN: ICON */}
                     <View
                       style={{
@@ -2223,10 +2309,10 @@ const BookingSummaryScreen = () => {
                           isCurrentLoc
                             ? icons.location_Icon
                             : String(displayTitle)
-                              .toLowerCase()
-                              .includes('work')
-                              ? icons.work_Icon || icons.home_Icon
-                              : icons.home_Icon
+                                .toLowerCase()
+                                .includes('work')
+                            ? icons.work_Icon || icons.home_Icon
+                            : icons.home_Icon
                         }
                         style={{
                           width: hp(24),
@@ -2240,7 +2326,7 @@ const BookingSummaryScreen = () => {
                     </View>
 
                     {/* RIGHT COLUMN: TITLE, ADDRESS, PHONE */}
-                    <View style={{ flex: 1 }}>
+                    <View style={{flex: 1}}>
                       <Text
                         style={{
                           fontSize: fontSize(16),
