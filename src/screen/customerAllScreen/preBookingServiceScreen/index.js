@@ -12,6 +12,7 @@ import {useDispatch, useSelector} from 'react-redux';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import RBSheet from 'react-native-raw-bottom-sheet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Toast from 'react-native-toast-message';
 import {colors} from '../../../utils/colors';
 import {
   fontFamily,
@@ -24,6 +25,8 @@ import {icons} from '../../../assets';
 import {
   getVendorUserDetails,
   createBooking,
+  toggleFavoriteVendor,
+  deleteFavoriteVendor,
 } from '../../../actions/customerAuthActions';
 
 const PreBookingServiceScreen = () => {
@@ -71,7 +74,16 @@ const PreBookingServiceScreen = () => {
             console.log('Error fetching vendor user details:', err);
           } else if (res) {
             console.log('Fetched vendor user details successfully:', res);
-            setApiVendorDetails(res?.data || res);
+            const data = res?.data || res;
+            setApiVendorDetails(data);
+            const favState =
+              data?.isFavorite ??
+              data?.isLiked ??
+              data?.vendorUser?.isFavorite ??
+              data?.vendorUser?.isLiked;
+            if (favState !== undefined) {
+              setIsLiked(Boolean(favState));
+            }
           }
         }),
       );
@@ -82,28 +94,80 @@ const PreBookingServiceScreen = () => {
 
   const apiData = apiVendorDetails || reduxVendorDetails || {};
   const vendorUserObj = apiData.vendorUser || {};
+
+  const handleToggleFavorite = () => {
+    const targetVendorId =
+      vendorUserObj._id ||
+      vendorUserObj.id ||
+      vendorUserObj.vendorId ||
+      vendorUserId ||
+      routeVendorData._id ||
+      routeVendorData.id ||
+      routeVendorData.vendorId;
+
+    if (!targetVendorId) {
+      console.log('No vendorId found for favorite action');
+      return;
+    }
+
+    const nextLikedState = !isLiked;
+    setIsLiked(nextLikedState);
+
+    if (isLiked) {
+      Toast.show({
+        type: 'success',
+        text1: 'Vendor Removed',
+        text2: 'Vendor removed from saved list.',
+        position: 'top',
+      });
+
+      dispatch(
+        deleteFavoriteVendor(targetVendorId, (err, res) => {
+          if (err) {
+            console.log('Error calling deleteFavoriteVendor API:', err);
+            setIsLiked(!nextLikedState);
+            Toast.show({
+              type: 'error',
+              text1: 'Error',
+              text2: 'Failed to remove vendor from saved list.',
+              position: 'top',
+            });
+          } else {
+            console.log('deleteFavoriteVendor API success response:', res);
+          }
+        }),
+      );
+    } else {
+      Toast.show({
+        type: 'success',
+        text1: 'Vendor Saved',
+        text2: 'Vendor saved to your shortlist.',
+        position: 'top',
+      });
+
+      dispatch(
+        toggleFavoriteVendor({vendorId: targetVendorId}, (err, res) => {
+          if (err) {
+            console.log('Error calling toggleFavoriteVendor API:', err);
+            setIsLiked(!nextLikedState);
+            Toast.show({
+              type: 'error',
+              text1: 'Error',
+              text2: 'Failed to save vendor to shortlist.',
+              position: 'top',
+            });
+          } else {
+            console.log('toggleFavoriteVendor API success response:', res);
+          }
+        }),
+      );
+    }
+  };
   const userObj =
     (typeof vendorUserObj.userId === 'object' && vendorUserObj.userId) ||
     apiData.userId ||
     {};
   const businessAddrObj = apiData.businessAddress || {};
-
-  // Category identification for Saloon vs Other services
-  const categoryName = (
-    apiData?.vendorUser?.categoryId?.title ||
-    apiData?.vendorUser?.categoryId?.name ||
-    routeVendorData?.categoryTitle ||
-    routeVendorData?.service ||
-    routeVendorData?.category?.name ||
-    routeVendorData?.name ||
-    ''
-  ).toLowerCase();
-
-  const isSalonCategory =
-    categoryName.includes('salon') ||
-    categoryName.includes('saloon') ||
-    categoryName.includes('beauty') ||
-    categoryName.includes('barber');
 
   // Extract Business Name strictly from API / route data
   const businessName =
@@ -112,13 +176,33 @@ const PreBookingServiceScreen = () => {
     routeVendorData.businessName ||
     userObj.fullName ||
     userObj.name ||
-    vendorUserObj.businessName ||
     vendorUserObj.name ||
-    apiData.businessName ||
     apiData.name ||
-    routeVendorData.businessName ||
     routeVendorData.name ||
     'Vendor Profile';
+
+  // Category identification for Saloon vs Other services
+  const categoryName = (
+    apiData?.vendorUser?.categoryId?.title ||
+    apiData?.vendorUser?.categoryId?.name ||
+    apiData?.vendorUser?.businessName ||
+    apiData?.businessName ||
+    routeVendorData?.categoryTitle ||
+    routeVendorData?.service ||
+    routeVendorData?.category?.name ||
+    routeVendorData?.name ||
+    routeVendorData?.businessName ||
+    businessName ||
+    ''
+  ).toLowerCase();
+
+  const isSalonCategory =
+    categoryName.includes('salon') ||
+    categoryName.includes('saloon') ||
+    categoryName.includes('beauty') ||
+    categoryName.includes('barber') ||
+    businessName.toLowerCase().includes('salon') ||
+    businessName.toLowerCase().includes('saloon');
 
   // Extract Vendor Availability status (isAvailable, isOnline, statusBadge)
   const availabilityObj =
@@ -141,6 +225,24 @@ const PreBookingServiceScreen = () => {
   );
 
   const statusBadgeText = isVendorOnline ? 'Online' : 'Offline';
+
+  const bookingOption = (
+    availabilityObj?.bookingOption ||
+    availabilityObj?.booking_option ||
+    apiData?.bookingOption ||
+    vendorUserObj?.bookingOption ||
+    routeVendorData?.bookingOption ||
+    ''
+  ).toLowerCase();
+
+  const isInstantBooking =
+    bookingOption === 'instant' ||
+    bookingOption.includes('instant') ||
+    (!bookingOption && isSalonCategory);
+
+  const mainActionButtonText = isInstantBooking
+    ? 'Book Now'
+    : 'Book Appointment';
 
   // Extract Profile Picture strictly from API data
   const imageUri =
@@ -525,25 +627,56 @@ const PreBookingServiceScreen = () => {
     }
   };
 
+  const getSelectedServicesList = () => {
+    return offeredServices
+      .filter((_, idx) => selectedServices.includes(idx))
+      .map(s => {
+        const rawNum =
+          typeof s.price === 'number'
+            ? s.price
+            : parseFloat(String(s.price || '').replace(/[^0-9.]/g, '')) || 300;
+        return {
+          id: s.id || s.masterServiceId,
+          masterServiceId: s.masterServiceId,
+          vendorServiceId: s.vendorServiceId,
+          title: s.title,
+          price: rawNum,
+          formattedPrice: s.price,
+        };
+      });
+  };
+
   const handleBookAppointmentPress = () => {
     const payload = getPreparedBookingPayload();
+    const selectedServicesList = getSelectedServicesList();
     navigation.navigate('BookingSummaryScreen', {
       item: apiData,
       vendor: apiData,
       selectedServices,
+      selectedServicesList,
       bookingPayload: payload,
+      isSalonCategory,
+      categoryName,
+      businessName,
+      saloonAddressText: locationText,
     });
   };
 
   const handleSelectAddressAndProceed = selectedAddr => {
     refAddressSheet.current?.close();
     const payload = getPreparedBookingPayload();
+    const selectedServicesList = getSelectedServicesList();
     navigation.navigate('BookingSummaryScreen', {
       item: apiData,
       vendor: apiData,
       selectedServices,
+      selectedServicesList,
       selectedAddress: selectedAddr,
       bookingPayload: payload,
+      isSalonCategory,
+      categoryName,
+      businessName,
+      saloonAddressText: locationText,
     });
   };
 
@@ -616,7 +749,7 @@ const PreBookingServiceScreen = () => {
             {/* FLOATING LIKE / HEART BUTTON */}
             <TouchableOpacity
               activeOpacity={0.8}
-              onPress={() => setIsLiked(!isLiked)}
+              onPress={handleToggleFavorite}
               style={{
                 position: 'absolute',
                 top: hp(16),
@@ -1006,7 +1139,7 @@ const PreBookingServiceScreen = () => {
                   fontFamily: fontFamily.poppins600,
                   textAlign: 'center',
                 }}>
-                Book Appointment
+                {mainActionButtonText}
               </Text>
             )}
           </TouchableOpacity>
@@ -1275,6 +1408,7 @@ const PreBookingServiceScreen = () => {
           })()}
         </ScrollView>
       </RBSheet>
+      <Toast />
     </SafeAreaView>
   );
 };

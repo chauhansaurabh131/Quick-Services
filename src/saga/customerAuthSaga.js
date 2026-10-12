@@ -3047,6 +3047,230 @@ function* deleteVendorReviewReplySaga(action) {
   }
 }
 
+function* toggleFavoriteVendorSaga(action) {
+  try {
+    const {payload, callback} = action.data;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: TOGGLE_FAVORITE_VENDOR Request]',
+      '\nEndpoint: POST https://service.mntech.website/v1/customer/favoriteVendor',
+      '\nPayload:',
+      JSON.stringify(payload, null, 2),
+      '\n==================================================',
+    );
+
+    let token = yield call(AsyncStorage.getItem, 'token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+    if (!token || token === '[object Object]') {
+      const authState = yield select(state => state.auth);
+      let rawToken =
+        authState?.user?.token ||
+        authState?.user?.accessToken ||
+        authState?.user?.data?.token ||
+        authState?.user?.data?.accessToken ||
+        authState?.user?.tokens?.access?.token ||
+        authState?.user?.tokens?.access ||
+        authState?.user?.data?.tokens?.access?.token ||
+        authState?.user?.data?.tokens?.access ||
+        authState?.user?.user?.token ||
+        authState?.user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    const response = yield call(
+      customerAuth.toggleFavoriteVendor,
+      payload,
+      token || '',
+    );
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: TOGGLE_FAVORITE_VENDOR Success]',
+      `\nStatus: ${response?.status}`,
+      '\nData:',
+      JSON.stringify(response?.data, null, 2),
+      '\n==================================================',
+    );
+
+    yield put(
+      actions.toggleFavoriteVendorSuccess(
+        response.data?.data || response.data,
+        payload,
+      ),
+    );
+
+    if (callback) {
+      callback(null, response.data);
+    }
+  } catch (error) {
+    const errorData = error?.response?.data || error.message;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: TOGGLE_FAVORITE_VENDOR Error]',
+      `\nStatus Code: ${error?.response?.status || 'N/A'}`,
+      '\nError Details:',
+      JSON.stringify(errorData, null, 2),
+      '\n==================================================',
+    );
+    yield put(actions.toggleFavoriteVendorFailed(errorData));
+
+    if (action?.data?.callback) {
+      action.data.callback(errorData, null);
+    }
+  }
+}
+
+function* getFavoriteVendorsSaga(action) {
+  try {
+    const callback = action?.data?.callback;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: GET_FAVORITE_VENDORS Request]',
+      '\nEndpoint: GET https://service.mntech.website/v1/customer/favoriteVendor',
+      '\n==================================================',
+    );
+
+    let token = yield call([AsyncStorage, 'getItem'], 'token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+    if (!token || token === '[object Object]') {
+      const authState = yield select(state => state.auth);
+      let rawToken =
+        authState?.user?.token ||
+        authState?.user?.accessToken ||
+        authState?.user?.data?.token ||
+        authState?.user?.data?.accessToken ||
+        authState?.user?.tokens?.access?.token ||
+        authState?.user?.tokens?.access ||
+        authState?.user?.data?.tokens?.access?.token ||
+        authState?.user?.data?.tokens?.access ||
+        authState?.user?.user?.token ||
+        authState?.user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    const response = yield call(customerAuth.getFavoriteVendors, token || '');
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: GET_FAVORITE_VENDORS Success]',
+      `\nStatus: ${response?.status}`,
+      '\nData:',
+      JSON.stringify(response?.data, null, 2),
+      '\n==================================================',
+    );
+
+    const favoriteVendors = response?.data?.data || response?.data;
+
+    yield put(actions.getFavoriteVendorsSuccess(favoriteVendors));
+
+    if (callback) {
+      callback(null, response.data);
+    }
+  } catch (error) {
+    const errorData = error?.response?.data || error.message;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: GET_FAVORITE_VENDORS Error]',
+      `\nStatus Code: ${error?.response?.status || 'N/A'}`,
+      '\nError Details:',
+      JSON.stringify(errorData, null, 2),
+      '\n==================================================',
+    );
+    yield put(actions.getFavoriteVendorsFailed(errorData));
+
+    if (action?.data?.callback) {
+      action.data.callback(errorData, null);
+    }
+  }
+}
+
+function* deleteFavoriteVendorSaga(action) {
+  try {
+    const {vendorId, callback} = action.data || {};
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: DELETE_FAVORITE_VENDOR Request]',
+      `\nEndpoint: DELETE https://service.mntech.website/v1/customer/favoriteVendor/vendor/${vendorId}`,
+      `\nVendor ID: ${vendorId}`,
+      '\n==================================================',
+    );
+
+    let token = yield call([AsyncStorage, 'getItem'], 'token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+    if (!token || token === '[object Object]') {
+      const authState = yield select(state => state.auth);
+      let rawToken =
+        authState?.user?.token ||
+        authState?.user?.accessToken ||
+        authState?.user?.data?.token ||
+        authState?.user?.data?.accessToken ||
+        authState?.user?.tokens?.access?.token ||
+        authState?.user?.tokens?.access ||
+        authState?.user?.data?.tokens?.access?.token ||
+        authState?.user?.data?.tokens?.access ||
+        authState?.user?.user?.token ||
+        authState?.user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    const response = yield call(
+      customerAuth.deleteFavoriteVendor,
+      vendorId,
+      token || '',
+    );
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: DELETE_FAVORITE_VENDOR Success]',
+      `\nStatus: ${response?.status}`,
+      '\nData:',
+      JSON.stringify(response?.data, null, 2),
+      '\n==================================================',
+    );
+
+    const deletedData = response?.data?.data || response?.data;
+
+    yield put(actions.deleteFavoriteVendorSuccess(deletedData, vendorId));
+
+    if (callback) {
+      callback(null, response.data);
+    }
+  } catch (error) {
+    const errorData = error?.response?.data || error.message;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: DELETE_FAVORITE_VENDOR Error]',
+      `\nStatus Code: ${error?.response?.status || 'N/A'}`,
+      '\nError Details:',
+      JSON.stringify(errorData, null, 2),
+      '\n==================================================',
+    );
+    yield put(actions.deleteFavoriteVendorFailed(errorData));
+
+    if (action?.data?.callback) {
+      action.data.callback(errorData, null);
+    }
+  }
+}
+
 export default function* customerAuthSaga() {
   yield takeLatest(TYPES.LOGIN_CUSTOMER, registerCustomer);
   yield takeLatest(TYPES.REGISTER_VENDOR, registerVendor);
@@ -3099,4 +3323,7 @@ export default function* customerAuthSaga() {
     TYPES.DELETE_VENDOR_REVIEW_REPLY,
     deleteVendorReviewReplySaga,
   );
+  yield takeLatest(TYPES.TOGGLE_FAVORITE_VENDOR, toggleFavoriteVendorSaga);
+  yield takeLatest(TYPES.GET_FAVORITE_VENDORS, getFavoriteVendorsSaga);
+  yield takeLatest(TYPES.DELETE_FAVORITE_VENDOR, deleteFavoriteVendorSaga);
 }

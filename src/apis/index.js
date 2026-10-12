@@ -404,6 +404,36 @@ export const customerAuth = {
           : '',
       },
     }),
+  toggleFavoriteVendor: (payload, token) =>
+    api.post('/customer/favoriteVendor', payload, {
+      headers: {
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
+      },
+    }),
+  getFavoriteVendors: token =>
+    api.get('/customer/favoriteVendor', {
+      headers: {
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
+      },
+    }),
+  deleteFavoriteVendor: (vendorId, token) =>
+    api.delete(`/customer/favoriteVendor/vendor/${vendorId}`, {
+      headers: {
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
+      },
+    }),
 };
 
 export const s3Api = {

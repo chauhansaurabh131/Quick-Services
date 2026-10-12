@@ -39,7 +39,10 @@ const BookingSummaryScreen = () => {
 
   const routeBookingId = route.params?.bookingId || '9F8A2D3C';
 
-  // console.log('bookingOption', route.params?.item?.vendorUser?.userId?.profilePic);
+  const reduxBookingDetails = useSelector(
+    state => state.auth?.activeBookingDetails,
+  );
+  const {user} = useSelector(state => state.auth || {});
 
   const [isEnabled, setIsEnabled] = useState(false);
   const [fetchingBooking, setFetchingBooking] = useState(true);
@@ -52,18 +55,212 @@ const BookingSummaryScreen = () => {
 
   const refAppointmentSheet = useRef();
   const refAddressSheet = useRef();
+  const refRequestSheet = useRef();
+  const [timerSeconds, setTimerSeconds] = useState(60);
+
+  useEffect(() => {
+    let interval;
+    if (timerSeconds > 0) {
+      interval = setInterval(() => {
+        setTimerSeconds(prev => (prev > 1 ? prev - 1 : 0));
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [timerSeconds]);
+
+  const formatTimer = secs => {
+    const mins = Math.floor(secs / 60);
+    const remainingSecs = secs % 60;
+    return `${String(mins).padStart(2, '0')}:${String(remainingSecs).padStart(
+      2,
+      '0',
+    )}`;
+  };
 
   const [savedAddressesList, setSavedAddressesList] = useState([]);
   const [selectedAddressState, setSelectedAddressState] = useState(null);
 
+  const activeBooking =
+    apiBookingDetails || reduxBookingDetails || route.params?.bookingData || {};
+  const bookingObj =
+    activeBooking?.booking ||
+    activeBooking?.data?.booking ||
+    activeBooking ||
+    {};
+  const bookingSummaryObj =
+    activeBooking?.bookingSummary || activeBooking?.data?.bookingSummary || {};
+  const appointmentObj = bookingSummaryObj?.appointment || {};
+  const vendorObj = bookingSummaryObj?.vendor || bookingObj?.vendorId || {};
+  const priceBreakdown = bookingSummaryObj?.priceBreakdown || {};
+
+  const bookingDisplayId =
+    bookingSummaryObj?.bookingId ||
+    bookingObj?.bookingId ||
+    activeBooking?.bookingId ||
+    activeBooking?.id ||
+    routeBookingId;
+
+  // Vendor & Service dynamic fields
+  const routeItem = route.params?.item || {};
+  const routeVendor = route.params?.vendor || {};
+
+  const saloonVendorObj =
+    route.params?.vendor ||
+    route.params?.item?.vendor ||
+    route.params?.item?.vendorId ||
+    route.params?.item ||
+    vendorObj ||
+    apiBookingDetails?.vendorId ||
+    apiBookingDetails?.vendor ||
+    {};
+
+  const categoryName = (
+    route.params?.categoryName ||
+    route.params?.category?.name ||
+    route.params?.item?.vendorUser?.categoryId?.title ||
+    route.params?.item?.vendorUser?.categoryId?.name ||
+    route.params?.vendor?.vendorUser?.categoryId?.title ||
+    route.params?.vendor?.vendorUser?.categoryId?.name ||
+    saloonVendorObj?.vendorUser?.categoryId?.title ||
+    saloonVendorObj?.vendorUser?.categoryId?.name ||
+    saloonVendorObj?.categoryId?.title ||
+    saloonVendorObj?.categoryId?.name ||
+    vendorObj?.category ||
+    bookingObj?.vendorId?.categoryId?.title ||
+    bookingSummaryObj?.vendor?.category ||
+    apiBookingDetails?.data?.booking?.vendorId?.categoryId?.title ||
+    route.params?.item?.categoryTitle ||
+    route.params?.item?.category_title ||
+    route.params?.vendor?.categoryTitle ||
+    route.params?.item?.serviceDetails?.title ||
+    route.params?.item?.service ||
+    route.params?.item?.name ||
+    route.params?.vendor?.name ||
+    route.params?.businessName ||
+    saloonVendorObj?.businessName ||
+    saloonVendorObj?.name ||
+    apiBookingDetails?.categoryId?.name ||
+    apiBookingDetails?.serviceId?.name ||
+    ''
+  ).toLowerCase();
+
+  const isSalonCategory =
+    Boolean(route.params?.isSalonCategory) ||
+    categoryName.includes('salon') ||
+    categoryName.includes('saloon') ||
+    categoryName.includes('beauty') ||
+    categoryName.includes('barber') ||
+    String(route.params?.businessName || '')
+      .toLowerCase()
+      .includes('salon') ||
+    String(route.params?.businessName || '')
+      .toLowerCase()
+      .includes('saloon') ||
+    String(routeItem?.vendorUser?.businessName || '')
+      .toLowerCase()
+      .includes('salon') ||
+    String(routeItem?.vendorUser?.businessName || '')
+      .toLowerCase()
+      .includes('saloon') ||
+    String(routeVendor?.vendorUser?.businessName || '')
+      .toLowerCase()
+      .includes('salon') ||
+    String(routeVendor?.vendorUser?.businessName || '')
+      .toLowerCase()
+      .includes('saloon') ||
+    String(saloonVendorObj?.businessName || saloonVendorObj?.name || '')
+      .toLowerCase()
+      .includes('salon') ||
+    String(saloonVendorObj?.businessName || saloonVendorObj?.name || '')
+      .toLowerCase()
+      .includes('saloon');
+
+  const vendorAvailabilityObj =
+    bookingSummaryObj?.vendorAvailability ||
+    bookingSummaryObj?.vendor?.vendorAvailability ||
+    bookingObj?.vendorAvailability ||
+    bookingObj?.vendorId?.vendorAvailability ||
+    saloonVendorObj?.vendorAvailability ||
+    saloonVendorObj?.vendorUser?.vendorAvailability ||
+    routeVendor?.vendorAvailability ||
+    routeItem?.vendorAvailability ||
+    routeVendor?.vendorUser?.vendorAvailability ||
+    routeItem?.vendorUser?.vendorAvailability ||
+    apiBookingDetails?.vendorAvailability ||
+    apiBookingDetails?.vendorId?.vendorAvailability ||
+    apiBookingDetails?.vendor?.vendorAvailability ||
+    saloonVendorObj?.docs?.[0]?.vendorAvailability ||
+    routeItem?.docs?.[0]?.vendorAvailability ||
+    routeVendor?.docs?.[0]?.vendorAvailability ||
+    {};
+
   const weeklySchedule =
+    vendorAvailabilityObj?.weeklySchedule ||
     bookingSummaryObj?.vendorAvailability?.weeklySchedule ||
     bookingSummaryObj?.vendor?.vendorAvailability?.weeklySchedule ||
     bookingObj?.vendorAvailability?.weeklySchedule ||
     bookingObj?.vendorId?.vendorAvailability?.weeklySchedule ||
+    saloonVendorObj?.vendorAvailability?.weeklySchedule ||
     route.params?.item?.vendorAvailability?.weeklySchedule ||
     route.params?.vendor?.vendorAvailability?.weeklySchedule ||
+    route.params?.item?.vendorUser?.vendorAvailability?.weeklySchedule ||
+    route.params?.vendor?.vendorUser?.vendorAvailability?.weeklySchedule ||
     [];
+
+  const vendorBookingOption = (
+    vendorAvailabilityObj?.bookingOption ||
+    vendorAvailabilityObj?.booking_option ||
+    saloonVendorObj?.bookingOption ||
+    saloonVendorObj?.vendorUser?.bookingOption ||
+    routeVendor?.bookingOption ||
+    routeItem?.bookingOption ||
+    routeVendor?.vendorUser?.bookingOption ||
+    routeItem?.vendorUser?.bookingOption ||
+    route.params?.bookingOption ||
+    route.params?.bookingType ||
+    route.params?.bookingPayload?.bookingOption ||
+    route.params?.bookingPayload?.bookingType ||
+    appointmentObj?.bookingType ||
+    bookingObj?.bookingType ||
+    apiBookingDetails?.bookingType ||
+    ''
+  )
+    .toLowerCase()
+    .trim();
+
+  // Booking mode: instant vs schedule
+  const isInstantBooking = (() => {
+    if (vendorBookingOption === 'instant') {
+      return true;
+    }
+    if (vendorBookingOption === 'schedule') {
+      return false;
+    }
+    if (
+      vendorBookingOption.includes('instant') &&
+      !vendorBookingOption.includes('schedule')
+    ) {
+      return true;
+    }
+    if (vendorBookingOption.includes('schedule')) {
+      return false;
+    }
+    if (appointmentObj?.bookingType) {
+      return String(appointmentObj.bookingType)
+        .toLowerCase()
+        .includes('instant');
+    }
+    if (bookingObj?.bookingType) {
+      return String(bookingObj.bookingType).toLowerCase().includes('instant');
+    }
+    // Category-specific fallback: salon defaults to schedule, others default to instant
+    return !isSalonCategory;
+  })();
+
+  const estimatedArrival =
+    appointmentObj?.estimatedArrival ||
+    bookingObj?.estimatedArrival ||
+    '30-40 mins.';
 
   const getUpcomingDays = () => {
     const months = [
@@ -184,10 +381,30 @@ const BookingSummaryScreen = () => {
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
 
-  const reduxBookingDetails = useSelector(
-    state => state.auth?.activeBookingDetails,
-  );
-  const {user} = useSelector(state => state.auth || {});
+  useEffect(() => {
+    const existingDate =
+      appointmentObj?.bookingDate ||
+      appointmentObj?.date ||
+      bookingObj?.bookingDate ||
+      bookingObj?.date ||
+      route.params?.bookingDate ||
+      route.params?.bookingPayload?.bookingDate;
+
+    const existingTime =
+      appointmentObj?.timeSlot ||
+      appointmentObj?.time ||
+      bookingObj?.timeSlot ||
+      bookingObj?.time ||
+      route.params?.timeSlot ||
+      route.params?.bookingPayload?.timeSlot;
+
+    if (existingDate && !selectedDate) {
+      setSelectedDate(existingDate);
+    }
+    if (existingTime && !selectedTime) {
+      setSelectedTime(existingTime);
+    }
+  }, [apiBookingDetails, appointmentObj, bookingObj]);
 
   useEffect(() => {
     if (routeBookingId && !route.params?.bookingPayload) {
@@ -227,42 +444,7 @@ const BookingSummaryScreen = () => {
     }
   }, [dispatch, routeBookingId]);
 
-  const activeBooking =
-    apiBookingDetails || reduxBookingDetails || route.params?.bookingData || {};
-  const bookingObj =
-    activeBooking?.booking ||
-    activeBooking?.data?.booking ||
-    activeBooking ||
-    {};
-  const bookingSummaryObj =
-    activeBooking?.bookingSummary || activeBooking?.data?.bookingSummary || {};
-  const appointmentObj = bookingSummaryObj?.appointment || {};
-  const vendorObj = bookingSummaryObj?.vendor || bookingObj?.vendorId || {};
-  const priceBreakdown = bookingSummaryObj?.priceBreakdown || {};
-
-  const bookingDisplayId =
-    bookingSummaryObj?.bookingId ||
-    bookingObj?.bookingId ||
-    activeBooking?.bookingId ||
-    activeBooking?.id ||
-    routeBookingId;
-
-  const bookingType = (
-    appointmentObj?.bookingType ||
-    bookingObj?.bookingType ||
-    'instant'
-  ).toLowerCase();
-
-  const estimatedArrival =
-    appointmentObj?.estimatedArrival ||
-    bookingObj?.estimatedArrival ||
-    '30-40 mins.';
-
-  const isInstantBooking = bookingType.includes('instant');
-
   // Vendor & Service dynamic fields
-  const routeItem = route.params?.item || {};
-  const routeVendor = route.params?.vendor || {};
 
   const businessName =
     routeItem?.vendorUser?.businessName ||
@@ -485,39 +667,9 @@ const BookingSummaryScreen = () => {
       .filter(Boolean)
       .join(', ');
 
-  const categoryName = (
-    vendorObj?.category ||
-    bookingObj?.vendorId?.categoryId?.title ||
-    bookingSummaryObj?.vendor?.category ||
-    apiBookingDetails?.data?.booking?.vendorId?.categoryId?.title ||
-    route.params?.category?.name ||
-    route.params?.item?.categoryTitle ||
-    route.params?.item?.category_title ||
-    route.params?.vendor?.categoryTitle ||
-    route.params?.item?.serviceDetails?.title ||
-    route.params?.item?.service ||
-    apiBookingDetails?.categoryId?.name ||
-    apiBookingDetails?.serviceId?.name ||
-    ''
-  ).toLowerCase();
-
-  const isSalonCategory =
-    categoryName.includes('salon') ||
-    categoryName.includes('saloon') ||
-    categoryName.includes('beauty') ||
-    categoryName.includes('barber');
-
-  const saloonVendorObj =
-    route.params?.vendor ||
-    route.params?.item?.vendor ||
-    route.params?.item?.vendorId ||
-    route.params?.item ||
-    vendorObj ||
-    apiBookingDetails?.vendorId ||
-    apiBookingDetails?.vendor ||
-    {};
-
   const saloonBusinessName =
+    route.params?.businessName ||
+    saloonVendorObj?.vendorUser?.businessName ||
     saloonVendorObj?.businessName ||
     saloonVendorObj?.business_name ||
     saloonVendorObj?.name ||
@@ -530,6 +682,7 @@ const BookingSummaryScreen = () => {
     bookingObj?.businessAddress ||
     bookingObj?.vendorId?.businessAddress ||
     saloonVendorObj?.businessAddress ||
+    saloonVendorObj?.vendorUser?.businessAddress ||
     saloonVendorObj?.address ||
     {};
 
@@ -561,8 +714,11 @@ const BookingSummaryScreen = () => {
   };
 
   const saloonAddressText =
+    route.params?.saloonAddressText ||
+    route.params?.vendorAddressText ||
     formatSaloonAddr(saloonBizAddr) ||
     formatSaloonAddr(saloonVendorObj?.businessAddress) ||
+    formatSaloonAddr(saloonVendorObj?.vendorUser?.businessAddress) ||
     formatSaloonAddr(saloonVendorObj?.address) ||
     (typeof saloonVendorObj?.location === 'string'
       ? saloonVendorObj.location
@@ -612,11 +768,80 @@ const BookingSummaryScreen = () => {
     ? saloonAddressText
     : fullDisplayAddress;
 
-  const servicesList = Array.isArray(priceBreakdown?.services)
-    ? priceBreakdown.services
-    : Array.isArray(bookingObj?.serviceIds)
-    ? bookingObj.serviceIds
-    : [];
+  const parseAmountNumber = val => {
+    if (typeof val === 'number') {
+      return val;
+    }
+    if (!val) {
+      return 0;
+    }
+    const cleaned = String(val).replace(/[^0-9.]/g, '');
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? 0 : num;
+  };
+
+  const servicesList = (() => {
+    if (
+      Array.isArray(route.params?.selectedServicesList) &&
+      route.params.selectedServicesList.length > 0
+    ) {
+      return route.params.selectedServicesList;
+    }
+    if (
+      Array.isArray(route.params?.bookingPayload?.services) &&
+      route.params.bookingPayload.services.length > 0
+    ) {
+      return route.params.bookingPayload.services.map(s => ({
+        id: s.serviceId || s.id,
+        title: s.title || s.name || 'Service',
+        price: parseAmountNumber(s.price || s.charge || 300),
+      }));
+    }
+    if (
+      Array.isArray(priceBreakdown?.services) &&
+      priceBreakdown.services.length > 0
+    ) {
+      return priceBreakdown.services;
+    }
+    if (Array.isArray(route.params?.selectedServices)) {
+      if (
+        route.params.selectedServices.length > 0 &&
+        typeof route.params.selectedServices[0] === 'object'
+      ) {
+        return route.params.selectedServices;
+      }
+      const rawVendorServices =
+        routeItem?.services ||
+        routeVendor?.services ||
+        saloonVendorObj?.services ||
+        [];
+      if (Array.isArray(rawVendorServices) && rawVendorServices.length > 0) {
+        return rawVendorServices
+          .filter((_, idx) => route.params.selectedServices.includes(idx))
+          .map(s => ({
+            id: s._id || s.id,
+            title:
+              s.serviceId?.title ||
+              s.serviceId?.name ||
+              s.title ||
+              s.name ||
+              'Service',
+            price: s.price || s.charge || 300,
+          }));
+      }
+    }
+    if (
+      Array.isArray(bookingObj?.serviceIds) &&
+      bookingObj.serviceIds.length > 0 &&
+      typeof bookingObj.serviceIds[0] === 'object'
+    ) {
+      return bookingObj.serviceIds;
+    }
+    if (isSalonCategory) {
+      return [{id: '1', title: 'Haircut', price: 300}];
+    }
+    return [];
+  })();
 
   const mainServiceTitle =
     servicesList
@@ -635,22 +860,44 @@ const BookingSummaryScreen = () => {
     ? 'Visiting Fee'
     : servicesList[0]?.title || 'Service Fee';
 
-  const feeVal =
-    priceBreakdown?.visitingCharge ??
-    priceBreakdown?.subtotal ??
-    priceBreakdown?.servicesTotal ??
-    bookingObj?.subtotal ??
-    100;
+  const salonServicesTotal = isSalonCategory
+    ? servicesList.reduce((sum, svc) => {
+        const p = parseAmountNumber(
+          svc?.price ?? svc?.charge ?? svc?.amount ?? 300,
+        );
+        return sum + p;
+      }, 0)
+    : 0;
 
-  const serviceFeeVal =
-    priceBreakdown?.serviceFee ?? bookingObj?.serviceFee ?? 5;
+  const feeVal = isSalonCategory
+    ? salonServicesTotal
+    : priceBreakdown?.visitingCharge ??
+      priceBreakdown?.subtotal ??
+      priceBreakdown?.servicesTotal ??
+      bookingObj?.subtotal ??
+      100;
 
   const serviceFeePct = priceBreakdown?.serviceFeePercentage || '5%';
 
-  const taxVal = priceBreakdown?.tax ?? bookingObj?.tax ?? 5;
+  const serviceFeeVal = isSalonCategory
+    ? priceBreakdown?.serviceFee ??
+      bookingObj?.serviceFee ??
+      Math.round(salonServicesTotal * 0.05 * 100) / 100
+    : priceBreakdown?.serviceFee ?? bookingObj?.serviceFee ?? 5;
 
-  const totalPayableVal =
-    priceBreakdown?.totalPayable ?? bookingObj?.totalAmount ?? 110;
+  const taxVal = isSalonCategory
+    ? priceBreakdown?.tax ??
+      bookingObj?.tax ??
+      Math.round(salonServicesTotal * 0.05 * 100) / 100
+    : priceBreakdown?.tax ?? bookingObj?.tax ?? 5;
+
+  const totalPayableVal = isSalonCategory
+    ? priceBreakdown?.totalPayable ??
+      bookingObj?.totalAmount ??
+      Math.round(
+        (salonServicesTotal + Number(serviceFeeVal) + Number(taxVal)) * 100,
+      ) / 100
+    : priceBreakdown?.totalPayable ?? bookingObj?.totalAmount ?? 110;
 
   const formatAmount = val => {
     if (val === undefined || val === null || isNaN(Number(val))) {
@@ -682,8 +929,8 @@ const BookingSummaryScreen = () => {
   };
 
   const handleConfirmAndBookPress = () => {
-    // Validation for Salon Category: Ensure date and time slot are selected!
-    if (isSalonCategory) {
+    // Validation for Schedule Booking (Appointment): Ensure date and time slot are selected!
+    if (!isInstantBooking) {
       if (!selectedDate || !selectedTime) {
         Alert.alert(
           'Notice',
@@ -912,7 +1159,8 @@ const BookingSummaryScreen = () => {
                 JSON.stringify(cRes, null, 2),
                 '\n==================================================',
               );
-              navigation.navigate('Demo');
+              setTimerSeconds(60);
+              refRequestSheet.current?.open();
             }
           }),
         );
@@ -976,7 +1224,8 @@ const BookingSummaryScreen = () => {
                 JSON.stringify(uRes, null, 2),
               );
             }
-            navigation.navigate('Demo');
+            setTimerSeconds(60);
+            refRequestSheet.current?.open();
           },
         ),
       );
@@ -1323,11 +1572,13 @@ const BookingSummaryScreen = () => {
 
             {/*Date Time Schedule*/}
 
-            <View
+            <TouchableOpacity
+              activeOpacity={0.7}
+              disabled={isInstantBooking}
+              onPress={() => refAppointmentSheet.current?.open()}
               style={{
                 marginTop: hp(10),
                 flexDirection: 'row',
-                // backgroundColor: 'orange',
                 alignItems: 'center',
                 justifyContent: 'space-between',
               }}>
@@ -1339,9 +1590,9 @@ const BookingSummaryScreen = () => {
                 }}>
                 Set Appointment
               </Text>
-            </View>
+            </TouchableOpacity>
 
-            {isInstantBooking && !isSalonCategory ? (
+            {isInstantBooking ? (
               <View style={{marginTop: hp(20)}}>
                 <View
                   style={{
@@ -1661,7 +1912,7 @@ const BookingSummaryScreen = () => {
                 paddingHorizontal: wp(20),
               }}>
               {/* Individual Services Rows for Salon vs Single Visiting Fee Row for Non-Salon */}
-              {isSalonCategory && servicesList.length > 0 ? (
+              {isSalonCategory ? (
                 servicesList.map((svc, idx) => {
                   const rawName =
                     svc?.rawTitle ||
@@ -1669,11 +1920,12 @@ const BookingSummaryScreen = () => {
                     svc?.name ||
                     `Service ${idx + 1}`;
                   const sTitle = String(rawName).replace(/\s*Fee$/i, '');
-                  const sPrice =
+                  const sPrice = parseAmountNumber(
                     svc?.price ??
-                    svc?.charge ??
-                    svc?.amount ??
-                    (servicesList.length === 1 ? feeVal : 0);
+                      svc?.charge ??
+                      svc?.amount ??
+                      (servicesList.length === 1 ? feeVal : 300),
+                  );
 
                   return (
                     <View
@@ -2400,6 +2652,119 @@ const BookingSummaryScreen = () => {
             );
           })()}
         </ScrollView>
+      </RBSheet>
+      {/* REQUEST SENT CONFIRMATION BOTTOM SHEET */}
+      <RBSheet
+        ref={refRequestSheet}
+        height={hp(340)}
+        openDuration={250}
+        closeOnPressMask={true}
+        customStyles={{
+          container: {
+            borderTopLeftRadius: hp(24),
+            borderTopRightRadius: hp(24),
+            paddingHorizontal: wp(20),
+            paddingTop: hp(24),
+            paddingBottom: hp(20),
+            alignItems: 'center',
+            backgroundColor: colors.white,
+          },
+        }}>
+        {/* Timer Circle */}
+        <View
+          style={{
+            width: hp(80),
+            height: hp(80),
+            borderRadius: hp(40),
+            backgroundColor: '#F3E8FF',
+            justifyContent: 'center',
+            alignItems: 'center',
+            alignSelf: 'center',
+          }}>
+          <Text
+            style={{
+              color: colors.primaryColor || '#731EE2',
+              fontSize: fontSize(18),
+              fontFamily: fontFamily.poppins700,
+            }}>
+            {formatTimer(timerSeconds)}
+          </Text>
+        </View>
+
+        {/* Request Sent Title */}
+        <Text
+          style={{
+            color: colors.pureBlack,
+            fontSize: fontSize(18),
+            fontFamily: fontFamily.poppins700,
+            textAlign: 'center',
+            marginTop: hp(20),
+          }}>
+          Request Sent
+        </Text>
+
+        {/* Subtitle */}
+        <Text
+          style={{
+            color: '#333333',
+            fontSize: fontSize(14),
+            fontFamily: fontFamily.poppins400,
+            textAlign: 'center',
+            marginTop: hp(6),
+          }}>
+          Please wait for confirmation.
+        </Text>
+
+        {/* Pay Visiting Fees Button */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => {
+            refRequestSheet.current?.close();
+          }}
+          style={{
+            width: '100%',
+            height: hp(50),
+            borderRadius: hp(30),
+            backgroundColor: colors.primaryColor || '#731EE2',
+            marginTop: hp(24),
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}>
+          <Text
+            style={{
+              color: colors.white,
+              fontSize: fontSize(15),
+              fontFamily: fontFamily.poppins500,
+            }}>
+            {isSalonCategory ? 'Pay Total Amount : ' : 'Pay Visiting Fees : '}
+            <Text
+              style={{
+                fontFamily: fontFamily.poppins700,
+                color: colors.white,
+              }}>
+              Rs.{formatAmount(isSalonCategory ? totalPayableVal : feeVal)}
+            </Text>
+          </Text>
+        </TouchableOpacity>
+
+        {/* Cancel Request Link */}
+        <TouchableOpacity
+          activeOpacity={0.6}
+          onPress={() => refRequestSheet.current?.close()}
+          style={{
+            marginTop: hp(16),
+            paddingVertical: hp(6),
+            alignSelf: 'center',
+          }}>
+          <Text
+            style={{
+              color: colors.primaryColor || '#731EE2',
+              fontSize: fontSize(15),
+              fontFamily: fontFamily.poppins500,
+            }}>
+            Cancel Request
+          </Text>
+        </TouchableOpacity>
       </RBSheet>
     </SafeAreaView>
   );

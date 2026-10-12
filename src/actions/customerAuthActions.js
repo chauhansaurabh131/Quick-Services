@@ -731,3 +731,50 @@ export const deleteVendorReviewReplyFailed = error => ({
   type: TYPES.DELETE_VENDOR_REVIEW_REPLY_FAILED,
   error,
 });
+
+export const toggleFavoriteVendor = (payload, callback) => ({
+  type: TYPES.TOGGLE_FAVORITE_VENDOR,
+  data: {payload, callback},
+});
+
+export const toggleFavoriteVendorSuccess = (data, payload) => ({
+  type: TYPES.TOGGLE_FAVORITE_VENDOR_SUCCESS,
+  data,
+  payload,
+});
+
+export const toggleFavoriteVendorFailed = error => ({
+  type: TYPES.TOGGLE_FAVORITE_VENDOR_FAILED,
+  error,
+});
+
+export const getFavoriteVendors = callback => ({
+  type: TYPES.GET_FAVORITE_VENDORS,
+  data: {callback},
+});
+
+export const getFavoriteVendorsSuccess = data => ({
+  type: TYPES.GET_FAVORITE_VENDORS_SUCCESS,
+  data,
+});
+
+export const getFavoriteVendorsFailed = error => ({
+  type: TYPES.GET_FAVORITE_VENDORS_FAILED,
+  error,
+});
+
+export const deleteFavoriteVendor = (vendorId, callback) => ({
+  type: TYPES.DELETE_FAVORITE_VENDOR,
+  data: {vendorId, callback},
+});
+
+export const deleteFavoriteVendorSuccess = (data, vendorId) => ({
+  type: TYPES.DELETE_FAVORITE_VENDOR_SUCCESS,
+  data,
+  vendorId,
+});
+
+export const deleteFavoriteVendorFailed = error => ({
+  type: TYPES.DELETE_FAVORITE_VENDOR_FAILED,
+  error,
+});

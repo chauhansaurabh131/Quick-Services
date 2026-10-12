@@ -58,6 +58,7 @@ const initialState = {
   user: null,
   error: null,
   isLoggedIn: false,
+  favoriteVendors: [],
 };
 
 const customerAuthReducer = (state = initialState, action) => {
@@ -85,6 +86,9 @@ const customerAuthReducer = (state = initialState, action) => {
     case TYPES.UPDATE_CUSTOMER_REVIEW:
     case TYPES.DELETE_CUSTOMER_REVIEW:
     case TYPES.DELETE_VENDOR_REVIEW_REPLY:
+    case TYPES.TOGGLE_FAVORITE_VENDOR:
+    case TYPES.GET_FAVORITE_VENDORS:
+    case TYPES.DELETE_FAVORITE_VENDOR:
       return {
         ...state,
         loading: true,
@@ -340,11 +344,64 @@ const customerAuthReducer = (state = initialState, action) => {
     case TYPES.UPDATE_CUSTOMER_REVIEW_FAILED:
     case TYPES.DELETE_CUSTOMER_REVIEW_FAILED:
     case TYPES.DELETE_VENDOR_REVIEW_REPLY_FAILED:
+    case TYPES.TOGGLE_FAVORITE_VENDOR_FAILED:
+    case TYPES.GET_FAVORITE_VENDORS_FAILED:
+    case TYPES.DELETE_FAVORITE_VENDOR_FAILED:
       return {
         ...state,
         loading: false,
         error: action.error,
       };
+    case TYPES.TOGGLE_FAVORITE_VENDOR_SUCCESS:
+      return {
+        ...state,
+        loading: false,
+        favoriteVendorResult: action.data,
+        error: null,
+      };
+    case TYPES.GET_FAVORITE_VENDORS_SUCCESS:
+      return {
+        ...state,
+        loading: false,
+        favoriteVendors: action.data,
+        error: null,
+      };
+    case TYPES.DELETE_FAVORITE_VENDOR_SUCCESS: {
+      const targetVendorId = action.vendorId || action.payload?.vendorId;
+      const existingFavorites = Array.isArray(state.favoriteVendors)
+        ? state.favoriteVendors
+        : Array.isArray(state.favoriteVendors?.docs)
+        ? state.favoriteVendors.docs
+        : Array.isArray(state.favoriteVendors?.data)
+        ? state.favoriteVendors.data
+        : [];
+
+      const updatedFavorites = targetVendorId
+        ? existingFavorites.filter(item => {
+            const id =
+              item?.vendorId ||
+              item?.vendorUser?._id ||
+              item?.vendorUser?.id ||
+              item?._id ||
+              item?.id;
+            return String(id) !== String(targetVendorId);
+          })
+        : existingFavorites;
+
+      return {
+        ...state,
+        loading: false,
+        deleteFavoriteVendorResult: action.data,
+        favoriteVendors: Array.isArray(state.favoriteVendors)
+          ? updatedFavorites
+          : {
+              ...state.favoriteVendors,
+              docs: updatedFavorites,
+              data: updatedFavorites,
+            },
+        error: null,
+      };
+    }
     case TYPES.LOGIN_CUSTOMER_SUCCESS:
     case TYPES.REGISTER_VENDOR_SUCCESS:
       return {
@@ -795,6 +852,8 @@ const customerAuthReducer = (state = initialState, action) => {
     case TYPES.RESEND_OTP_VENDOR_FAILED:
     case TYPES.GET_CUSTOMER_BOOKINGS_FAILED:
     case TYPES.CANCEL_CUSTOMER_BOOKING_FAILED:
+    case TYPES.GET_FAVORITE_VENDORS_FAILED:
+    case TYPES.DELETE_FAVORITE_VENDOR_FAILED:
       return {
         ...state,
         loading: false,
