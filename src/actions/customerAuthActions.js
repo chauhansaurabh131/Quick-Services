@@ -76,6 +76,36 @@ export const updateUserCustomerFailed = error => ({
   error,
 });
 
+export const verifyUpdateOtp = (payload, callback) => ({
+  type: TYPES.VERIFY_UPDATE_OTP,
+  data: {payload, callback},
+});
+
+export const verifyUpdateOtpSuccess = data => ({
+  type: TYPES.VERIFY_UPDATE_OTP_SUCCESS,
+  data,
+});
+
+export const verifyUpdateOtpFailed = error => ({
+  type: TYPES.VERIFY_UPDATE_OTP_FAILED,
+  error,
+});
+
+export const sendUpdateMobileOtp = (payload, callback) => ({
+  type: TYPES.SEND_UPDATE_MOBILE_OTP,
+  data: {payload, callback},
+});
+
+export const sendUpdateMobileOtpSuccess = data => ({
+  type: TYPES.SEND_UPDATE_MOBILE_OTP_SUCCESS,
+  data,
+});
+
+export const sendUpdateMobileOtpFailed = error => ({
+  type: TYPES.SEND_UPDATE_MOBILE_OTP_FAILED,
+  error,
+});
+
 export const updateVendorProfile = (payload, callback) => ({
   type: TYPES.UPDATE_VENDOR_PROFILE,
   data: {payload, callback},
@@ -176,9 +206,10 @@ export const getVendorServicesByCategory = (
   callback,
   page = 1,
   limit = 10,
+  filter = null,
 ) => ({
   type: TYPES.GET_VENDOR_SERVICES_BY_CATEGORY,
-  data: {categoryId, longitude, latitude, callback, page, limit},
+  data: {categoryId, longitude, latitude, callback, page, limit, filter},
 });
 
 export const getVendorServicesByCategorySuccess = (data, categoryId) => ({
@@ -778,3 +809,25 @@ export const deleteFavoriteVendorFailed = error => ({
   type: TYPES.DELETE_FAVORITE_VENDOR_FAILED,
   error,
 });
+
+export const deleteAccount = (payload, callback) => {
+  if (typeof payload === 'function' && !callback) {
+    callback = payload;
+    payload = {};
+  }
+  return {
+    type: TYPES.DELETE_ACCOUNT,
+    data: {payload, callback},
+  };
+};
+
+export const deleteAccountSuccess = data => ({
+  type: TYPES.DELETE_ACCOUNT_SUCCESS,
+  data,
+});
+
+export const deleteAccountFailed = error => ({
+  type: TYPES.DELETE_ACCOUNT_FAILED,
+  error,
+});
+

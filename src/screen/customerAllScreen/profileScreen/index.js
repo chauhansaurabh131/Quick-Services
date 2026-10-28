@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -9,32 +9,33 @@ import {
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {useDispatch, useSelector} from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   logoutUser,
   updateUserCustomer,
   uploadProfilePic,
 } from '../../../actions/customerAuthActions';
-import {resetLocation} from '../../../actions/locationActions';
-import {colors} from '../../../utils/colors';
-import {fontFamily, fontSize, hp, wp} from '../../../utils/helpers';
-import {icons} from '../../../assets';
-import {useNavigation} from '@react-navigation/native';
-import {launchImageLibrary} from 'react-native-image-picker';
-import {useTranslation} from 'react-i18next';
-import {s3Api} from '../../../apis';
+import { resetLocation } from '../../../actions/locationActions';
+import { colors } from '../../../utils/colors';
+import { fontFamily, fontSize, hp, wp } from '../../../utils/helpers';
+import { icons } from '../../../assets';
+import { useNavigation } from '@react-navigation/native';
+import { launchImageLibrary } from 'react-native-image-picker';
+import { useTranslation } from 'react-i18next';
+import { s3Api } from '../../../apis';
 
 const ProfileScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
-  const {t} = useTranslation();
+  const { t } = useTranslation();
 
-  const {user} = useSelector(state => state.auth || {});
-  const [asyncImage, setAsyncImage] = useState(null);
+  const { user } = useSelector(state => state.auth || {});
   const [localProfileImage, setLocalProfileImage] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
 
-  console.log('userdata', user);
+  console.log('user==1111', user?.user);
+
+  // console.log('userdata', user);
 
   const reduxUser =
     user?.user ||
@@ -121,52 +122,23 @@ const ProfileScreen = () => {
     return null;
   };
 
+  const apiProfilePic =
+    extractPicUrl(user?.user?.userProfilePic) ||
+    extractPicUrl(user?.customerUser?.userProfilePic) ||
+    extractPicUrl(user?.data?.user?.userProfilePic) ||
+    extractPicUrl(reduxUser?.userProfilePic) ||
+    extractPicUrl(user?.userProfilePic);
+
   useEffect(() => {
-    const loadStoragePic = async () => {
-      try {
-        const storedPic = await AsyncStorage.getItem('PROFILE_PIC');
-        if (storedPic) {
-          const extracted = extractPicUrl(storedPic);
-          if (extracted) {
-            setAsyncImage(extracted);
-            return;
-          }
-        }
-        const storedUser = await AsyncStorage.getItem('USER');
-        if (storedUser) {
-          const parsed = JSON.parse(storedUser);
-          const pic = extractPicUrl(
-            parsed?.profileImage ||
-              parsed?.profilePic ||
-              parsed?.userProfilePic ||
-              parsed?.user?.profileImage ||
-              parsed?.user?.profilePic,
-          );
-          if (pic) {
-            setAsyncImage(pic);
-          }
-        }
-      } catch (err) {}
-    };
-    loadStoragePic();
-  }, []);
+    // If backend returns empty userProfilePic and no local photo is picked, clear stale storage
+    if (!apiProfilePic && !localProfileImage) {
+      AsyncStorage.removeItem('PROFILE_PIC').catch(() => {});
+    }
+  }, [apiProfilePic, localProfileImage]);
 
   const displayProfileImageUri =
     extractPicUrl(localProfileImage) ||
-    extractPicUrl(reduxUser?.profilePic) ||
-    extractPicUrl(reduxUser?.profileImage) ||
-    extractPicUrl(reduxUser?.userProfilePic) ||
-    extractPicUrl(user?.user?.profilePic) ||
-    extractPicUrl(user?.user?.profileImage) ||
-    extractPicUrl(user?.user?.userProfilePic) ||
-    extractPicUrl(user?.customerUser?.profileImage) ||
-    extractPicUrl(user?.customerUser?.profilePic) ||
-    extractPicUrl(user?.data?.user?.profileImage) ||
-    extractPicUrl(user?.data?.user?.profilePic) ||
-    extractPicUrl(user?.profilePic) ||
-    extractPicUrl(user?.profileImage) ||
-    extractPicUrl(user?.userProfilePic) ||
-    extractPicUrl(asyncImage);
+    apiProfilePic;
 
   console.log('Resolved displayProfileImageUri:', displayProfileImageUri);
 
@@ -185,7 +157,7 @@ const ProfileScreen = () => {
 
   const handleLogout = () => {
     Alert.alert(t('logout') || 'Logout', 'Are you sure you want to logout?', [
-      {text: 'Cancel', style: 'cancel'},
+      { text: 'Cancel', style: 'cancel' },
       {
         text: t('logout') || 'Logout',
         style: 'destructive',
@@ -200,7 +172,7 @@ const ProfileScreen = () => {
           dispatch(logoutUser());
           navigation.reset({
             index: 0,
-            routes: [{name: 'AccountTypeScreen'}],
+            routes: [{ name: 'AccountTypeScreen' }],
           });
         },
       },
@@ -265,8 +237,7 @@ const ProfileScreen = () => {
                 res?.data?.profilePic;
               if (newUrl) {
                 setLocalProfileImage(selectedUri || newUrl);
-                setAsyncImage(newUrl);
-                AsyncStorage.setItem('PROFILE_PIC', newUrl).catch(() => {});
+                AsyncStorage.setItem('PROFILE_PIC', newUrl).catch(() => { });
               } else {
                 setLocalProfileImage(selectedUri);
               }
@@ -278,7 +249,7 @@ const ProfileScreen = () => {
   };
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: colors.white}}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.white }}>
       <Text
         style={{
           color: colors.black,
@@ -310,14 +281,14 @@ const ProfileScreen = () => {
         ) : displayProfileImageUri ? (
           <Image
             key={displayProfileImageUri}
-            source={{uri: displayProfileImageUri}}
-            style={{width: '100%', height: '100%', borderRadius: hp(100)}}
+            source={{ uri: displayProfileImageUri }}
+            style={{ width: '100%', height: '100%', borderRadius: hp(100) }}
             resizeMode="cover"
           />
         ) : (
           <Image
             source={icons.camera_Icon}
-            style={{width: wp(28), height: hp(26), resizeMode: 'contain'}}
+            style={{ width: wp(28), height: hp(26), resizeMode: 'contain' }}
           />
         )}
       </TouchableOpacity>
@@ -340,7 +311,7 @@ const ProfileScreen = () => {
         }}>
         <TouchableOpacity
           onPress={() => {
-            navigation.navigate('MyBookingScreen');
+            navigation.navigate('EditProfileScreen');
           }}
           activeOpacity={0.6}
           style={{
@@ -348,7 +319,7 @@ const ProfileScreen = () => {
             alignItems: 'center',
             justifyContent: 'space-between',
           }}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View
               style={{
                 width: hp(29),
@@ -360,7 +331,7 @@ const ProfileScreen = () => {
               }}>
               <Image
                 source={icons.list_Icon}
-                style={{width: hp(11), height: hp(12), resizeMode: 'contain'}}
+                style={{ width: hp(11), height: hp(12), resizeMode: 'contain' }}
               />
             </View>
 
@@ -371,7 +342,7 @@ const ProfileScreen = () => {
                 fontFamily: fontFamily.poppins400,
                 marginLeft: wp(18),
               }}>
-              {t('myBookings')}
+              {'My Profile'}
             </Text>
           </View>
 
@@ -381,7 +352,7 @@ const ProfileScreen = () => {
               width: hp(9),
               height: hp(6),
               resizeMode: 'contain',
-              transform: [{rotate: '-90deg'}],
+              transform: [{ rotate: '-90deg' }],
             }}
           />
         </TouchableOpacity>
@@ -394,7 +365,7 @@ const ProfileScreen = () => {
             justifyContent: 'space-between',
             marginTop: hp(25),
           }}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View
               style={{
                 width: hp(29),
@@ -406,7 +377,7 @@ const ProfileScreen = () => {
               }}>
               <Image
                 source={icons.list_Icon}
-                style={{width: hp(11), height: hp(12), resizeMode: 'contain'}}
+                style={{ width: hp(11), height: hp(12), resizeMode: 'contain' }}
               />
             </View>
 
@@ -427,7 +398,7 @@ const ProfileScreen = () => {
               width: hp(9),
               height: hp(6),
               resizeMode: 'contain',
-              transform: [{rotate: '-90deg'}],
+              transform: [{ rotate: '-90deg' }],
             }}
           />
         </TouchableOpacity>
@@ -443,7 +414,7 @@ const ProfileScreen = () => {
             justifyContent: 'space-between',
             marginTop: hp(25),
           }}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View
               style={{
                 width: hp(29),
@@ -455,7 +426,7 @@ const ProfileScreen = () => {
               }}>
               <Image
                 source={icons.list_Icon}
-                style={{width: hp(11), height: hp(12), resizeMode: 'contain'}}
+                style={{ width: hp(11), height: hp(12), resizeMode: 'contain' }}
               />
             </View>
 
@@ -476,7 +447,7 @@ const ProfileScreen = () => {
               width: hp(9),
               height: hp(6),
               resizeMode: 'contain',
-              transform: [{rotate: '-90deg'}],
+              transform: [{ rotate: '-90deg' }],
             }}
           />
         </TouchableOpacity>
@@ -492,7 +463,7 @@ const ProfileScreen = () => {
             justifyContent: 'space-between',
             marginTop: hp(25),
           }}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View
               style={{
                 width: hp(29),
@@ -504,7 +475,7 @@ const ProfileScreen = () => {
               }}>
               <Image
                 source={icons.list_Icon}
-                style={{width: hp(11), height: hp(12), resizeMode: 'contain'}}
+                style={{ width: hp(11), height: hp(12), resizeMode: 'contain' }}
               />
             </View>
 
@@ -525,7 +496,7 @@ const ProfileScreen = () => {
               width: hp(9),
               height: hp(6),
               resizeMode: 'contain',
-              transform: [{rotate: '-90deg'}],
+              transform: [{ rotate: '-90deg' }],
             }}
           />
         </TouchableOpacity>
@@ -538,7 +509,7 @@ const ProfileScreen = () => {
             justifyContent: 'space-between',
             marginTop: hp(25),
           }}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View
               style={{
                 width: hp(29),
@@ -550,7 +521,7 @@ const ProfileScreen = () => {
               }}>
               <Image
                 source={icons.list_Icon}
-                style={{width: hp(11), height: hp(12), resizeMode: 'contain'}}
+                style={{ width: hp(11), height: hp(12), resizeMode: 'contain' }}
               />
             </View>
 
@@ -571,7 +542,7 @@ const ProfileScreen = () => {
               width: hp(9),
               height: hp(6),
               resizeMode: 'contain',
-              transform: [{rotate: '-90deg'}],
+              transform: [{ rotate: '-90deg' }],
             }}
           />
         </TouchableOpacity>
@@ -587,7 +558,7 @@ const ProfileScreen = () => {
             justifyContent: 'space-between',
             marginTop: hp(25),
           }}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View
               style={{
                 width: hp(29),
@@ -599,7 +570,7 @@ const ProfileScreen = () => {
               }}>
               <Image
                 source={icons.list_Icon}
-                style={{width: hp(11), height: hp(12), resizeMode: 'contain'}}
+                style={{ width: hp(11), height: hp(12), resizeMode: 'contain' }}
               />
             </View>
 
@@ -620,7 +591,7 @@ const ProfileScreen = () => {
               width: hp(9),
               height: hp(6),
               resizeMode: 'contain',
-              transform: [{rotate: '-90deg'}],
+              transform: [{ rotate: '-90deg' }],
             }}
           />
         </TouchableOpacity>
@@ -636,7 +607,7 @@ const ProfileScreen = () => {
             justifyContent: 'space-between',
             marginTop: hp(25),
           }}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View
               style={{
                 width: hp(29),
@@ -648,7 +619,7 @@ const ProfileScreen = () => {
               }}>
               <Image
                 source={icons.list_Icon}
-                style={{width: hp(11), height: hp(12), resizeMode: 'contain'}}
+                style={{ width: hp(11), height: hp(12), resizeMode: 'contain' }}
               />
             </View>
 
@@ -669,7 +640,7 @@ const ProfileScreen = () => {
               width: hp(9),
               height: hp(6),
               resizeMode: 'contain',
-              transform: [{rotate: '-90deg'}],
+              transform: [{ rotate: '-90deg' }],
             }}
           />
         </TouchableOpacity>
@@ -683,7 +654,7 @@ const ProfileScreen = () => {
             justifyContent: 'space-between',
             marginTop: hp(25),
           }}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View
               style={{
                 width: hp(29),
@@ -695,7 +666,7 @@ const ProfileScreen = () => {
               }}>
               <Image
                 source={icons.logout_Icon}
-                style={{width: hp(11), height: hp(12), resizeMode: 'contain'}}
+                style={{ width: hp(11), height: hp(12), resizeMode: 'contain' }}
               />
             </View>
 

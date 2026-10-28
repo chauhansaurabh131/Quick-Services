@@ -24,6 +24,16 @@ export const customerAuth = {
           : '',
       },
     }),
+  deleteAccount: token =>
+    api.delete('/customer/auth/delete-account', {
+      headers: {
+        Authorization: token
+          ? token.startsWith('Bearer ')
+            ? token
+            : `Bearer ${token}`
+          : '',
+      },
+    }),
   updateUserLocation: (userId, payload, token) =>
     api.put(`/customer/user/${userId}`, payload, {
       headers: {
@@ -237,6 +247,7 @@ export const customerAuth = {
     token,
     page = 1,
     limit = 10,
+    filter = null,
   ) =>
     api.get(`/customer/vendorUser/category/${categoryId}`, {
       params: {
@@ -244,6 +255,7 @@ export const customerAuth = {
         longitude: longitude,
         page: page,
         limit: limit,
+        ...(filter ? {filter} : {}),
       },
       headers: {
         Authorization: token

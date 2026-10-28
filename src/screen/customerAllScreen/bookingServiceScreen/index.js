@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -10,13 +10,13 @@ import {
   View,
   ActivityIndicator,
 } from 'react-native';
-import {useDispatch, useSelector} from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import RBSheet from 'react-native-raw-bottom-sheet';
-import {fontFamily, fontSize, hp, wp} from '../../../utils/helpers';
-import {icons} from '../../../assets';
-import {colors} from '../../../utils/colors';
-import {useNavigation, useRoute} from '@react-navigation/native';
-import {getVendorServicesByCategory} from '../../../actions/customerAuthActions';
+import { fontFamily, fontSize, hp, wp } from '../../../utils/helpers';
+import { icons } from '../../../assets';
+import { colors } from '../../../utils/colors';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { getVendorServicesByCategory } from '../../../actions/customerAuthActions';
 
 const filterOptions = [
   'Instant Booking',
@@ -25,7 +25,7 @@ const filterOptions = [
   'Within 1 km',
 ];
 
-const BookingServiceScreen = ({route}) => {
+const BookingServiceScreen = ({ route }) => {
   const dispatch = useDispatch();
   const refRBSheet = useRef();
 
@@ -35,18 +35,19 @@ const BookingServiceScreen = ({route}) => {
     longitude: reduxLon,
     latitude: reduxLat,
   } = useSelector(state => state.location);
-  const {loading: sagaLoading, vendorServices: reduxVendorServices} =
+  const { loading: sagaLoading, vendorServices: reduxVendorServices } =
     useSelector(state => state.auth || {});
 
   const [search, setSearch] = useState('');
   const [vendorServicesList, setVendorServicesList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [filterLoading, setFilterLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
   // Filter BottomSheet State
-  const [selectedFilter, setSelectedFilter] = useState('Instant Booking');
+  const [selectedFilter, setSelectedFilter] = useState(null);
   const [appliedFilter, setAppliedFilter] = useState(null);
 
   const navigation = useNavigation();
@@ -62,6 +63,50 @@ const BookingServiceScreen = ({route}) => {
     paramCatId || category?._id || category?.id || '6a70376b304b3286b0534645';
   const lon = paramLon || reduxLon || 72.5714;
   const lat = paramLat || reduxLat || 23.0225;
+
+  // ─── helper: fetch page 1 with an optional filter ─────────────────────────
+  const fetchFilteredList = (filterValue, onDone) => {
+    dispatch(
+      getVendorServicesByCategory(
+        categoryId,
+        lon,
+        lat,
+        (error, responseData) => {
+          if (error) {
+            console.log('[BookingServiceScreen] Filter fetch error:', error);
+          } else {
+            const fetchedList =
+              (Array.isArray(responseData?.data?.docs) &&
+                responseData.data.docs) ||
+              (Array.isArray(responseData?.docs) && responseData.docs) ||
+              (Array.isArray(responseData?.data?.services) &&
+                responseData.data.services) ||
+              (Array.isArray(responseData?.data?.vendorServices) &&
+                responseData.data.vendorServices) ||
+              (Array.isArray(responseData?.services) &&
+                responseData.services) ||
+              (Array.isArray(responseData?.vendorServices) &&
+                responseData.vendorServices) ||
+              (Array.isArray(responseData?.data) && responseData.data) ||
+              (Array.isArray(responseData) ? responseData : []);
+
+            const totalP =
+              responseData?.data?.totalPages || responseData?.totalPages || 1;
+
+            if (Array.isArray(fetchedList)) {
+              setVendorServicesList(fetchedList);
+            }
+            setTotalPages(totalP);
+            setPage(1);
+          }
+          if (onDone) onDone();
+        },
+        1,
+        10,
+        filterValue,
+      ),
+    );
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -127,6 +172,7 @@ const BookingServiceScreen = ({route}) => {
         },
         1,
         10,
+        appliedFilter,
       ),
     );
   }, [categoryId, lon, lat, dispatch]);
@@ -191,6 +237,7 @@ const BookingServiceScreen = ({route}) => {
         },
         nextPage,
         10,
+        appliedFilter,
       ),
     );
   };
@@ -237,8 +284,8 @@ const BookingServiceScreen = ({route}) => {
         item.averageRating !== undefined && item.averageRating !== null
           ? item.averageRating
           : item.rating !== undefined && item.rating !== null
-          ? item.rating
-          : 0;
+            ? item.rating
+            : 0;
       const ratingVal = Number(rawR || 0);
       if (ratingVal < 4.5) {
         return false;
@@ -261,8 +308,8 @@ const BookingServiceScreen = ({route}) => {
       item.averageRating !== undefined && item.averageRating !== null
         ? Number(item.averageRating)
         : item.rating !== undefined && item.rating !== null
-        ? Number(item.rating)
-        : 0;
+          ? Number(item.rating)
+          : 0;
 
     const parsedRating = !isNaN(rawRating) && rawRating > 0 ? rawRating : 0;
 
@@ -298,31 +345,31 @@ const BookingServiceScreen = ({route}) => {
         item.charge !== null && item.charge !== undefined
           ? `Rs. ${item.charge}`
           : item.visitCharge !== null && item.visitCharge !== undefined
-          ? `Rs. ${item.visitCharge}`
-          : item.price
-          ? `Rs. ${item.price}`
-          : 'Rs. 0',
+            ? `Rs. ${item.visitCharge}`
+            : item.price
+              ? `Rs. ${item.price}`
+              : 'Rs. 0',
 
       rating: parsedRating,
       averageRating: parsedRating,
       distance:
         item.distance !== null &&
-        item.distance !== undefined &&
-        !isNaN(Number(item.distance))
+          item.distance !== undefined &&
+          !isNaN(Number(item.distance))
           ? `${Number(item.distance).toFixed(1)} Km Away`
           : item.dist !== null &&
             item.dist !== undefined &&
             !isNaN(Number(item.dist))
-          ? `${Number(item.dist).toFixed(1)} Km Away`
-          : '8.6 Km Away',
+            ? `${Number(item.dist).toFixed(1)} Km Away`
+            : '8.6 Km Away',
       time:
         item.distance !== null &&
-        item.distance !== undefined &&
-        !isNaN(Number(item.distance))
+          item.distance !== undefined &&
+          !isNaN(Number(item.distance))
           ? `${Number(item.distance).toFixed(1)} Km Away`
           : item.duration
-          ? `${item.duration} mins`
-          : '8.6 Km Away',
+            ? `${item.duration} mins`
+            : '8.6 Km Away',
       _id: item._id || item.id || item.userId || item.vendorUserId,
       rawItem: item,
       vendorAvailability:
@@ -350,12 +397,12 @@ const BookingServiceScreen = ({route}) => {
     };
   });
 
-  const renderItem = ({item}) => {
+  const renderItem = ({ item }) => {
     const availabilityObj =
       (Array.isArray(item?.vendorAvailability) &&
         item?.vendorAvailability[0]) ||
       (typeof item?.vendorAvailability === 'object' &&
-      item?.vendorAvailability !== null
+        item?.vendorAvailability !== null
         ? item.vendorAvailability
         : null) ||
       item?.rawItem?.vendorAvailability ||
@@ -391,14 +438,14 @@ const BookingServiceScreen = ({route}) => {
       availabilityObj?.isAvailable !== undefined
         ? Boolean(availabilityObj.isAvailable)
         : item?.rawItem?.isAvailable !== undefined
-        ? Boolean(item.rawItem.isAvailable)
-        : item?.isAvailable !== undefined
-        ? Boolean(item.isAvailable)
-        : Boolean(
-            availabilityObj?.isOnline !== false &&
+          ? Boolean(item.rawItem.isAvailable)
+          : item?.isAvailable !== undefined
+            ? Boolean(item.isAvailable)
+            : Boolean(
+              availabilityObj?.isOnline !== false &&
               availabilityObj?.storeStatus !== 'offline' &&
               availabilityObj?.statusBadge !== 'offline',
-          );
+            );
 
     const priceLabel = isInstant ? 'Starting from ' : 'Visiting Charge ';
     const actionButtonText = isInstant ? 'Book Now' : 'Book Appointment';
@@ -425,9 +472,9 @@ const BookingServiceScreen = ({route}) => {
           overflow: 'hidden',
         }}>
         {/* Image Container */}
-        <View style={{position: 'relative'}}>
+        <View style={{ position: 'relative' }}>
           <Image
-            source={{uri: item.image}}
+            source={{ uri: item.image }}
             style={{
               width: '100%',
               height: hp(140),
@@ -682,7 +729,7 @@ const BookingServiceScreen = ({route}) => {
                     width: hp(12),
                     height: hp(12),
                     resizeMode: 'contain',
-                    transform: [{rotate: '180deg'}],
+                    transform: [{ rotate: '180deg' }],
                     tintColor: '#731EE2',
                   }}
                 />
@@ -695,12 +742,12 @@ const BookingServiceScreen = ({route}) => {
   };
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: colors.white}}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.white }}>
       {/* LOCATION & SEARCH */}
-      <View style={{marginHorizontal: wp(18), marginTop: hp(10)}}>
+      <View style={{ marginHorizontal: wp(18), marginTop: hp(10) }}>
         <TouchableOpacity
           activeOpacity={0.6}
-          style={{flexDirection: 'row', alignItems: 'center'}}>
+          style={{ flexDirection: 'row', alignItems: 'center' }}>
           <View
             style={{
               width: hp(32),
@@ -720,7 +767,7 @@ const BookingServiceScreen = ({route}) => {
             />
           </View>
 
-          <View style={{marginLeft: wp(7), flex: 1}}>
+          <View style={{ marginLeft: wp(7), flex: 1 }}>
             <Text
               style={{
                 color: colors.pureBlack,
@@ -747,30 +794,30 @@ const BookingServiceScreen = ({route}) => {
       <View
         style={{
           flexDirection: 'row',
+          alignItems: 'center',
           marginHorizontal: wp(18),
-          justifyContent: 'space-between',
-          marginBottom: hp(10),
-          marginTop: hp(10),
+          marginBottom: hp(12),
+          marginTop: hp(12),
         }}>
         <View
           style={{
+            flex: 1,
             flexDirection: 'row',
             alignItems: 'center',
-            height: hp(40),
+            height: hp(46),
             borderRadius: hp(50),
             borderWidth: 1,
-            borderColor: '#E1E1E1',
-            paddingHorizontal: wp(14),
-            backgroundColor: '#F9FAFB',
-            width: '85%',
+            borderColor: '#E2E8F0',
+            paddingHorizontal: wp(16),
+            backgroundColor: colors.white,
           }}>
           <Image
             source={icons.search_Icon}
             style={{
-              width: hp(13),
-              height: hp(13),
-              tintColor: '#9E9E9E',
-              marginRight: wp(8),
+              width: hp(18),
+              height: hp(18),
+              tintColor: '#8C9CAE',
+              marginRight: wp(10),
               resizeMode: 'contain',
             }}
           />
@@ -778,50 +825,54 @@ const BookingServiceScreen = ({route}) => {
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder="Search for Services (Cleaning)"
-            placeholderTextColor="#9E9E9E"
+            placeholder={
+              category?.name || category?.title
+                ? `Search for Services (${category?.name || category?.title})`
+                : 'Search for Services (Cleaning)'
+            }
+            placeholderTextColor="#111827"
             style={{
               flex: 1,
               fontSize: fontSize(14),
               fontFamily: fontFamily.poppins400,
-              color: '#000',
+              color: colors.pureBlack,
               paddingVertical: 0,
-              top: 2,
             }}
           />
         </View>
 
         {/* FILTER BUTTON */}
-        {/* <TouchableOpacity
-          activeOpacity={0.6}
+        <TouchableOpacity
+          activeOpacity={0.7}
           onPress={() => refRBSheet.current?.open()}
           style={{
-            width: hp(40),
-            height: hp(40),
-            borderWidth: 1,
+            width: hp(46),
+            height: hp(46),
             borderRadius: hp(50),
-            borderColor: appliedFilter ? '#731EE2' : '#E1E1E1',
-            backgroundColor: appliedFilter ? '#FCFAFF' : '#F9FAFB',
+            borderWidth: 1,
+            borderColor: appliedFilter ? '#731EE2' : '#E2E8F0',
+            backgroundColor: appliedFilter ? '#FCFAFF' : colors.white,
             justifyContent: 'center',
             alignItems: 'center',
+            marginLeft: wp(10),
           }}>
           <Image
             source={icons.filter_Icon}
             style={{
-              width: hp(16),
-              height: hp(16),
+              width: hp(18),
+              height: hp(18),
               resizeMode: 'contain',
-              tintColor: appliedFilter ? '#731EE2' : undefined,
+              tintColor: appliedFilter ? '#731EE2' : '#111827',
             }}
           />
-        </TouchableOpacity> */}
+        </TouchableOpacity>
       </View>
 
       {loading ? (
         <ActivityIndicator
           size="large"
           color={colors.pureBlack}
-          style={{marginTop: hp(270)}}
+          style={{ marginTop: hp(270) }}
         />
       ) : (
         <FlatList
@@ -982,28 +1033,37 @@ const BookingServiceScreen = ({route}) => {
         {/* Apply Button */}
         <TouchableOpacity
           activeOpacity={0.8}
+          disabled={filterLoading}
           onPress={() => {
+            setFilterLoading(true);
             setAppliedFilter(selectedFilter);
-            refRBSheet.current?.close();
+            fetchFilteredList(selectedFilter, () => {
+              setFilterLoading(false);
+              refRBSheet.current?.close();
+            });
           }}
           style={{
             width: '100%',
             height: hp(52),
-            backgroundColor: '#731EE2',
+            backgroundColor: filterLoading ? '#A97FE9' : '#731EE2',
             borderRadius: hp(50),
             justifyContent: 'center',
             alignItems: 'center',
             marginTop: hp(12),
           }}>
-          <Text
-            style={{
-              color: colors.white,
-              fontSize: fontSize(16),
-              fontFamily: fontFamily.poppins600,
-              textAlign: 'center',
-            }}>
-            Apply
-          </Text>
+          {filterLoading ? (
+            <ActivityIndicator size="small" color={colors.white} />
+          ) : (
+            <Text
+              style={{
+                color: colors.white,
+                fontSize: fontSize(16),
+                fontFamily: fontFamily.poppins600,
+                textAlign: 'center',
+              }}>
+              Apply
+            </Text>
+          )}
         </TouchableOpacity>
       </RBSheet>
     </SafeAreaView>

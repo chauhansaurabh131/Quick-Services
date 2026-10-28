@@ -634,6 +634,7 @@ function* getVendorServicesByCategorySaga(action) {
       callback,
       page = 1,
       limit = 10,
+      filter = null,
     } = action.data;
     console.log(
       '==================================================',
@@ -643,6 +644,7 @@ function* getVendorServicesByCategorySaga(action) {
       `\nLatitude: ${latitude}`,
       `\nPage: ${page}`,
       `\nLimit: ${limit}`,
+      `\nFilter: ${filter || 'none'}`,
       '\n==================================================',
     );
 
@@ -683,6 +685,7 @@ function* getVendorServicesByCategorySaga(action) {
       token || '',
       page,
       limit,
+      filter,
     );
 
     console.log(
@@ -2525,6 +2528,7 @@ function* uploadProfilePicSaga(action) {
     const updatePayload = {
       profileImage: displayUrl,
       profilePic: displayUrl,
+      userProfilePic: [{ url: displayUrl, isProfilePic: true }],
     };
 
     console.log(
@@ -3271,6 +3275,227 @@ function* deleteFavoriteVendorSaga(action) {
   }
 }
 
+function* verifyUpdateOtpSaga(action) {
+  try {
+    const {payload, callback} = action.data;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: VERIFY_UPDATE_OTP Request]',
+      '\nPayload:', JSON.stringify(payload, null, 2),
+      '\n==================================================',
+    );
+
+    let token = yield call([AsyncStorage, 'getItem'], 'token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+    if (!token || token === '[object Object]') {
+      const authState = yield select(state => state.auth);
+      let rawToken =
+        authState?.user?.token ||
+        authState?.user?.accessToken ||
+        authState?.user?.data?.token ||
+        authState?.user?.data?.accessToken ||
+        authState?.user?.tokens?.access?.token ||
+        authState?.user?.tokens?.access ||
+        authState?.user?.data?.tokens?.access?.token ||
+        authState?.user?.data?.tokens?.access ||
+        authState?.user?.user?.token ||
+        authState?.user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    const response = yield call(
+      customerAuth.verifyUpdateOtp,
+      payload,
+      token || '',
+    );
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: VERIFY_UPDATE_OTP Success]',
+      '\nResponse:', JSON.stringify(response.data, null, 2),
+      '\n==================================================',
+    );
+
+    yield put(
+      actions.verifyUpdateOtpSuccess(response.data.data || response.data),
+    );
+
+    if (callback) {
+      callback(null, response.data);
+    }
+  } catch (error) {
+    const errorData = error?.response?.data || error.message;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: VERIFY_UPDATE_OTP Error]',
+      `\nStatus Code: ${error?.response?.status || 'N/A'}`,
+      '\nError Details:', JSON.stringify(errorData, null, 2),
+      '\n==================================================',
+    );
+    yield put(actions.verifyUpdateOtpFailed(errorData));
+
+    if (action?.data?.callback) {
+      action.data.callback(errorData, null);
+    }
+  }
+}
+
+function* sendUpdateMobileOtpSaga(action) {
+  try {
+    const {payload, callback} = action.data;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: SEND_UPDATE_MOBILE_OTP Request]',
+      '\nPayload:', JSON.stringify(payload, null, 2),
+      '\n==================================================',
+    );
+
+    let token = yield call([AsyncStorage, 'getItem'], 'token');
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+    if (!token || token === '[object Object]') {
+      const authState = yield select(state => state.auth);
+      let rawToken =
+        authState?.user?.token ||
+        authState?.user?.accessToken ||
+        authState?.user?.data?.token ||
+        authState?.user?.data?.accessToken ||
+        authState?.user?.tokens?.access?.token ||
+        authState?.user?.tokens?.access ||
+        authState?.user?.data?.tokens?.access?.token ||
+        authState?.user?.data?.tokens?.access ||
+        authState?.user?.user?.token ||
+        authState?.user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    // Calls the same update-user endpoint to trigger OTP dispatch on device
+    const response = yield call(customerAuth.updateUser, payload, token || '');
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: SEND_UPDATE_MOBILE_OTP Success] OTP sent to new mobile',
+      '\nResponse:', JSON.stringify(response.data, null, 2),
+      '\n==================================================',
+    );
+
+    // Intentionally dispatches SEND_UPDATE_MOBILE_OTP_SUCCESS — NOT
+    // UPDATE_USER_CUSTOMER_SUCCESS — so the reducer does NOT write the new
+    // mobileNumber into Redux state yet. The number only gets committed after
+    // the OTP is verified via verifyUpdateOtpSaga.
+    yield put(actions.sendUpdateMobileOtpSuccess(response.data.data || response.data));
+
+    if (callback) {
+      callback(null, response.data);
+    }
+  } catch (error) {
+    const errorData = error?.response?.data || error.message;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: SEND_UPDATE_MOBILE_OTP Error]',
+      `\nStatus Code: ${error?.response?.status || 'N/A'}`,
+      '\nError Details:', JSON.stringify(errorData, null, 2),
+      '\n==================================================',
+    );
+    yield put(actions.sendUpdateMobileOtpFailed(errorData));
+
+    if (action?.data?.callback) {
+      action.data.callback(errorData, null);
+    }
+  }
+}
+
+function* deleteAccountSaga(action) {
+  try {
+    const callback = action?.data?.callback;
+
+    let token = action?.data?.payload?.token;
+    if (!token) {
+      token = yield call([AsyncStorage, 'getItem'], 'token');
+    }
+    if (typeof token === 'object' && token !== null) {
+      token = token.token || token.accessToken;
+    }
+    if (!token || token === '[object Object]') {
+      const authState = yield select(state => state.auth);
+      let rawToken =
+        authState?.user?.token ||
+        authState?.user?.accessToken ||
+        authState?.user?.data?.token ||
+        authState?.user?.data?.accessToken ||
+        authState?.user?.tokens?.access?.token ||
+        authState?.user?.tokens?.access ||
+        authState?.user?.data?.tokens?.access?.token ||
+        authState?.user?.data?.tokens?.access ||
+        authState?.user?.user?.token ||
+        authState?.user?.data?.user?.token;
+
+      if (typeof rawToken === 'object' && rawToken !== null) {
+        rawToken = rawToken.token || rawToken.accessToken;
+      }
+      token = typeof rawToken === 'string' ? rawToken : null;
+    }
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: DELETE_ACCOUNT Request]',
+      '\nEndpoint: DELETE https://service.mntech.website/v1/customer/auth/delete-account',
+      `\nToken Preview: ${token ? `${token.substring(0, 25)}...` : 'NONE'}`,
+      '\n==================================================',
+    );
+
+    const response = yield call(customerAuth.deleteAccount, token || '');
+
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: DELETE_ACCOUNT Success]',
+      '\nResponse Data:',
+      JSON.stringify(response?.data, null, 2),
+      '\n==================================================',
+    );
+
+    yield put(
+      actions.deleteAccountSuccess(response?.data?.data || response?.data),
+    );
+
+    try {
+      yield call([AsyncStorage, 'removeItem'], 'token');
+      yield call([AsyncStorage, 'removeItem'], 'SELECTED_LOCATION');
+    } catch (e) {
+      console.log('Error clearing AsyncStorage on deleteAccount:', e);
+    }
+    yield put(actions.logoutUser());
+
+    if (callback) {
+      callback(null, response?.data);
+    }
+  } catch (error) {
+    const errorData = error?.response?.data || error.message;
+    console.log(
+      '==================================================',
+      '\n[Redux Saga: DELETE_ACCOUNT Error]',
+      `\nStatus Code: ${error?.response?.status || 'N/A'}`,
+      '\nError Details:',
+      JSON.stringify(errorData, null, 2),
+      '\n==================================================',
+    );
+    yield put(actions.deleteAccountFailed(errorData));
+
+    if (action?.data?.callback) {
+      action.data.callback(errorData, null);
+    }
+  }
+}
+
 export default function* customerAuthSaga() {
   yield takeLatest(TYPES.LOGIN_CUSTOMER, registerCustomer);
   yield takeLatest(TYPES.REGISTER_VENDOR, registerVendor);
@@ -3326,4 +3551,7 @@ export default function* customerAuthSaga() {
   yield takeLatest(TYPES.TOGGLE_FAVORITE_VENDOR, toggleFavoriteVendorSaga);
   yield takeLatest(TYPES.GET_FAVORITE_VENDORS, getFavoriteVendorsSaga);
   yield takeLatest(TYPES.DELETE_FAVORITE_VENDOR, deleteFavoriteVendorSaga);
+  yield takeLatest(TYPES.VERIFY_UPDATE_OTP, verifyUpdateOtpSaga);
+  yield takeLatest(TYPES.SEND_UPDATE_MOBILE_OTP, sendUpdateMobileOtpSaga);
+  yield takeLatest(TYPES.DELETE_ACCOUNT, deleteAccountSaga);
 }

@@ -89,6 +89,9 @@ const customerAuthReducer = (state = initialState, action) => {
     case TYPES.TOGGLE_FAVORITE_VENDOR:
     case TYPES.GET_FAVORITE_VENDORS:
     case TYPES.DELETE_FAVORITE_VENDOR:
+    case TYPES.VERIFY_UPDATE_OTP:
+    case TYPES.SEND_UPDATE_MOBILE_OTP:
+    case TYPES.DELETE_ACCOUNT:
       return {
         ...state,
         loading: true,
@@ -347,6 +350,8 @@ const customerAuthReducer = (state = initialState, action) => {
     case TYPES.TOGGLE_FAVORITE_VENDOR_FAILED:
     case TYPES.GET_FAVORITE_VENDORS_FAILED:
     case TYPES.DELETE_FAVORITE_VENDOR_FAILED:
+    case TYPES.VERIFY_UPDATE_OTP_FAILED:
+    case TYPES.SEND_UPDATE_MOBILE_OTP_FAILED:
       return {
         ...state,
         loading: false,
@@ -506,6 +511,43 @@ const customerAuthReducer = (state = initialState, action) => {
         error: null,
       };
     }
+    case TYPES.VERIFY_UPDATE_OTP_SUCCESS: {
+      // Merge the new mobileNumber returned by the server into the user object
+      const updatedMobile =
+        action.data?.mobileNumber ??
+        action.data?.user?.mobileNumber ??
+        action.data?.customerUser?.mobileNumber;
+
+      return {
+        ...state,
+        loading: false,
+        user: {
+          ...state.user,
+          ...action.data,
+          mobileNumber: updatedMobile ?? state.user?.mobileNumber,
+          user: {
+            ...state.user?.user,
+            ...action.data?.user,
+            ...(updatedMobile != null ? { mobileNumber: updatedMobile } : {}),
+          },
+          customerUser: {
+            ...state.user?.customerUser,
+            ...action.data?.customerUser,
+            ...(updatedMobile != null ? { mobileNumber: updatedMobile } : {}),
+          },
+        },
+        isLoggedIn: true,
+        error: null,
+      };
+    }
+    case TYPES.SEND_UPDATE_MOBILE_OTP_SUCCESS:
+      // OTP was sent to the new number — do NOT update mobileNumber in
+      // Redux state yet. The number is only committed on VERIFY_UPDATE_OTP_SUCCESS.
+      return {
+        ...state,
+        loading: false,
+        error: null,
+      };
     case TYPES.GET_VENDOR_CATEGORIES_SUCCESS:
       return {
         ...state,
@@ -854,11 +896,13 @@ const customerAuthReducer = (state = initialState, action) => {
     case TYPES.CANCEL_CUSTOMER_BOOKING_FAILED:
     case TYPES.GET_FAVORITE_VENDORS_FAILED:
     case TYPES.DELETE_FAVORITE_VENDOR_FAILED:
+    case TYPES.DELETE_ACCOUNT_FAILED:
       return {
         ...state,
         loading: false,
         error: action.error,
       };
+    case TYPES.DELETE_ACCOUNT_SUCCESS:
     case TYPES.LOGOUT:
       return {
         ...initialState,
